@@ -22,13 +22,13 @@ class ChamberPage extends StatelessWidget {
     return GetBuilder<ChamberController>(
         id: AppPageIdConstants.chamber,
         init: ChamberController(),
-        builder: (chamberController) => Scaffold(
+        builder: (controller) => Scaffold(
           backgroundColor: AppColor.main75,
           appBar: AppBarChild(title: AppTranslationConstants.presets.tr,),
           body: Container(
             decoration: AppTheme.appBoxDecoration,
-            padding: EdgeInsets.only(bottom: chamberController.ownerType == OwnerType.profile ? 80 : 0),
-            child: chamberController.isLoading.value ? const Center(child: CircularProgressIndicator())
+            padding: EdgeInsets.only(bottom: controller.ownerType == OwnerType.profile ? 80 : 0),
+            child: controller.isLoading.value ? const Center(child: CircularProgressIndicator())
             : Column(
               children: [
                 ListTile(
@@ -55,13 +55,13 @@ class ChamberPage extends StatelessWidget {
                             children: <Widget>[
                               //TODO Change lines colors to white.
                               TextField(
-                                controller: chamberController.newChamberNameController,
+                                controller: controller.newChamberNameController,
                                 decoration: InputDecoration(
                                   labelText: CommonTranslationConstants.itemlistName.tr,
                                 ),
                               ),
                               TextField(
-                                controller: chamberController.newChamberDescController,
+                                controller: controller.newChamberDescController,
                                 minLines: 2,
                                 maxLines: 5,
                                 decoration: InputDecoration(
@@ -75,20 +75,20 @@ class ChamberPage extends StatelessWidget {
                                   child: Row(
                                     children: <Widget>[
                                       Checkbox(
-                                        value: chamberController.isPublicNewChamber.value,
-                                        onChanged: (bool? newValue) => chamberController.setPrivacyOption(),
+                                        value: controller.isPublicNewChamber.value,
+                                        onChanged: (bool? newValue) => controller.setPrivacyOption(),
                                       ),
                                       Text(AppTranslationConstants.publicList.tr, style: const TextStyle(fontSize: 15)),
                                     ],
                                   ),
-                                  onTap: () => chamberController.setPrivacyOption(),
+                                  onTap: () => controller.setPrivacyOption(),
                                 ),
                               ),
-                              chamberController.errorMsg.isNotEmpty ? Column(
+                              controller.errorMsg.isNotEmpty ? Column(
                                 children: [
                                   Align(
                                     alignment: Alignment.center,
-                                    child: Text(chamberController.errorMsg.value.tr, style: const TextStyle(fontSize: 12, color: AppColor.red)),
+                                    child: Text(controller.errorMsg.value.tr, style: const TextStyle(fontSize: 12, color: AppColor.red)),
                                   ),
                                 ],) : const SizedBox.shrink()
                             ],
@@ -99,8 +99,8 @@ class ChamberPage extends StatelessWidget {
                             height: 50,
                             color: AppColor.bondiBlue75,
                             onPressed: () async {
-                              await chamberController.createChamber();
-                              if(chamberController.errorMsg.value.isEmpty) Navigator.pop(ctx);
+                              await controller.createChamber();
+                              if(controller.errorMsg.value.isEmpty) Navigator.pop(ctx);
                             },
                             child: Text(
                               AppTranslationConstants.add.tr,
@@ -113,7 +113,7 @@ class ChamberPage extends StatelessWidget {
                   },
                 ),
                 Expanded(
-                  child: buildChamberList(context, chamberController),
+                  child: buildChamberList(context, controller),
                 ),
               ],
             )

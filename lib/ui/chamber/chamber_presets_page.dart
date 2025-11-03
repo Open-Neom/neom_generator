@@ -20,24 +20,24 @@ class ChamberPresetsPage extends StatelessWidget {
     return GetBuilder<ChamberPresetController>(
       id: AppPageIdConstants.chamberPresets,
       init: ChamberPresetController(),
-      builder: (chamberController) => Scaffold(
+      builder: (controller) => Scaffold(
         backgroundColor: AppColor.getMain(),
-        appBar: AppBarChild(title: chamberController.chamber.name.length > AppConstants.maxItemlistNameLength
-            ? "${chamberController.chamber.name.substring(0,AppConstants.maxItemlistNameLength)}..."
-            : chamberController.chamber.name),
+        appBar: AppBarChild(title: controller.chamber.name.length > AppConstants.maxItemlistNameLength
+            ? "${controller.chamber.name.substring(0,AppConstants.maxItemlistNameLength)}..."
+            : controller.chamber.name),
         body: Container(
           width: AppTheme.fullWidth(context),
           height: AppTheme.fullHeight(context),
           decoration: AppTheme.appBoxDecoration, 
-          child: chamberController.isLoading.value ? const Center(child: CircularProgressIndicator())
-              : Obx(()=> buildPresetsList(context, chamberController)),
+          child: controller.isLoading.value ? const Center(child: CircularProgressIndicator())
+              : Obx(()=> buildPresetsList(context, controller)),
         ),
-        floatingActionButton: chamberController.isFixed || !chamberController.chamber.isModifiable ? const SizedBox.shrink()
+        floatingActionButton: controller.isFixed || !controller.chamber.isModifiable ? const SizedBox.shrink()
             : FloatingActionButton(
           tooltip: CommonTranslationConstants.addItem.tr,
           onPressed: ()=> {
             Get.toNamed(AppRouteConstants.itemSearch,
-                arguments: [MediaSearchType.song, chamberController.chamber])
+                arguments: [MediaSearchType.song, controller.chamber])
           },
           child: const Icon(Icons.playlist_add),
         ),

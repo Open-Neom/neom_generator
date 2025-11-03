@@ -39,23 +39,23 @@ class NeomGeneratorPage extends StatelessWidget {
     return GetBuilder<NeomGeneratorController>(
       id: AppPageIdConstants.generator,
       init: NeomGeneratorController(),
-      builder: (generatorController) => WillPopScope(
+      builder: (controller) => WillPopScope(
         onWillPop: () async {
           try {
-            if(generatorController.isPlaying.value) {
-              await generatorController.playStopPreview(stopPreview: true);
+            if(controller.isPlaying.value) {
+              await controller.playStopPreview(stopPreview: true);
             }
-            generatorController.soundController.removeListener(() { });
-            generatorController.soundController.dispose();
-            generatorController.soundController = SoundController();
+            controller.soundController.removeListener(() { });
+            controller.soundController.dispose();
+            controller.soundController = SoundController();
             if(Platform.isAndroid) {
-              await generatorController.webViewAndroidController.clearCache(); // Clear the WebView cache (optional)
-              await generatorController.webViewAndroidController.goBack();    // Dispose of the WebView
+              await controller.webViewAndroidController.clearCache(); // Clear the WebView cache (optional)
+              await controller.webViewAndroidController.goBack();    // Dispose of the WebView
             } else {
-              await generatorController.webViewIosController.clearCache();
-              await generatorController.webViewIosController.goBack();
+              await controller.webViewIosController.clearCache();
+              await controller.webViewIosController.goBack();
             }
-            generatorController.isPlaying.value = false;
+            controller.isPlaying.value = false;
           } catch (e) {
             AppConfig.logger.e(e.toString());
           }
@@ -71,25 +71,25 @@ class NeomGeneratorPage extends StatelessWidget {
           child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          SoundWidget(soundController: generatorController.soundController,
-            webViewAndroidController: generatorController.webViewAndroidController,
-            webViewIosController: generatorController.webViewIosController,
+          SoundWidget(soundController: controller.soundController,
+            webViewAndroidController: controller.webViewAndroidController,
+            webViewIosController: controller.webViewIosController,
             backgroundColor: AppColor.getMain(),
           ),
           AppTheme.heightSpace40,
           ValueListenableBuilder<AudioParam>(
-            valueListenable: generatorController.soundController,
+            valueListenable: controller.soundController,
             builder: (context, AudioParam freqValue, __) {
-              AudioParam freqValue = generatorController.getAudioParam();
+              AudioParam freqValue = controller.getAudioParam();
               return Column(
                 children: <Widget>[
                   SleekCircularSlider(
                     appearance: NeomSliderConstants.appearance01,
                     min: NeomGeneratorConstants.frequencyMin,
                     max: NeomGeneratorConstants.frequencyMax,
-                    initialValue: generatorController.chamberPreset.neomFrequency!.frequency,
+                    initialValue: controller.chamberPreset.neomFrequency!.frequency,
                     onChange: (double val) async {
-                      await generatorController.setFrequency(val);
+                      await controller.setFrequency(val);
                     },
                     innerWidget: (double value) {
                       return Align(
@@ -100,7 +100,7 @@ class NeomGeneratorPage extends StatelessWidget {
                           max: NeomGeneratorConstants.positionMax,
                           initialValue: freqValue.x,
                           onChange: (double val) {
-                            generatorController.setParameterPosition(x: val, y: freqValue.y, z: freqValue.z);
+                            controller.setParameterPosition(x: val, y: freqValue.y, z: freqValue.z);
                           },
                           innerWidget: (double v) {
                             return Align(
@@ -111,7 +111,7 @@ class NeomGeneratorPage extends StatelessWidget {
                                 max: NeomGeneratorConstants.positionMax,
                                 initialValue: freqValue.y,
                                 onChange: (double val) {
-                                  generatorController.setParameterPosition(x: freqValue.x, y: val, z: freqValue.z);
+                                  controller.setParameterPosition(x: freqValue.x, y: val, z: freqValue.z);
                                 },
                                 innerWidget: (double v) {
                                   return Align(
@@ -122,20 +122,20 @@ class NeomGeneratorPage extends StatelessWidget {
                                       max: NeomGeneratorConstants.positionMax,
                                       initialValue: freqValue.z,
                                       onChange: (double val) {
-                                        generatorController.setParameterPosition(x: freqValue.x, y: freqValue.y, z: val);
+                                        controller.setParameterPosition(x: freqValue.x, y: freqValue.y, z: val);
                                       },
                                       innerWidget: (double val) {
                                         return Padding(
                                           padding: const EdgeInsets.all(25),
                                           child: Ink(
                                             decoration: BoxDecoration(
-                                              color: generatorController.isPlaying.value ? AppColor.deepDarkViolet : Colors.transparent,
+                                              color: controller.isPlaying.value ? AppColor.deepDarkViolet : Colors.transparent,
                                               shape: BoxShape.circle,
                                             ),
                                             child: InkWell(
                                               child: IconButton(
                                                   onPressed: ()  async {
-                                                    await generatorController.playStopPreview();
+                                                    await controller.playStopPreview();
                                                   },
                                                   icon: const Icon(FontAwesomeIcons.om, size: 60)
                                               ),
@@ -158,12 +158,12 @@ class NeomGeneratorPage extends StatelessWidget {
                     min: NeomGeneratorConstants.volumeMin,
                     max: NeomGeneratorConstants.volumeMax,
                     onChanged: (val) {
-                      generatorController.setVolume(val);
+                      controller.setVolume(val);
                     },
                   ),
                   AppTheme.heightSpace10,
 
-                  Text("${generatorController.soundController.value.freq.round()} Hz",
+                  Text("${controller.soundController.value.freq.round()} Hz",
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 30,
@@ -181,9 +181,9 @@ class NeomGeneratorPage extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      Text("${AppTranslationConstants.volume.tr}: ${(generatorController.soundController.value.volume*100).round()}"),
+                      Text("${AppTranslationConstants.volume.tr}: ${(controller.soundController.value.volume*100).round()}"),
                       Text(
-                          "${GeneratorTranslationConstants.waveLength.tr}: ${generatorController.soundController.value.freq > 0 ? ((343 / generatorController.soundController.value.freq) * 100).toStringAsFixed(2) : 'N/A'} cm"
+                          "${GeneratorTranslationConstants.waveLength.tr}: ${controller.soundController.value.freq > 0 ? ((343 / controller.soundController.value.freq) * 100).toStringAsFixed(2) : 'N/A'} cm"
                       ),
                     ],
                   ),
@@ -199,32 +199,32 @@ class NeomGeneratorPage extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      Text("${GeneratorTranslationConstants.xAxis.tr}: ${generatorController.soundController.value.x.toPrecision(2)}"),
-                      Text("${GeneratorTranslationConstants.yAxis.tr}: ${generatorController.soundController.value.y.toPrecision(2)}"),
-                      Text("${GeneratorTranslationConstants.zAxis.tr}: ${generatorController.soundController.value.z.toPrecision(2)}"),
+                      Text("${GeneratorTranslationConstants.xAxis.tr}: ${controller.soundController.value.x.toPrecision(2)}"),
+                      Text("${GeneratorTranslationConstants.yAxis.tr}: ${controller.soundController.value.y.toPrecision(2)}"),
+                      Text("${GeneratorTranslationConstants.zAxis.tr}: ${controller.soundController.value.z.toPrecision(2)}"),
                     ],
                   ),
                   AppTheme.heightSpace20,
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: generatorController.existsInChamber.value && !generatorController.isUpdate.value ? const SizedBox.shrink() : Row(
+                    child: controller.existsInChamber.value && !controller.isUpdate.value ? const SizedBox.shrink() : Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: <Widget>[
                         GestureDetector(
-                          child: buildIconActionChip(icon: const Icon(Icons.remove), controllerFunction: () async {await generatorController.decreaseFrequency();}),
+                          child: buildIconActionChip(icon: const Icon(Icons.remove), controllerFunction: () async {await controller.decreaseFrequency();}),
                           onLongPress: () {
-                            generatorController.longPressed.value = true;
-                            generatorController.timerDuration.value = NeomGeneratorConstants.recursiveCallTimerDuration;
-                            generatorController.decreaseOnLongPress();
+                            controller.longPressed.value = true;
+                            controller.timerDuration.value = NeomGeneratorConstants.recursiveCallTimerDuration;
+                            controller.decreaseOnLongPress();
                           },
-                          onLongPressUp: () => generatorController.longPressed.value = false,
+                          onLongPressUp: () => controller.longPressed.value = false,
                         ),
-                        if(generatorController.userServiceImpl != null) TextButton(
+                        if(controller.userServiceImpl != null) TextButton(
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
                             backgroundColor: AppColor.bondiBlue,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),),
-                          child: Text(generatorController.isUpdate.value ? GeneratorTranslationConstants.savePreset.tr : generatorController.existsInChamber.value ? GeneratorTranslationConstants.removePreset.tr : GeneratorTranslationConstants.savePreset.tr,
+                          child: Text(controller.isUpdate.value ? GeneratorTranslationConstants.savePreset.tr : controller.existsInChamber.value ? GeneratorTranslationConstants.removePreset.tr : GeneratorTranslationConstants.savePreset.tr,
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 18.0,
@@ -232,8 +232,8 @@ class NeomGeneratorPage extends StatelessWidget {
                               )
                           ),
                           onPressed: () async {
-                            if(generatorController.existsInChamber.value && !generatorController.isUpdate.value) {
-                              await generatorController.removePreset(context);
+                            if(controller.existsInChamber.value && !controller.isUpdate.value) {
+                              await controller.removePreset(context);
                             } else {
                               await Alert(
                                 context: context,
@@ -278,9 +278,9 @@ class NeomGeneratorPage extends StatelessWidget {
                                             );
                                           }).toList(),
                                           onChanged: (String? newItemState) {
-                                            generatorController.setFrequencyState(EnumToString.fromString(AppItemState.values, newItemState!) ?? AppItemState.noState);
+                                            controller.setFrequencyState(EnumToString.fromString(AppItemState.values, newItemState!) ?? AppItemState.noState);
                                           },
-                                          value: CoreUtilities.getItemState(generatorController.frequencyState.value).name,
+                                          value: CoreUtilities.getItemState(controller.frequencyState.value).name,
                                           alignment: Alignment.center,
                                           icon: const Icon(Icons.arrow_downward),
                                           iconSize: 15,
@@ -298,12 +298,12 @@ class NeomGeneratorPage extends StatelessWidget {
                                 buttons: [
                                   DialogButton(
                                     color: AppColor.bondiBlue75,
-                                    child: Obx(()=>generatorController.isLoading.value ? const Center(child: CircularProgressIndicator())
+                                    child: Obx(()=>controller.isLoading.value ? const Center(child: CircularProgressIndicator())
                                         : Text(AppTranslationConstants.add.tr,
                                     )),
                                     onPressed: () async {
-                                      if(generatorController.frequencyState > 0) {
-                                        await generatorController.addPreset(context, frequencyPracticeState: generatorController.frequencyState.value);
+                                      if(controller.frequencyState > 0) {
+                                        await controller.addPreset(context, frequencyPracticeState: controller.frequencyState.value);
                                         Navigator.pop(context);
                                       } else {
                                         Get.snackbar(
@@ -320,13 +320,13 @@ class NeomGeneratorPage extends StatelessWidget {
                           },
                         ),
                         GestureDetector(
-                          child: buildIconActionChip(icon: const Icon(Icons.add), controllerFunction: () async { await generatorController.increaseFrequency();}),
+                          child: buildIconActionChip(icon: const Icon(Icons.add), controllerFunction: () async { await controller.increaseFrequency();}),
                           onLongPress: () {
-                            generatorController.longPressed.value = true;
-                            generatorController.timerDuration.value = NeomGeneratorConstants.recursiveCallTimerDuration;
-                            generatorController.increaseOnLongPress();
+                            controller.longPressed.value = true;
+                            controller.timerDuration.value = NeomGeneratorConstants.recursiveCallTimerDuration;
+                            controller.increaseOnLongPress();
                           },
-                          onLongPressUp: () => generatorController.longPressed.value = false,
+                          onLongPressUp: () => controller.longPressed.value = false,
                         ),
                       ],
                     ),
@@ -338,7 +338,7 @@ class NeomGeneratorPage extends StatelessWidget {
                       height: 60,
                       decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: generatorController.isRecording ? Colors.grey.shade800 : Colors.grey.shade900,
+                      color: controller.isRecording ? Colors.grey.shade800 : Colors.grey.shade900,
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black12,
@@ -349,31 +349,31 @@ class NeomGeneratorPage extends StatelessWidget {
                       child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        if (generatorController.isRecording)
+                        if (controller.isRecording)
                           const SizedBox(
                             width: 60,
                             height: 60,
                             child: CircularProgressIndicator(),
                           ),
                         IconButton(
-                          onPressed: () => generatorController.isRecording ? generatorController.stopRecording() : generatorController.startRecording(),
-                          icon: Icon(FontAwesomeIcons.microphone, size: 40, color: generatorController.isRecording ? Colors.red : null),
+                          onPressed: () => controller.isRecording ? controller.stopRecording() : controller.startRecording(),
+                          icon: Icon(FontAwesomeIcons.microphone, size: 40, color: controller.isRecording ? Colors.red : null),
                         ),
                       ],
                     ),),
-                    onTap: () => generatorController.isRecording ? generatorController.stopRecording() : generatorController.startRecording(),
-                    onLongPress: () => generatorController.isRecording ? generatorController.stopRecording() : generatorController.startRecording(),
+                    onTap: () => controller.isRecording ? controller.stopRecording() : controller.startRecording(),
+                    onLongPress: () => controller.isRecording ? controller.stopRecording() : controller.startRecording(),
                   ),
                   AppTheme.heightSpace10,
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: generatorController.isRecording || generatorController.frequencyDescription.isEmpty ? Text(
-                      generatorController.isRecording ? "${AppTranslationConstants.frequency.tr}: ${generatorController.detectedFrequency.toInt()} Hz"
-                  : generatorController.detectedFrequency == 0 ? GeneratorTranslationConstants.findsYourVoiceFrequency.tr : '',
-                      style: TextStyle(fontSize: generatorController.isRecording ? 18 : 15,),
+                    child: controller.isRecording || controller.frequencyDescription.isEmpty ? Text(
+                      controller.isRecording ? "${AppTranslationConstants.frequency.tr}: ${controller.detectedFrequency.toInt()} Hz"
+                  : controller.detectedFrequency == 0 ? GeneratorTranslationConstants.findsYourVoiceFrequency.tr : '',
+                      style: TextStyle(fontSize: controller.isRecording ? 18 : 15,),
                       textAlign: TextAlign.justify,
                     ) : ReadMoreContainer(
-                      text: generatorController.frequencyDescription.value,
+                      text: controller.frequencyDescription.value,
                       fontSize: 12,
                       trimLines: 5,
                     )
