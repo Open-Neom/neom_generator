@@ -22,7 +22,8 @@ dependencies:
   sleek_circular_slider: ^2.0.1
 
   #Audio Processing Experimental
-  surround_frequency_generator: ^1.0.0
+#  surround_frequency_generator: ^1.0.0
+  flutter_soloud: ^3.4.6
 
   #AudioProcessing
   flutter_sound: ^9.28.0

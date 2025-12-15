@@ -26,52 +26,117 @@ class ChamberPage extends StatelessWidget {
           backgroundColor: AppColor.main75,
           appBar: AppBarChild(title: AppTranslationConstants.presets.tr,),
           body: Container(
-            decoration: AppTheme.appBoxDecoration,
-            padding: EdgeInsets.only(bottom: controller.ownerType == OwnerType.profile ? 80 : 0),
-            child: controller.isLoading.value ? const Center(child: CircularProgressIndicator())
-            : Column(
-              children: [
-                ListTile(
-                  title: Text(GeneratorTranslationConstants.createPresetList.tr),
-                  leading: SizedBox.square(
-                    dimension: 40,
-                    child: Center(
-                      child: Icon(
-                        Icons.add_rounded,
-                        color: Theme.of(context).iconTheme.color,
-                      ),
-                    ),
-                  ),
-                  onTap: () async {
-                    (await showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        backgroundColor: AppColor.main75,
-                        title: Text(CommonTranslationConstants.addNewItemlist.tr,),
-                        content: Obx(() => SizedBox(
-                          height: AppTheme.fullHeight(context)*0.3,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: <Widget>[
-                              //TODO Change lines colors to white.
-                              TextField(
-                                controller: controller.newChamberNameController,
-                                decoration: InputDecoration(
-                                  labelText: CommonTranslationConstants.itemlistName.tr,
+              decoration: AppTheme.appBoxDecoration,
+              padding: EdgeInsets.only(bottom: controller.ownerType == OwnerType.profile ? 80 : 0),
+              child: controller.isLoading.value ? const Center(child: CircularProgressIndicator())
+                  : Column(
+                children: [
+                  ListTile(
+                    title: Text(GeneratorTranslationConstants.createPresetList.tr),
+                    leading: const SizedBox.square(dimension: 40, child: Center(child: Icon(Icons.add_rounded))),
+                    onTap: () async {
+                      controller.clearNewChamber(); // Limpiar al abrir
+                      (await showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: AppColor.main75,
+                          title: Text(CommonTranslationConstants.addNewItemlist.tr),
+                          content: Obx(() => SingleChildScrollView( // Scroll por si el teclado tapa
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                TextField(
+                                  controller: controller.newChamberNameController,
+                                  decoration: InputDecoration(labelText: CommonTranslationConstants.itemlistName.tr),
                                 ),
-                              ),
-                              TextField(
-                                controller: controller.newChamberDescController,
-                                minLines: 2,
-                                maxLines: 5,
-                                decoration: InputDecoration(
-                                  labelText: AppTranslationConstants.description.tr,
+                                TextField(
+                                  controller: controller.newChamberDescController,
+                                  decoration: InputDecoration(labelText: AppTranslationConstants.description.tr),
                                 ),
-                              ),
-                              AppTheme.heightSpace5,
-                              Align(
-                                alignment: Alignment.center,
-                                child: GestureDetector(
+                                const SizedBox(height: 10),
+
+                                // --- SECCIÓN BINAURAL ---
+                                const Divider(color: Colors.white54),
+                                Text("Configuración Binaural", style: TextStyle(color: AppColor.bondiBlue75, fontWeight: FontWeight.bold)),
+
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: controller.baseFreqController,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        decoration: const InputDecoration(
+                                          labelText: "Frec. Base (Hz)",
+                                          hintText: "Ej. 432",
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: controller.binauralBeatController,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        decoration: const InputDecoration(
+                                          labelText: "Diferencia (Hz)",
+                                          hintText: "Ej. 20",
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                // Selector de dirección (+ o -)
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                  children: [
+                                    Text("Segunda Frecuencia:", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                    Row(
+                                      children: [
+                                        Radio<bool>(
+                                          value: false,
+                                          groupValue: controller.isBinauralUpper.value,
+                                          onChanged: controller.toggleBinauralDirection,
+                                          activeColor: AppColor.bondiBlue75,
+                                        ),
+                                        const Text("-"), // Restar
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        Radio<bool>(
+                                          value: true,
+                                          groupValue: controller.isBinauralUpper.value,
+                                          onChanged: controller.toggleBinauralDirection,
+                                          activeColor: AppColor.bondiBlue75,
+                                        ),
+                                        const Text("+"), // Sumar
+                                      ],
+                                    ),
+                                  ],
+                                ),
+
+                                // Vista previa del cálculo
+                                if(controller.binauralPreview.value.isNotEmpty)
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(vertical: 5),
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                        color: Colors.black26,
+                                        borderRadius: BorderRadius.circular(5)
+                                    ),
+                                    child: Text(
+                                        controller.binauralPreview.value,
+                                        style: const TextStyle(color: AppColor.white, fontWeight: FontWeight.bold)
+                                    ),
+                                  ),
+                                // ------------------------
+
+                                AppTheme.heightSpace5,
+                                // Checkbox de privacidad existente
+                                GestureDetector(
+                                  onTap: () => controller.setPrivacyOption(),
                                   child: Row(
                                     children: <Widget>[
                                       Checkbox(
@@ -81,90 +146,33 @@ class ChamberPage extends StatelessWidget {
                                       Text(AppTranslationConstants.publicList.tr, style: const TextStyle(fontSize: 15)),
                                     ],
                                   ),
-                                  onTap: () => controller.setPrivacyOption(),
                                 ),
-                              ),
-                              controller.errorMsg.isNotEmpty ? Column(
-                                children: [
-                                  Align(
-                                    alignment: Alignment.center,
+
+                                if (controller.errorMsg.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
                                     child: Text(controller.errorMsg.value.tr, style: const TextStyle(fontSize: 12, color: AppColor.red)),
-                                  ),
-                                ],) : const SizedBox.shrink()
-                            ],
-                          ),
-                        ),),
-                        actions: <Widget>[
-                          DialogButton(
-                            height: 50,
-                            color: AppColor.bondiBlue75,
-                            onPressed: () async {
-                              await controller.createChamber();
-                              if(controller.errorMsg.value.isEmpty) Navigator.pop(ctx);
-                            },
-                            child: Text(
-                              AppTranslationConstants.add.tr,
-                              style: const TextStyle(fontSize: 14),
+                                  )
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                    )) ?? false;
-                  },
-                ),
-                Expanded(
-                  child: buildChamberList(context, controller),
-                ),
-              ],
-            )
+                          )),
+                          actions: <Widget>[
+                            DialogButton(
+                              height: 50,
+                              color: AppColor.bondiBlue75,
+                              onPressed: () => controller.createChamber(),
+                              child: Text(AppTranslationConstants.add.tr, style: const TextStyle(fontSize: 14)),
+                            ),
+                          ],
+                        ),
+                      ));
+                    },
+                  ),
+                  Expanded(child: buildChamberList(context, controller)),
+                ],
+              )
           ),
-        //   floatingActionButton: chamberController.isLoading.value ? const SizedBox.shrink() : Container(
-        //     margin: const EdgeInsets.only(bottom: 0),
-        //     child: Column(
-        //       crossAxisAlignment: CrossAxisAlignment.end,
-        //       mainAxisAlignment: MainAxisAlignment.end,
-        //       children: [
-        //         Row(
-        //           mainAxisAlignment: MainAxisAlignment.end,
-        //           children: [
-        //             SizedBox(
-        //               child: DefaultTextStyle(
-        //                 style: const TextStyle(
-        //                   fontWeight: FontWeight.bold,
-        //                 ),
-        //                 child: AnimatedTextKit(
-        //                   repeatForever: true,
-        //                   animatedTexts: [
-        //                     FlickerAnimatedText(
-        //                         AppFlavour.appInUse == AppInUse.g ?
-        //                         AppTranslationConstants.synchronizeSpotifyPlaylists.tr
-        //                         : AppTranslationConstants.suggestedReading.tr),
-        //                   ],
-        //                   onTap: () {
-        //                     Get.toNamed(AppRouteConstants.pdfViewer,
-        //                         arguments: [Get.find<LoginController>().appInfo.value.suggestedUrl, 0, 150]);
-        //                     },
-        //                 ),
-        //               ),
-        //             ),
-        //             const SizedBox(width: 5,),
-        //             FloatingActionButton(
-        //               heroTag: AppPageIdConstants.spotifySync,
-        //               elevation: AppTheme.elevationFAB,
-        //               child: Icon(AppFlavour.getSyncIcon()),
-        //               onPressed: () => {
-        //                 Get.toNamed(AppRouteConstants.pdfViewer,
-        //                     arguments: [Get.find<LoginController>().appInfo.value.suggestedUrl, true, 0, 250]
-        //                 )
-        //               },
-        //             ),
-        //           ],
-        //         ),
-        //         if(chamberController.ownerType == OwnerType.profile) AppTheme.heightSpace75,
-        //       ]
-        //   ),
-        // ),
-      ),
+        )
     );
   }
 }

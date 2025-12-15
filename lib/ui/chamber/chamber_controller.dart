@@ -17,7 +17,7 @@ import '../../data/firestore/chamber_firestore.dart';
 import '../../utils/constants/generator_translation_constants.dart';
 
 class ChamberController extends GetxController implements ChamberService {
-  
+
   final userServiceImpl = Get.find<UserService>();
 
   Chamber currentChamber = Chamber();
@@ -43,6 +43,15 @@ class ChamberController extends GetxController implements ChamberService {
   RxString itemName = "".obs;
   RxInt itemNumber = 0.obs;
 
+  // NUEVAS VARIABLES PARA BINAURALES
+  TextEditingController baseFreqController = TextEditingController();
+  TextEditingController binauralBeatController = TextEditingController();
+  // true = Sumar (Base + Beat), false = Restar (Base - Beat)
+  final RxBool isBinauralUpper = true.obs;
+
+  // Para mostrar el resultado en tiempo real en la UI (ej: "L: 432Hz | R: 452Hz")
+  final RxString binauralPreview = "".obs;
+
   @override
   void onInit() async {
     super.onInit();
@@ -67,6 +76,11 @@ class ChamberController extends GetxController implements ChamberService {
           userServiceImpl.itemlistOwnerType = OwnerType.band;
         }
       }
+
+      // Listeners para actualizar la vista previa cuando el usuario escribe
+      baseFreqController.addListener(_updateBinauralPreview);
+      binauralBeatController.addListener(_updateBinauralPreview);
+
     } catch (e) {
       AppConfig.logger.e(e.toString());
     }
@@ -90,6 +104,13 @@ class ChamberController extends GetxController implements ChamberService {
     update([AppPageIdConstants.chamber]);
   }
 
+  @override
+  void onClose() {
+    baseFreqController.dispose();
+    binauralBeatController.dispose();
+    super.onClose();
+  }
+
 
   void clear() {
     chambers.value = <String, Chamber>{};
@@ -100,6 +121,11 @@ class ChamberController extends GetxController implements ChamberService {
   void clearNewChamber() {
     newChamberNameController.clear();
     newChamberDescController.clear();
+    // Limpiar campos binaurales
+    baseFreqController.clear();
+    binauralBeatController.clear();
+    binauralPreview.value = "";
+    isBinauralUpper.value = true;
   }
 
 
@@ -111,34 +137,42 @@ class ChamberController extends GetxController implements ChamberService {
       errorMsg.value = '';
       if((isPublicNewChamber.value && newChamberNameController.text.isNotEmpty && newChamberDescController.text.isNotEmpty)
           || (!isPublicNewChamber.value && newChamberNameController.text.isNotEmpty)) {
-        Chamber newItemlist = Chamber.createBasic(newChamberNameController.text, newChamberDescController.text);
+        Chamber newChamber = Chamber.createBasic(newChamberNameController.text, newChamberDescController.text);
 
-        newItemlist.ownerId = ownerId;
-        newItemlist.ownerName = ownerName;
-        newItemlist.ownerType = ownerType;
+        // --- LOGICA BINAURAL ---
+        if (baseFreqController.text.isNotEmpty && binauralBeatController.text.isNotEmpty) {
+          double base = double.parse(baseFreqController.text);
+          double beat = double.parse(binauralBeatController.text);
+
+          // Asumiendo que has agregado estos campos a tu modelo Chamber
+          // Si no existen en el modelo, deberás agregarlos en domain/model/neom/chamber.dart
+          newChamber.chamberPresets?.first.mainFrequency?.frequency = base;
+
+          // newChamber.binauralBeat = beat;
+          // newChamber.isBinauralUpper = isBinauralUpper.value;
+
+          // Opcional: Guardar la segunda frecuencia calculada directamente
+          // newChamber. = isBinauralUpper.value ? (base + beat) : (base - beat);
+        }
+
+        newChamber.ownerId = ownerId;
+        newChamber.ownerName = ownerName;
+        newChamber.ownerType = ownerType;
         String newItemlistId = "";
 
         if (profile.position?.latitude != 0.0) {
-          newItemlist.position = profile.position!;
+          newChamber.position = profile.position!;
         }
 
-        newItemlist.public = isPublicNewChamber.value;
-        newItemlistId = await ChamberFirestore().insert(newItemlist);
+        newChamber.public = isPublicNewChamber.value;
+        newItemlistId = await ChamberFirestore().insert(newChamber);
 
-        ///DEPRECATED
-        // if(isPublicNewItemlist.value) {
-        //   AppConfig.logger.i("Inserting Public Chamber to Public collection");
-        //   newItemlistId = await ChamberFirestore().insert(newItemlist);
-        // } else {
-        //   AppConfig.logger.i("Inserting Private Chamber to collection for profileId ${newItemlist.ownerId}");
-        //   newItemlistId = await ChamberFirestore().insert(newItemlist);
-        // }
 
-        AppConfig.logger.i("Empty Chamber created successfully for profile ${newItemlist.ownerId}");
-        newItemlist.id = newItemlistId;
+        AppConfig.logger.i("Empty Chamber created successfully for profile ${newChamber.ownerId}");
+        newChamber.id = newItemlistId;
 
         if(newItemlistId.isNotEmpty){
-          chambers[newItemlistId] = newItemlist;
+          chambers[newItemlistId] = newChamber;
           AppConfig.logger.t("Itemlists $chambers");
           clearNewChamber();
           AppUtilities.showSnackBar(
@@ -266,5 +300,25 @@ class ChamberController extends GetxController implements ChamberService {
     AppConfig.logger.d("New Itemlist would be ${isPublicNewChamber.value ? 'Public':'Private'}");
     update([AppPageIdConstants.chamber, AppPageIdConstants.chamberPresets]);
   }
+
+  void _updateBinauralPreview() {
+    double base = double.tryParse(baseFreqController.text) ?? 0;
+    double beat = double.tryParse(binauralBeatController.text) ?? 0;
+
+    if (base > 0 && beat > 0) {
+      double secondFreq = isBinauralUpper.value ? (base + beat) : (base - beat);
+      binauralPreview.value = "F1: ${base.toStringAsFixed(2)} Hz | F2: ${secondFreq.toStringAsFixed(2)} Hz";
+    } else {
+      binauralPreview.value = "";
+    }
+  }
+
+  void toggleBinauralDirection(bool? value) {
+    if(value != null) {
+      isBinauralUpper.value = value;
+      _updateBinauralPreview();
+    }
+  }
+
 
 }

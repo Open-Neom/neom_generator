@@ -166,7 +166,7 @@ Widget buildPresetsList(BuildContext context, ChamberPresetController presetCont
           subtitle: Text(chamberPreset.description, textAlign: TextAlign.justify,),
           trailing: IconButton(
               icon: const Icon(
-                  CupertinoIcons.forward
+                  Icons.arrow_forward_ios
               ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),

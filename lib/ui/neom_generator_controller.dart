@@ -40,6 +40,8 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
   // final neom360viewerController = Get.put(Neom360ViewerController());
 
   late SoundController soundController;
+  late SoundController binauralSoundController;
+
   WebViewController webViewAndroidController = WebViewController();
   PlatformWebViewController webViewIosController = PlatformWebViewController(const PlatformWebViewControllerCreationParams());
 
@@ -77,7 +79,7 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
         if(arguments.elementAt(0) is ChamberPreset) {
           chamberPreset =  arguments.elementAt(0);
         } else if(arguments.elementAt(0) is NeomFrequency) {
-          chamberPreset.neomFrequency = arguments.elementAt(0);
+          chamberPreset.mainFrequency = arguments.elementAt(0);
         }
       }
 
@@ -94,8 +96,9 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
       profile = userServiceImpl?.profile;
       chambers.value = profile?.chambers ?? {};
       soundController = SoundController();
+      binauralSoundController = SoundController();
 
-      chamberPreset.neomFrequency ??= NeomFrequency();
+      chamberPreset.mainFrequency ??= NeomFrequency();
       chamberPreset.neomParameter ??= NeomParameter();
 
       settingChamber();
@@ -124,7 +127,7 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
       }
 
       frequencyDescription.value = chamberPreset.description.isNotEmpty
-          ? chamberPreset.description : chamberPreset.neomFrequency!.description.isNotEmpty ? chamberPreset.neomFrequency!.description : "";
+          ? chamberPreset.description : chamberPreset.mainFrequency?.description ?? '';
 
     } catch (e) {
       AppConfig.logger.e(e.toString());
@@ -139,6 +142,8 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
     // Dispose the WebViewController
 
     super.dispose();
+    soundController.dispose();
+    binauralSoundController.dispose();
     // Dispose of GetX resources
     Get.delete<NeomGeneratorController>();
   }
@@ -152,7 +157,7 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
           x: chamberPreset.neomParameter!.x,
           y: chamberPreset.neomParameter!.y,
           z: chamberPreset.neomParameter!.z,
-          freq:chamberPreset.neomFrequency!.frequency);
+          freq:chamberPreset.mainFrequency?.frequency ?? NeomGeneratorConstants.defaultFrequency);
         soundController.value = customAudioParam;
     } catch (e) {
       AppConfig.logger.e(e.toString());
@@ -167,11 +172,13 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
   @override
   Future<void> setFrequency(double frequency) async {
 
-    double threshold = 0.0000001;
-    double freqDifference = (chamberPreset.neomFrequency!.frequency - frequency).abs();
-    if(chamberPreset.neomFrequency!.frequency == frequency || (freqDifference < threshold)) return;
+    if(chamberPreset.mainFrequency == null) return;
 
-    chamberPreset.neomFrequency!.frequency = frequency.ceilToDouble();
+    double threshold = 0.0000001;
+    double freqDifference = (chamberPreset.mainFrequency!.frequency - frequency).abs();
+    if(chamberPreset.mainFrequency!.frequency == frequency || (freqDifference < threshold)) return;
+
+    chamberPreset.mainFrequency!.frequency = frequency.ceilToDouble();
     frequencyDescription.value = "";
     for (NeomFrequency neomFreq in frequencyServiceImpl?.frequencies.values ?? []) {
       if(neomFreq.frequency.ceilToDouble() == frequency.ceilToDouble()) {
@@ -194,19 +201,19 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
     update([AppPageIdConstants.generator]);
   }
 
-  @override
-  Future<void> stopPlay() async {
-
-    if(isPlaying.value && await soundController.isPlaying()) {
-      await soundController.stop();
-      isPlaying.value = false;
-    } else {
-      await soundController.play().whenComplete(() => isPlaying.value = true);
-    }
-
-    AppConfig.logger.i('isPlaying: $isPlaying');
-    update([AppPageIdConstants.generator]);
-  }
+  // @override
+  // Future<void> stopPlay() async {
+  //   AppConfig.logger.d('Toggling play/stop. isPlaying: $isPlaying');
+  //   if(isPlaying.value && await soundController.isPlaying()) {
+  //     await soundController.stop();
+  //     isPlaying.value = false;
+  //   } else {
+  //     await soundController.play().whenComplete(() => isPlaying.value = true);
+  //   }
+  //
+  //   AppConfig.logger.i('isPlaying: $isPlaying');
+  //   update([AppPageIdConstants.generator]);
+  // }
 
   void changeControllerStatus(bool status){
     isPlaying.value = status;
@@ -220,7 +227,8 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
           x: chamberPreset.neomParameter!.x,
           y: chamberPreset.neomParameter!.y,
           z: chamberPreset.neomParameter!.z,
-          freq:chamberPreset.neomFrequency!.frequency);
+          freq:chamberPreset.mainFrequency?.frequency ?? NeomGeneratorConstants.defaultFrequency
+    );
 
   }
 
@@ -232,16 +240,25 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
       if(await soundController.isPlaying() || stopPreview) {
         AppConfig.logger.d("Stopping Chamber Preset ${chamberPreset.name}");
         await soundController.stop();
-        // await soundController.init();
+        if(await binauralSoundController.isPlaying()) {
+          await binauralSoundController.stop();
+        }
+
         changeControllerStatus(false);
       } else {
         AppConfig.logger.d("Playing Chamber Preset ${chamberPreset.name}");
         settingChamber();
         await soundController.init();
         await soundController.play();
+
+        setBinauralBeat(beat: 15);
+        await binauralSoundController.init();
+        await binauralSoundController.play();
+
         changeControllerStatus(true);
       }
-      // await audioPlayer.play(BytesSource(createSample(240)));
+
+
     } catch(e) {
       AppConfig.logger.e(e.toString());
     }
@@ -304,12 +321,12 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
       if(chamber.value.id.isNotEmpty) {
 
         try {
-          chamberPreset.id = "${chamberPreset.neomFrequency!.frequency.ceilToDouble().toString()}_${chamberPreset.neomParameter!.volume.toString()}"
+          chamberPreset.id = "${chamberPreset.mainFrequency?.frequency.ceilToDouble().toString()}_${chamberPreset.neomParameter!.volume.toString()}"
               "_${chamberPreset.neomParameter!.x.toString()}_${chamberPreset.neomParameter!.y.toString()}_${chamberPreset.neomParameter!.z.toString()}";
-          chamberPreset.name = "${AppTranslationConstants.frequency.tr} ${chamberPreset.neomFrequency!.frequency.ceilToDouble().toString()} Hz";
+          chamberPreset.name = "${AppTranslationConstants.frequency.tr} ${chamberPreset.mainFrequency?.frequency.ceilToDouble().toString()} Hz";
           chamberPreset.imgUrl = AppProperties.getAppLogoUrl();
           chamberPreset.ownerId = profile?.id ?? '';
-          chamberPreset.neomFrequency!.description = frequencyDescription.value;
+          chamberPreset.mainFrequency!.description = frequencyDescription.value;
           if(await ChamberFirestore().addPreset(chamber.value.id, chamberPreset)) {
             await ProfileFirestore().addChamberPreset(profileId: profile?.id ?? '', chamberPresetId: chamberPreset.id);
             await userServiceImpl?.reloadProfileItemlists();
@@ -329,7 +346,7 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
 
         AppUtilities.showSnackBar(
             title: AppTranslationConstants.generator.tr,
-            message: 'El preajuste para la frecuencia de "${chamberPreset.neomFrequency!.frequency.ceilToDouble().toString()}"'
+            message: 'El preajuste para la frecuencia de "${chamberPreset.mainFrequency?.frequency.ceilToDouble().toString()}"'
                 ' Hz fue agregado a la Cámara Neom: ${chamber.value.name}.'
         );
       }
@@ -373,7 +390,7 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
 
         AppUtilities.showSnackBar(
             title: GeneratorTranslationConstants.neomChamber.tr,
-            message: 'El preajuste para la frecuencia de "${chamberPreset.neomFrequency!.frequency.ceilToDouble().toString()}"'
+            message: 'El preajuste para la frecuencia de "${chamberPreset.neomFrequencies.first.frequency.ceilToDouble().toString()}"'
                 ' Hz fue removido de la Cámara Neom: ${chamber.value.name} satisfactoriamente.'
         );
       }
@@ -403,26 +420,33 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
   }
 
   Future<void> increaseFrequency({double step = 1}) async {
-    double newFrequency = chamberPreset.neomFrequency!.frequency + step;
+    if(chamberPreset.mainFrequency == null) return;
+
+    double newFrequency = (chamberPreset.mainFrequency?.frequency ?? 0) + step;
     if(newFrequency <= 0) return;
-    AppConfig.logger.d("Increasing Frequency from ${chamberPreset.neomFrequency!.frequency} to $newFrequency");
-    chamberPreset.neomFrequency!.frequency = newFrequency;
-    frequencyDescription.value = "";
-    for (NeomFrequency neomFreq in frequencyServiceImpl?.frequencies.values ?? []) {
-      if(neomFreq.frequency.ceilToDouble() == newFrequency) {
-        frequencyDescription.value = neomFreq.description;
-      }
-    }
-
-    if(existsInChamber.value) isUpdate.value = true;
-
-    await soundController.setFrequency(newFrequency);
-    update([AppPageIdConstants.generator]);
+    AppConfig.logger.d("Increasing Frequency from ""${chamberPreset.mainFrequency?.frequency} to $newFrequency");
+    await setFrequency(newFrequency);
+    ///DEPRECATED
+    // chamberPreset.mainFrequency?.frequency = newFrequency;
+    // frequencyDescription.value = "";
+    // for (NeomFrequency neomFreq in frequencyServiceImpl?.frequencies.values ?? []) {
+    //   if(neomFreq.frequency.ceilToDouble() == newFrequency) {
+    //     frequencyDescription.value = neomFreq.description;
+    //   }
+    // }
+    //
+    // if(existsInChamber.value) isUpdate.value = true;
+    //
+    // await soundController.setFrequency(newFrequency);
+    // update([AppPageIdConstants.generator]);
   }
 
   Future<void> decreaseFrequency({double step = 1}) async {
-    double newFrequency = chamberPreset.neomFrequency!.frequency - step;
+    if(chamberPreset.mainFrequency == null) return;
+
+    double newFrequency = (chamberPreset.mainFrequency?.frequency ?? 0) - step;
     if(newFrequency <= 0) return;
+    AppConfig.logger.d("Decreasing Frequency from ""${chamberPreset.mainFrequency?.frequency} to $newFrequency");
     await setFrequency(newFrequency);
   }
 
@@ -553,6 +577,44 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
         .reduce((a, b) => a.value >= b.value ? a : b);
 
     return mostFrequentEntry.key; //Most recurrent freq
+  }
+
+  @override
+  void setBinauralBeat({int beat = 1}) {
+    AppConfig.logger.d("Setting Binaural Beat of $beat Hz");
+
+    try {
+      double binauralFrequency = (chamberPreset.mainFrequency?.frequency ?? NeomGeneratorConstants.defaultFrequency)+beat;
+      if(chamberPreset.mainFrequency == null || chamberPreset.neomFrequencies.isNotEmpty || binauralFrequency == chamberPreset.mainFrequency?.frequency
+      || chamberPreset.neomFrequencies.first.frequency == binauralFrequency) {
+        AppConfig.logger.d("Binaural Beat already set or main frequency is null. Skipping...");
+        return;
+      }
+
+      NeomFrequency neomBinauralFrequency = chamberPreset.mainFrequency!.copyWith(
+          frequency: binauralFrequency,
+          description: 'Binaural Beat +$beat Hz'
+      );
+
+      chamberPreset.neomFrequencies.add(neomBinauralFrequency);
+
+      AudioParam customAudioParam = AudioParam(
+          volume: chamberPreset.neomParameter!.volume,
+          x: chamberPreset.neomParameter!.x,
+          y: chamberPreset.neomParameter!.y,
+          z: chamberPreset.neomParameter!.z,
+          freq: binauralFrequency
+      );
+      binauralSoundController.value = customAudioParam;
+    } catch (e) {
+      AppConfig.logger.e(e.toString());
+    }
+
+    update([AppPageIdConstants.generator]);
+  }
+
+  double getBinauralFrequency() {
+    return (soundController.value.freq - binauralSoundController.value.freq).abs();
   }
 
 }
