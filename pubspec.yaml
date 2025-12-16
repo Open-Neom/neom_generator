@@ -1,6 +1,6 @@
 name: neom_generator
 description: Neom Generator for Open Neom.
-version: 1.4.0-dev
+version: 2.0.0-dev
 homepage: https://github.com/Open-Neom/neom_generator
 
 environment:
