@@ -4,8 +4,8 @@ import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/data/api_services/push_notification/firebase_messaging_calls.dart';
 import 'package:neom_core/domain/model/band.dart';
-import 'package:neom_core/domain/model/neom/chamber.dart';
-import 'package:neom_core/domain/model/neom/chamber_preset.dart';
+import 'package:neom_core/domain/model/neom/neom_chamber.dart';
+import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
 import 'package:neom_core/domain/use_cases/user_service.dart';
 import 'package:neom_core/utils/enums/app_in_use.dart';
 import 'package:neom_core/utils/enums/chamber_preset_state.dart';
@@ -20,11 +20,11 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
 
   final userServiceImpl = Get.find<UserService>();
 
-  ChamberPreset chamberPreset = ChamberPreset();
-  Chamber chamber = Chamber();
+  NeomChamberPreset chamberPreset = NeomChamberPreset();
+  NeomChamber chamber = NeomChamber();
 
   final RxInt itemState = 0.obs;
-  final RxMap<String, ChamberPreset> chamberPresets = <String, ChamberPreset>{}.obs;
+  final RxMap<String, NeomChamberPreset> chamberPresets = <String, NeomChamberPreset>{}.obs;
   final RxBool isLoading = true.obs;
 
   bool isFixed = false;
@@ -47,7 +47,7 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
 
       if(Get.arguments != null) {
         List<dynamic> arguments = Get.arguments;
-        if(arguments[0] is Chamber) {
+        if(arguments[0] is NeomChamber) {
           chamber =  arguments[0];
         } else if(arguments[0] is String) {
           chamberId = arguments[0];
@@ -60,7 +60,7 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
       }
 
       if(chamber.id.isNotEmpty) {
-        AppConfig.logger.i("AppMediaItemController for Chamber: ${chamber.id} ${chamber.name} ");
+        AppConfig.logger.i("AppMediaItemController for NeomChamber: ${chamber.id} ${chamber.name} ");
         AppConfig.logger.d("${chamber.chamberPresets?.length ?? 0} presets in chamber");
         loadPresetsFromChamber();
       } else {
@@ -85,11 +85,11 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
   }
 
   void clear() {
-    chamberPresets.value = <String, ChamberPreset>{};
+    chamberPresets.value = <String, NeomChamberPreset>{};
   }
 
   @override
-  Future<void> updateChamberPreset(ChamberPreset updatedPreset) async {
+  Future<void> updateChamberPreset(NeomChamberPreset updatedPreset) async {
     AppConfig.logger.d("Preview state ${updatedPreset.state}");
     if(updatedPreset.state == itemState.value) {
       AppConfig.logger.d("Trying to set same status");
@@ -107,13 +107,13 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
           userServiceImpl.profile.chambers![chamber.id]!
               .chamberPresets!.remove(updatedPreset);
           if(await ChamberFirestore().deletePreset(chamber.id, updatedPreset)) {
-            AppConfig.logger.d("ChamberPreset was updated and old version deleted.");
+            AppConfig.logger.d("NeomChamberPreset was updated and old version deleted.");
           } else {
-            AppConfig.logger.d("ChamberPreset was updated but old version remains.");
+            AppConfig.logger.d("NeomChamberPreset was updated but old version remains.");
           }
           updatedPreset.state = itemState.value;
         } else {
-          AppConfig.logger.e("ChamberPreset not updated");
+          AppConfig.logger.e("NeomChamberPreset not updated");
         }
       } catch (e) {
         AppConfig.logger.e(e.toString());
@@ -125,7 +125,7 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
   }
 
   @override
-  Future<bool> addPresetToChamber(ChamberPreset chamberPreset, String chamberId) async {
+  Future<bool> addPresetToChamber(NeomChamberPreset chamberPreset, String chamberId) async {
 
     AppConfig.logger.d("Item ${chamberPreset.name} would be added as $itemState for Itemlist $chamberId");
 
@@ -168,7 +168,7 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
   }
 
   @override
-  Future<bool> removePresetFromChamber(ChamberPreset chamberPreset) async {
+  Future<bool> removePresetFromChamber(NeomChamberPreset chamberPreset) async {
     AppConfig.logger.d("removing itemlistItem ${chamberPreset.toString()}");
 
     try {
@@ -178,7 +178,7 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
         chamberPresets.remove(chamberPreset.id);
 
       } else {
-        AppConfig.logger.d("ChamberPreset not removed");
+        AppConfig.logger.d("NeomChamberPreset not removed");
         return false;
       }
     } catch (e) {
@@ -200,12 +200,12 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
   }
 
   @override
-  Future<void> getChamberPresetDetails(ChamberPreset appMediaItem) async {
+  Future<void> getChamberPresetDetails(NeomChamberPreset appMediaItem) async {
     AppConfig.logger.d("getChamberPresetDetails ${appMediaItem.name}");
 
     if(appMediaItem.imgUrl.isEmpty && chamber.imgUrl.isNotEmpty) appMediaItem.imgUrl = chamber.imgUrl;
 
-    ChamberPreset chamberPreset = chamber.chamberPresets?.firstWhere((element) => element.name == appMediaItem.name) ?? ChamberPreset();
+    NeomChamberPreset chamberPreset = chamber.chamberPresets?.firstWhere((element) => element.name == appMediaItem.name) ?? NeomChamberPreset();
     if(chamberPreset.name.isNotEmpty) {
       Get.toNamed(AppFlavour.getMainItemDetailsRoute(), arguments: [chamberPreset.clone()]
       );
@@ -216,7 +216,7 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
 
   @override
   void loadPresetsFromChamber(){
-    Map<String, ChamberPreset> presets = {};
+    Map<String, NeomChamberPreset> presets = {};
 
     if(chamber.chamberPresets?.isNotEmpty ?? false) {
       chamber.chamberPresets?.forEach((preset) {

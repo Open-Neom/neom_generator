@@ -1,0 +1,4 @@
+enum NeomFrequencyTarget {
+  root,
+  binaural,
+}

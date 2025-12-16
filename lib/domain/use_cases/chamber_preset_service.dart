@@ -1,13 +1,13 @@
-import 'package:neom_core/domain/model/neom/chamber_preset.dart';
+import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
 import 'package:neom_core/utils/enums/chamber_preset_state.dart';
 
 abstract class ChamberPresetService {
 
-  Future<void> updateChamberPreset(ChamberPreset updatedPreset);
-  Future<bool> removePresetFromChamber(ChamberPreset chamberPreset);
+  Future<void> updateChamberPreset(NeomChamberPreset updatedPreset);
+  Future<bool> removePresetFromChamber(NeomChamberPreset chamberPreset);
   void setChamberPresetState(ChamberPresetState newState);
-  Future<void> getChamberPresetDetails(ChamberPreset chamberPreset);
-  Future<bool> addPresetToChamber(ChamberPreset chamberPreset, String chamberId);
+  Future<void> getChamberPresetDetails(NeomChamberPreset chamberPreset);
+  Future<bool> addPresetToChamber(NeomChamberPreset chamberPreset, String chamberId);
   void loadPresetsFromChamber();
 
 }

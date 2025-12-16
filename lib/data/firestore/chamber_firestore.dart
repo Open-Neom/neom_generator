@@ -4,8 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/data/firestore/constants/app_firestore_collection_constants.dart';
 import 'package:neom_core/data/firestore/constants/app_firestore_constants.dart';
-import 'package:neom_core/domain/model/neom/chamber.dart';
-import 'package:neom_core/domain/model/neom/chamber_preset.dart';
+import 'package:neom_core/domain/model/neom/neom_chamber.dart';
+import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
 import 'package:neom_core/domain/repository/chamber_repository.dart';
 import 'package:neom_core/utils/constants/core_constants.dart';
 import 'package:neom_core/utils/enums/owner_type.dart';
@@ -16,7 +16,7 @@ class ChamberFirestore implements ChamberRepository {
   final profileReference = FirebaseFirestore.instance.collectionGroup(AppFirestoreCollectionConstants.profiles);
 
   @override
-  Future<String> insert(Chamber chamber) async {
+  Future<String> insert(NeomChamber chamber) async {
     AppConfig.logger.d("Creating chamber for Profile ${chamber.ownerId}");
     String chamberId = "";
 
@@ -30,7 +30,7 @@ class ChamberFirestore implements ChamberRepository {
         chamberId = chamber.id;
       }
 
-      AppConfig.logger.d("Public Chamber $chamberId inserted");
+      AppConfig.logger.d("Public NeomChamber $chamberId inserted");
     } catch (e) {
       AppConfig.logger.e(e.toString());
     }
@@ -39,15 +39,15 @@ class ChamberFirestore implements ChamberRepository {
   }
 
   @override
-  Future<Chamber> retrieve(String chamberId) async {
-    AppConfig.logger.t("Retrieving Chamber by ID: $chamberId");
-    Chamber chamber = Chamber();
+  Future<NeomChamber> retrieve(String chamberId) async {
+    AppConfig.logger.t("Retrieving NeomChamber by ID: $chamberId");
+    NeomChamber chamber = NeomChamber();
 
     try {
       DocumentSnapshot documentSnapshot = await chamberReference.doc(chamberId).get();
       if (documentSnapshot.exists) {
         AppConfig.logger.t("Snapshot is not empty");
-        chamber = Chamber.fromJSON(documentSnapshot.data());
+        chamber = NeomChamber.fromJSON(documentSnapshot.data());
         chamber.id = documentSnapshot.id;
         AppConfig.logger.t(chamber.toString());
       }
@@ -60,15 +60,15 @@ class ChamberFirestore implements ChamberRepository {
   }
 
   @override
-  Future<Map<String, Chamber>> fetchAll({bool onlyPublic = false, bool excludeMyFavorites = true, int minItems = 0,
+  Future<Map<String, NeomChamber>> fetchAll({bool onlyPublic = false, bool excludeMyFavorites = true, int minItems = 0,
     int maxLength = 100, String ownerId = '', String excludeFromProfileId = '', OwnerType ownerType = OwnerType.profile}) async {
     AppConfig.logger.t("Retrieving Chambers from firestore");
-    Map<String, Chamber> chambers = {};
+    Map<String, NeomChamber> chambers = {};
 
     try {
       await chamberReference.limit(maxLength).get().then((querySnapshot) {
         for (var document in querySnapshot.docs) {
-          Chamber chamber = Chamber.fromJSON(document.data());
+          NeomChamber chamber = NeomChamber.fromJSON(document.data());
           chamber.id = document.id;
           if((chamber.chamberPresets?.length ?? 0) >= minItems && (!onlyPublic || chamber.public)
               && (!excludeMyFavorites || chamber.id != CoreConstants.myFavorites)
@@ -95,7 +95,7 @@ class ChamberFirestore implements ChamberRepository {
     try {
 
       await chamberReference.doc(chamberId).delete();
-      AppConfig.logger.d("Chamber $chamberId removed");
+      AppConfig.logger.d("NeomChamber $chamberId removed");
       return true;
 
     } catch (e) {
@@ -105,8 +105,8 @@ class ChamberFirestore implements ChamberRepository {
   }
 
   @override
-  Future<bool> update(Chamber chamber) async {
-    AppConfig.logger.d("Updating Chamber for user ${chamber.id}");
+  Future<bool> update(NeomChamber chamber) async {
+    AppConfig.logger.d("Updating NeomChamber for user ${chamber.id}");
 
     try {
 
@@ -116,18 +116,18 @@ class ChamberFirestore implements ChamberRepository {
         AppFirestoreConstants.description: chamber.description,
       });
 
-      AppConfig.logger.d("Chamber ${chamber.id} was updated");
+      AppConfig.logger.d("NeomChamber ${chamber.id} was updated");
       return true;
     } catch (e) {
       AppConfig.logger.e(e.toString());
     }
 
-    AppConfig.logger.d("Chamber ${chamber.id} was not updated");
+    AppConfig.logger.d("NeomChamber ${chamber.id} was not updated");
     return false;
   }
 
   @override
-  Future<bool> addPreset(String chamberId, ChamberPreset preset) async {
+  Future<bool> addPreset(String chamberId, NeomChamberPreset preset) async {
     AppConfig.logger.d("Adding preset to chamber $chamberId");
     bool addedItem = false;
 
@@ -148,7 +148,7 @@ class ChamberFirestore implements ChamberRepository {
 
 
   @override
-  Future<bool> deletePreset(String chamberId, ChamberPreset preset) async {
+  Future<bool> deletePreset(String chamberId, NeomChamberPreset preset) async {
     AppConfig.logger.d("Removing preset from chamber $chamberId");
 
     try {
@@ -169,7 +169,7 @@ class ChamberFirestore implements ChamberRepository {
   }
 
   @override
-  Future<bool> updatePreset(String chamberId, ChamberPreset preset) async {
+  Future<bool> updatePreset(String chamberId, NeomChamberPreset preset) async {
     AppConfig.logger.d("Updating preset for profile $chamberId");
 
     try {

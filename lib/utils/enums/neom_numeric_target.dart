@@ -1,0 +1,4 @@
+enum NeomNumericTarget {
+  rootFrequency,
+  binauralBeat,
+}

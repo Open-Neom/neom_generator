@@ -14,5 +14,16 @@ class GeneratorTranslationConstants {
   static const String neomChamber = 'neomChamber';
   static const String findsYourVoiceFrequency = 'findsYourVoiceFrequency';
   static const String waveLength = 'waveLength';
+  static const String neuroHarmonicOscilloscope = 'neuroHarmonicOscilloscope';
+  static const String detecting = 'detecting';
+  static const String detectMyVoice = 'detectMyVoice';
+  static const String modulation = 'modulation';
+  static const String spatiality = 'spatiality';
+  static const String breathing = 'breathing';
+  static const String neuroharmony = 'neuroharmony';
+  static const String coherenceMeter = 'coherenceMeter';
+  static const String hemisfericCoherence = 'hemisfericCoherence';
+
+
 
 }

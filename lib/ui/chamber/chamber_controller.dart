@@ -7,7 +7,7 @@ import 'package:neom_commons/utils/constants/translations/message_translation_co
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/domain/model/app_profile.dart';
 import 'package:neom_core/domain/model/band.dart';
-import 'package:neom_core/domain/model/neom/chamber.dart';
+import 'package:neom_core/domain/model/neom/neom_chamber.dart';
 import 'package:neom_core/domain/use_cases/chamber_service.dart';
 import 'package:neom_core/domain/use_cases/user_service.dart';
 import 'package:neom_core/utils/constants/app_route_constants.dart';
@@ -20,13 +20,13 @@ class ChamberController extends GetxController implements ChamberService {
 
   final userServiceImpl = Get.find<UserService>();
 
-  Chamber currentChamber = Chamber();
+  NeomChamber currentChamber = NeomChamber();
 
   TextEditingController newChamberNameController = TextEditingController();
   TextEditingController newChamberDescController = TextEditingController();
 
-  final RxMap<String, Chamber> chambers = <String, Chamber>{}.obs;
-  final RxList<Chamber> addedChambers = <Chamber>[].obs;
+  final RxMap<String, NeomChamber> chambers = <String, NeomChamber>{}.obs;
+  final RxList<NeomChamber> addedChambers = <NeomChamber>[].obs;
 
   AppProfile profile = AppProfile();
   Band? band;
@@ -55,7 +55,7 @@ class ChamberController extends GetxController implements ChamberService {
   @override
   void onInit() async {
     super.onInit();
-    AppConfig.logger.t("onInit Chamber Controller");
+    AppConfig.logger.t("onInit NeomChamber Controller");
 
     try {
       userServiceImpl.itemlistOwnerType = OwnerType.profile;
@@ -113,8 +113,8 @@ class ChamberController extends GetxController implements ChamberService {
 
 
   void clear() {
-    chambers.value = <String, Chamber>{};
-    currentChamber = Chamber();
+    chambers.value = <String, NeomChamber>{};
+    currentChamber = NeomChamber();
   }
 
   @override
@@ -137,16 +137,17 @@ class ChamberController extends GetxController implements ChamberService {
       errorMsg.value = '';
       if((isPublicNewChamber.value && newChamberNameController.text.isNotEmpty && newChamberDescController.text.isNotEmpty)
           || (!isPublicNewChamber.value && newChamberNameController.text.isNotEmpty)) {
-        Chamber newChamber = Chamber.createBasic(newChamberNameController.text, newChamberDescController.text);
+        NeomChamber newChamber = NeomChamber.createBasic(newChamberNameController.text, newChamberDescController.text);
 
         // --- LOGICA BINAURAL ---
         if (baseFreqController.text.isNotEmpty && binauralBeatController.text.isNotEmpty) {
           double base = double.parse(baseFreqController.text);
           double beat = double.parse(binauralBeatController.text);
 
-          // Asumiendo que has agregado estos campos a tu modelo Chamber
+          // Asumiendo que has agregado estos campos a tu modelo NeomChamber
           // Si no existen en el modelo, deberás agregarlos en domain/model/neom/chamber.dart
           newChamber.chamberPresets?.first.mainFrequency?.frequency = base;
+          newChamber.chamberPresets?.first.binauralFrequency?.frequency = beat;
 
           // newChamber.binauralBeat = beat;
           // newChamber.isBinauralUpper = isBinauralUpper.value;
@@ -168,7 +169,7 @@ class ChamberController extends GetxController implements ChamberService {
         newItemlistId = await ChamberFirestore().insert(newChamber);
 
 
-        AppConfig.logger.i("Empty Chamber created successfully for profile ${newChamber.ownerId}");
+        AppConfig.logger.i("Empty NeomChamber created successfully for profile ${newChamber.ownerId}");
         newChamber.id = newItemlistId;
 
         if(newItemlistId.isNotEmpty){
@@ -200,7 +201,7 @@ class ChamberController extends GetxController implements ChamberService {
   }
 
   @override
-  Future<void> deleteChamber(Chamber chamber) async {
+  Future<void> deleteChamber(NeomChamber chamber) async {
     AppConfig.logger.d("Removing for $chamber");
 
     try {
@@ -208,7 +209,7 @@ class ChamberController extends GetxController implements ChamberService {
       update([AppPageIdConstants.itemlist]);
 
       if(await ChamberFirestore().delete(chamber.id)) {
-        AppConfig.logger.d("Chamber ${chamber.id} removed");
+        AppConfig.logger.d("NeomChamber ${chamber.id} removed");
 
         chambers.remove(chamber.id);
         AppUtilities.showSnackBar(
@@ -232,7 +233,7 @@ class ChamberController extends GetxController implements ChamberService {
 
 
   @override
-  Future<void> updateChamber(String itemlistId, Chamber itemlist) async {
+  Future<void> updateChamber(String itemlistId, NeomChamber itemlist) async {
 
     AppConfig.logger.d("Updating to $itemlist");
 
@@ -254,7 +255,7 @@ class ChamberController extends GetxController implements ChamberService {
         }
 
         if(await ChamberFirestore().update(itemlist)){
-          AppConfig.logger.d("Chamber $itemlistId updated");
+          AppConfig.logger.d("NeomChamber $itemlistId updated");
           chambers[itemlist.id] = itemlist;
           clearNewChamber();
           AppUtilities.showSnackBar(
@@ -288,7 +289,7 @@ class ChamberController extends GetxController implements ChamberService {
   }
 
   @override
-  Future<void> gotoChamberPresets(Chamber chamber) async {
+  Future<void> gotoChamberPresets(NeomChamber chamber) async {
     await Get.toNamed(AppRouteConstants.chamberPresets, arguments: [chamber]);
     update([AppPageIdConstants.chamber]);
   }

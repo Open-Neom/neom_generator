@@ -1,5 +1,4 @@
 import 'package:enum_to_string/enum_to_string.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:neom_commons/app_flavour.dart';
@@ -13,8 +12,8 @@ import 'package:neom_commons/utils/constants/translations/app_translation_consta
 import 'package:neom_commons/utils/constants/translations/common_translation_constants.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/app_properties.dart';
-import 'package:neom_core/domain/model/neom/chamber.dart';
-import 'package:neom_core/domain/model/neom/chamber_preset.dart';
+import 'package:neom_core/domain/model/neom/neom_chamber.dart';
+import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
 import 'package:neom_core/utils/constants/app_route_constants.dart';
 import 'package:neom_core/utils/core_utilities.dart';
 import 'package:neom_core/utils/enums/app_in_use.dart';
@@ -32,7 +31,7 @@ Widget buildChamberList(BuildContext context, ChamberController chamberControlle
     itemCount: chamberController.chambers.length,
     shrinkWrap: true,
     itemBuilder: (context, index) {
-      Chamber chamber = chamberController.chambers.values.elementAt(index);
+      NeomChamber chamber = chamberController.chambers.values.elementAt(index);
       return ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 10),
         leading: SizedBox(
@@ -145,7 +144,7 @@ Widget buildPresetsList(BuildContext context, ChamberPresetController presetCont
     separatorBuilder: (context, index) => const Divider(),
     itemCount: presetController.chamberPresets.length,
     itemBuilder: (context, index) {
-      ChamberPreset chamberPreset = presetController.chamberPresets.values.elementAt(index);
+      NeomChamberPreset chamberPreset = presetController.chamberPresets.values.elementAt(index);
       return ListTile(
           leading: HandledCachedNetworkImage(chamberPreset.imgUrl.isNotEmpty
               ? chamberPreset.imgUrl : presetController.chamber.imgUrl, enableFullScreen: false,
@@ -171,7 +170,7 @@ Widget buildPresetsList(BuildContext context, ChamberPresetController presetCont
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               onPressed: () {
-                ChamberPreset preset = presetController.chamber.chamberPresets!.firstWhere((element) => element.id == chamberPreset.id);
+                NeomChamberPreset preset = presetController.chamber.chamberPresets!.firstWhere((element) => element.id == chamberPreset.id);
                 Get.toNamed(AppRouteConstants.generator,  arguments: [preset.clone()]);
               }
           ),
@@ -179,7 +178,7 @@ Widget buildPresetsList(BuildContext context, ChamberPresetController presetCont
             if(!presetController.isFixed) {
               presetController.getChamberPresetDetails(chamberPreset);
             } else {
-              ChamberPreset preset = presetController.chamber.chamberPresets!.firstWhere((element) => element.id == chamberPreset.id);
+              NeomChamberPreset preset = presetController.chamber.chamberPresets!.firstWhere((element) => element.id == chamberPreset.id);
               Get.toNamed(AppRouteConstants.generator,  arguments: [preset.clone()]);
             }
           },
