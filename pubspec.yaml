@@ -13,11 +13,9 @@ dependencies:
 
   neom_core: ^2.1.2-dev
   neom_commons: ^2.1.1-dev
-
-#  FUTURE EXPERIMENTAL USE:
-#  neom_vr:
-#    git:
-#      url: git@github.com:Cyberneom/neom_vr.git
+  neom_vr:
+    git:
+      url: git@github.com:Cyberneom/neom_vr.git
 
   sleek_circular_slider: ^2.1.0
 

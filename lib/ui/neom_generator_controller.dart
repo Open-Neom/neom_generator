@@ -501,7 +501,7 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
   }
 
   void initializeStreamController(){
-    _audioStreamController = StreamController<Uint8List>();
+    _audioStreamController = StreamController<Uint8List>(sync: true);
     _audioStreamController!.stream.listen((audioData) async {
       if (_isDisposed) return;
       double freqPitch = await getPitchFromAudioData(audioData);
@@ -530,7 +530,7 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
       }
 
       _recorder.startRecorder(
-        codec: Codec.pcm16WAV,
+        codec: Codec.pcm16,
         sampleRate: NeomGeneratorConstants.sampleRate,
         numChannels: 1,
         toStream: _audioStreamController?.sink, //

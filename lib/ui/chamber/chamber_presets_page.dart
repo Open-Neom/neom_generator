@@ -9,7 +9,7 @@ import 'package:neom_commons/utils/constants/translations/common_translation_con
 import 'package:neom_core/utils/constants/app_route_constants.dart';
 import 'package:neom_core/utils/enums/media_search_type.dart';
 
-import '../widgets/chamber_widgets.dart';
+import '../widgets/generator_widgets.dart';
 import 'chamber_preset_controller.dart';
 
 class ChamberPresetsPage extends StatelessWidget {

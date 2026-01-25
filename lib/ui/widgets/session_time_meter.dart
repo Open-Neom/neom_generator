@@ -2,21 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:neom_core/data/implementations/neom_stopwatch.dart';
 
-class NeomChamberTimeMeter extends StatefulWidget {
+import '../../utils/constants/generator_translation_constants.dart';
+
+class SessionChamberTimeMeter extends StatefulWidget {
   final String referenceId;
   final bool showTitle;
 
-  const NeomChamberTimeMeter({
+  const SessionChamberTimeMeter({
     super.key,
     required this.referenceId,
     this.showTitle = true,
   });
 
   @override
-  State<NeomChamberTimeMeter> createState() => _NeomChamberTimeMeterState();
+  State<SessionChamberTimeMeter> createState() => _SessionChamberTimeMeterState();
 }
 
-class _NeomChamberTimeMeterState extends State<NeomChamberTimeMeter>
+class _SessionChamberTimeMeterState extends State<SessionChamberTimeMeter>
     with SingleTickerProviderStateMixin {
 
   late final Ticker _ticker;
@@ -42,18 +44,20 @@ class _NeomChamberTimeMeterState extends State<NeomChamberTimeMeter>
 
     final minutes = (elapsedMs ~/ 60000).toString().padLeft(2, '0');
     final seconds = ((elapsedMs ~/ 1000) % 60).toString().padLeft(2, '0');
-    final millis  = ((elapsedMs % 1000) ~/ 10).toString().padLeft(2, '0');
+    final centiseconds = ((elapsedMs ~/ 16.666) % 60).floor().toString().padLeft(2, '0');
+    //final millis  = ((elapsedMs % 1000) ~/ 10).toString().padLeft(2, '0');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "NEOM CHAMBER TIME",
+        if(widget.showTitle) const Text(
+          GeneratorTranslationConstants.sessionTime,
           style: TextStyle(
             color: Colors.white54,
             fontSize: 10,
             letterSpacing: 1.5,
           ),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 6),
         Container(
@@ -64,7 +68,7 @@ class _NeomChamberTimeMeterState extends State<NeomChamberTimeMeter>
             border: Border.all(color: Colors.white10),
           ),
           child: Text(
-            "$minutes:$seconds:$millis",
+            "$minutes:$seconds:$centiseconds",
             style: const TextStyle(
               fontFamily: 'Courier',
               fontSize: 24,

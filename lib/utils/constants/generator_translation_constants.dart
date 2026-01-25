@@ -23,7 +23,10 @@ class GeneratorTranslationConstants {
   static const String neuroharmony = 'neuroharmony';
   static const String coherenceMeter = 'coherenceMeter';
   static const String hemisfericCoherence = 'hemisfericCoherence';
-
-
+  static const String sessionTime = 'sessionTime';
+  static const String neuroFlocking = 'neuroFlocking';
+  static const String neuroVR360 = 'neuroVR360';
+  static const String neuroVR360Stereo = 'neuroVR360Stereo';
+  static const String neuroBreathing = 'neuroBreathing';
 
 }

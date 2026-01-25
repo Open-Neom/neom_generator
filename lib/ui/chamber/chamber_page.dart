@@ -11,7 +11,7 @@ import 'package:neom_core/utils/enums/owner_type.dart';
 import 'package:rflutter_alert/rflutter_alert.dart';
 
 import '../../utils/constants/generator_translation_constants.dart';
-import '../widgets/chamber_widgets.dart';
+import '../widgets/generator_widgets.dart';
 import 'chamber_controller.dart';
 
 class ChamberPage extends StatelessWidget {

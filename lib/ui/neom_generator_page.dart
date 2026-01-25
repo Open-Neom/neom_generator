@@ -1,31 +1,24 @@
-import 'dart:math' as math; // Necesario para calcular la nota musical
+// Necesario para calcular la nota musical
 
-import 'package:enum_to_string/enum_to_string.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
 import 'package:neom_commons/ui/widgets/appbar_child.dart';
 import 'package:neom_commons/ui/widgets/read_more_container.dart';
-import 'package:neom_commons/utils/app_utilities.dart';
 import 'package:neom_commons/utils/auth_guard.dart';
-import 'package:neom_commons/utils/constants/app_assets.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_commons/utils/constants/translations/app_translation_constants.dart';
-import 'package:neom_commons/utils/constants/translations/common_translation_constants.dart';
-import 'package:neom_commons/utils/constants/translations/message_translation_constants.dart';
 import 'package:neom_core/app_config.dart';
-import 'package:neom_core/utils/core_utilities.dart';
-import 'package:neom_core/utils/enums/app_item_state.dart';
-import 'package:rflutter_alert/rflutter_alert.dart';
+import 'package:neom_core/utils/constants/app_route_constants.dart';
 import 'package:sleek_circular_slider/sleek_circular_slider.dart';
 
 import '../engine/neom_frequency_painter_engine.dart';
 import '../utils/constants/generator_translation_constants.dart';
 import '../utils/constants/neom_generator_constants.dart';
 import '../utils/constants/neom_slider_constants.dart';
+import '../utils/enums/neom_frequency_target.dart';
 import '../utils/enums/neom_numeric_target.dart';
 import 'neom_generator_controller.dart';
 import 'painters/frequency_painter.dart';
@@ -36,7 +29,8 @@ import 'panels/neom_breath_control_panel.dart';
 import 'panels/neom_modulation_control_panel.dart';
 import 'panels/neom_neuro_state_control_panel.dart';
 import 'panels/neom_spatial_control_panel.dart';
-import 'widgets/neom_chamber_time_meter.dart';
+import 'widgets/generator_widgets.dart';
+import 'widgets/session_time_meter.dart';
 
 class NeomGeneratorPage extends StatelessWidget {
 
@@ -73,7 +67,7 @@ class NeomGeneratorPage extends StatelessWidget {
                   if(controller.existsInChamber.value && !controller.isUpdate.value) {
                     await controller.removePreset(context);
                   } else {
-                    _showSaveDialog(context, controller);
+                    showSaveDialog(context, controller);
                   }
                 });
               },
@@ -119,7 +113,7 @@ class NeomGeneratorPage extends StatelessWidget {
           AppTheme.heightSpace20,
           Obx(() {
               // AudioParam currentParam = controller.getAudioParam();
-              String note = _getNoteFromFrequency(controller.currentFreq.value);
+              String note = getNoteFromFrequency(controller.currentFreq.value);
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
@@ -209,6 +203,7 @@ class NeomGeneratorPage extends StatelessWidget {
                     children: [
                       GestureDetector(
                         onTap: controller.selectRootFrequency,
+                        onDoubleTap: controller.startEditFrequency,
                         child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         width: AppTheme.fullWidth(context)/2,
@@ -290,7 +285,16 @@ class NeomGeneratorPage extends StatelessWidget {
                         ),
                       ),),
                       GestureDetector(
-                        onTap: controller.selectBinauralBeat,
+                        onTap: () {
+                          if(controller.selectedTarget.value ==
+                              NeomFrequencyTarget.binaural) {
+                            controller.increaseSelected();
+                          } else {
+                          controller.selectBinauralBeat();
+                          controller.increaseSelected();
+                          }
+                        },
+                        onDoubleTap: controller.startEditBeat,
                         child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         width: AppTheme.fullWidth(context)/2,
@@ -349,7 +353,7 @@ class NeomGeneratorPage extends StatelessWidget {
                                     }
 
                                     return GestureDetector(
-                                      onTap: controller.startEditBeat,
+                                      onDoubleTap: controller.startEditBeat,
                                       child: Text(
                                         controller.currentBeat.value.toStringAsFixed(0),
                                         style: const TextStyle(
@@ -380,7 +384,7 @@ class NeomGeneratorPage extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: <Widget>[
                         // Botón Menos
-                        _buildCircleBtn(
+                        buildCircleBtn(
                           icon: Icons.remove,
                           color: Colors.white24,
                           onTap: () async {
@@ -422,7 +426,7 @@ class NeomGeneratorPage extends StatelessWidget {
                           ),
                         ),
                         // Botón Más
-                        _buildCircleBtn(
+                        buildCircleBtn(
                           icon: Icons.add,
                           color: Colors.white24,
                           onTap: () async {
@@ -448,17 +452,47 @@ class NeomGeneratorPage extends StatelessWidget {
                       title: Text(GeneratorTranslationConstants.neuroHarmonicOscilloscope.tr,
                           style: TextStyle(color: Colors.white70, fontSize: 12)),
                       children: [
-                        SizedBox(
-                          height: AppTheme.fullHeight(context) * 0.20,
-                          width: double.infinity,
-                          child: CustomPaint(
-                            painter: OscilloscopePainter(
-                                engine: controller.painterEngine,
-                                signalColor: AppColor.bondiBlue,
-                                gridColor: Colors.white12,
+                        Stack(
+                          children: [
+                            SizedBox(
+                              height: AppTheme.fullHeight(context) * 0.20,
+                              width: double.infinity,
+                              child: CustomPaint(
+                                painter: OscilloscopePainter(
+                                    engine: controller.painterEngine,
+                                    signalColor: AppColor.bondiBlue,
+                                    gridColor: Colors.white12,
+                                ),
+                                willChange: true,
+                              ),
                             ),
-                            willChange: true,
-                          ),
+                            // Botón fullscreen
+                            Positioned(
+                              right: 10,
+                              bottom: 10,
+                              child: GestureDetector(
+                                onTap: () {
+                                  Get.toNamed(
+                                    AppRouteConstants.oscilloscopeFullscreen,
+                                    arguments: controller.painterEngine,
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppColor.bondiBlue.withOpacity(0.5)),
+                                  ),
+                                  child: const Icon(
+                                    Icons.fullscreen,
+                                    color: AppColor.bondiBlue,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ]
                   ),
@@ -526,9 +560,9 @@ class NeomGeneratorPage extends StatelessWidget {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                 children: [
-                                  _buildAxisIndicator("X", controller.posX.value.toPrecision(2), Colors.redAccent),
-                                  _buildAxisIndicator("Y", controller.posY.value.toPrecision(2), Colors.greenAccent),
-                                  _buildAxisIndicator("Z", controller.posZ.value.toPrecision(2), Colors.blueAccent),
+                                  buildAxisIndicator("X", controller.posX.value.toPrecision(2), Colors.redAccent),
+                                  buildAxisIndicator("Y", controller.posY.value.toPrecision(2), Colors.greenAccent),
+                                  buildAxisIndicator("Z", controller.posZ.value.toPrecision(2), Colors.blueAccent),
                                 ],
                               ),
                             ],
@@ -572,7 +606,7 @@ class NeomGeneratorPage extends StatelessWidget {
                                         letterSpacing: 1.5
                                     ),
                                   ),
-                                  _buildCompactStat(
+                                  buildCompactStat(
                                       "λ",
                                       controller.currentFreq.value > 0
                                           ? "${((343 / controller.currentFreq.value) * 100).toStringAsFixed(2)}cm"
@@ -585,6 +619,194 @@ class NeomGeneratorPage extends StatelessWidget {
                           ),
                         ],
                       ),
+                    ),
+                  ),
+                  AppTheme.heightSpace10,
+                  // Botones de visualización inmersiva
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        // Botón Flocking
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Get.toNamed(
+                                AppRouteConstants.flockingFullscreen,
+                                arguments: controller.painterEngine,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppColor.bondiBlue.withOpacity(0.2),
+                                    Colors.purple.withOpacity(0.2),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColor.bondiBlue.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.scatter_plot, color: AppColor.bondiBlue, size: 20),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      GeneratorTranslationConstants.neuroFlocking.tr.toUpperCase(),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        letterSpacing: 1,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // Botón VR 360
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Get.toNamed(
+                                AppRouteConstants.spatial360Fullscreen,
+                                arguments: controller.painterEngine,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.indigo.withOpacity(0.2),
+                                    Colors.deepPurple.withOpacity(0.2),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.indigo.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.vrpano, color: Colors.indigo.shade300, size: 20),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      GeneratorTranslationConstants.spatiality.tr.toUpperCase(),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        letterSpacing: 1,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AppTheme.heightSpace10,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        // Botón Flocking
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Get.toNamed(
+                                AppRouteConstants.breathingFullscreen,
+                                arguments: controller.painterEngine,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.teal.withOpacity(0.2),
+                                    Colors.cyan.withOpacity(0.2),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.teal.withOpacity(0.4)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.air, color: Colors.teal.shade300, size: 22),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    GeneratorTranslationConstants.breathing.tr.toUpperCase(),
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      letterSpacing: 1.5,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // Botón VR 360
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Get.toNamed(
+                                AppRouteConstants.vr360StereoFullscreen,
+                                arguments: controller.painterEngine,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.indigo.withOpacity(0.2),
+                                    Colors.deepPurple.withOpacity(0.2),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.indigo.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(FontAwesomeIcons.vrCardboard, color: Colors.indigo.shade300, size: 20),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      AppTranslationConstants.virtualReality.tr.toUpperCase(),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        letterSpacing: 1,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   AppTheme.heightSpace10,
@@ -689,7 +911,7 @@ class NeomGeneratorPage extends StatelessWidget {
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: NeomChamberTimeMeter(
+                    child: SessionChamberTimeMeter(
                       referenceId: controller.chamberPreset.id,
                       showTitle: false
                     ),
@@ -748,197 +970,6 @@ class NeomGeneratorPage extends StatelessWidget {
       // )
     ),),
     );
-  }
-
-  // --- WIDGETS AUXILIARES PARA EL DISEÑO CIENTÍFICO ---
-
-  Widget _buildScienceParamCard({required String title, required String value, required double percent, required Color color, bool isProgress = true}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Courier')),
-          ],
-        ),
-        if(isProgress) ...[
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: percent,
-              backgroundColor: Colors.white10,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 4,
-            ),
-          ),
-        ]
-      ],
-    );
-  }
-
-  Widget _buildAxisIndicator(String label, double value, Color color) {
-    // Normalizar valor de -1.0 a 1.0 para visualización (0.0 a 1.0)
-    // El slider va de -10 a 10 normalmente, ajusta según NeomGeneratorConstants
-    double normalized = (value - NeomGeneratorConstants.positionMin) / (NeomGeneratorConstants.positionMax - NeomGeneratorConstants.positionMin);
-    // Clamp por seguridad
-    normalized = normalized.clamp(0.0, 1.0);
-
-    return Container(
-      width: 100,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-          color: Colors.black26,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white10)
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-              Text(value.toString(), style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Courier')),
-            ],
-          ),
-          const SizedBox(height: 5),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: normalized,
-              backgroundColor: Colors.white10,
-              valueColor: AlwaysStoppedAnimation<Color>(color.withOpacity(0.7)),
-              minHeight: 5,
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  // --- LÓGICA MATEMÁTICA PARA NOTAS ---
-  String _getNoteFromFrequency(double frequency) {
-    if (frequency <= 0) return "--";
-    // Fórmula: n = 12 * log2(f / 440) + 69
-    // 69 es el número MIDI de A4 (440Hz)
-    final n = 12 * (math.log(frequency / 440) / math.log(2)) + 69;
-    final midiNumber = n.round();
-
-    final notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    final octave = (midiNumber ~/ 12) - 1;
-    final noteIndex = midiNumber % 12;
-
-    if (midiNumber < 0 || noteIndex < 0) return "?";
-
-    return "${notes[noteIndex]}$octave";
-  }
-
-  Widget _buildCompactStat(String label, String value, Color color) {
-    return Row(
-      children: [
-        Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 20)),
-        const SizedBox(width: 5),
-        Text(value, style: const TextStyle(color: Colors.white70, fontFamily: 'Courier', fontSize: 20)),
-      ],
-    );
-  }
-
-  Widget _buildCircleBtn({required IconData icon, required Color color, required Function() onTap, Function()? onLongPress, Function()? onLongPressUp}) {
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      onLongPressUp: onLongPressUp,
-      child: Container(
-        width: 50, height: 50,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color,
-        ),
-        child: Icon(icon, color: Colors.white, size: 20),
-      ),
-    );
-  }
-
-  void _showSaveDialog(BuildContext context, NeomGeneratorController controller) {
-    Alert(
-      context: context,
-      style: AlertStyle(
-          backgroundColor: AppColor.main75,
-          titleStyle: const TextStyle(color: Colors.white),
-          descStyle: const TextStyle(color: Colors.white70)
-      ),
-      title: GeneratorTranslationConstants.chamberPrefs.tr,
-      content: Column(
-        children: <Widget>[
-          Obx(()=>
-              DropdownButton<String>(
-                items: AppItemState.values.map((AppItemState itemState) {
-                  return DropdownMenuItem<String>(
-                      value: itemState.name,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          Text(itemState.name.tr),
-                          if(itemState.value != 0) ...[
-                            const SizedBox(width: 10),
-                            RatingBar(
-                              initialRating: itemState.value.toDouble(),
-                              minRating: 1,
-                              ignoreGestures: true,
-                              direction: Axis.horizontal,
-                              allowHalfRating: false,
-                              itemCount: 5,
-                              ratingWidget: RatingWidget(
-                                full: AppUtilities.ratingImage(AppAssets.heart),
-                                half: AppUtilities.ratingImage(AppAssets.heartHalf),
-                                empty: AppUtilities.ratingImage(AppAssets.heartBorder),
-                              ),
-                              itemPadding: const EdgeInsets.symmetric(horizontal: 1.0),
-                              itemSize: 10,
-                              onRatingUpdate: (rating) {},
-                            ),
-                          ]
-                        ],
-                      )
-                  );
-                }).toList(),
-                onChanged: (String? newItemState) {
-                  controller.setFrequencyState(EnumToString.fromString(AppItemState.values, newItemState!) ?? AppItemState.noState);
-                },
-                value: CoreUtilities.getItemState(controller.frequencyState.value).name,
-                isExpanded: true,
-                dropdownColor: AppColor.main75,
-                style: const TextStyle(color: Colors.white),
-                underline: Container(height: 1, color: AppColor.bondiBlue),
-              )
-          ),
-        ],
-      ),
-      buttons: [
-        DialogButton(
-          color: AppColor.bondiBlue,
-          child: Obx(()=>controller.isLoading.value ? const Center(child: CircularProgressIndicator(color: Colors.white))
-              : Text(AppTranslationConstants.add.tr, style: const TextStyle(color: Colors.white, fontSize: 16),
-          )),
-          onPressed: () async {
-            if(controller.frequencyState > 0) {
-              await controller.addPreset(context, frequencyPracticeState: controller.frequencyState.value);
-              Navigator.pop(context);
-            } else {
-              Get.snackbar(
-                  CommonTranslationConstants.appItemPrefs.tr,
-                  MessageTranslationConstants.selectItemStateMsg.tr,
-                  snackPosition: SnackPosition.bottom,
-                  backgroundColor: AppColor.main50,
-                  colorText: Colors.white
-              );
-            }
-          },
-        )],
-    ).show();
   }
 
 }
