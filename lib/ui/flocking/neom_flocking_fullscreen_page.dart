@@ -134,12 +134,20 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
                       ),
                     ),
 
+                  // Panel de controles (lado izquierdo)
+                  Positioned(
+                    left: 10,
+                    top: 0,
+                    bottom: 0,
+                    child: _buildLeftControlPanel(controller),
+                  ),
+
                   // Panel de controles (lado derecho)
                   Positioned(
                     right: 10,
                     top: 0,
                     bottom: 0,
-                    child: _buildControlPanel(controller),
+                    child: _buildRightControlPanel(controller),
                   ),
 
                   // Botón de salir
@@ -171,14 +179,45 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
     );
   }
 
-  Widget _buildControlPanel(NeomFlockingController controller) {
+  Widget _buildLeftControlPanel(NeomFlockingController controller) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Velocidad
+        _buildSliderControl(
+          icon: Icons.speed,
+          label: 'SPD',
+          value: controller.maxSpeed.value,
+          min: 1.0,
+          max: 8.0,
+          onChanged: controller.setSpeed,
+        ),
+        const SizedBox(height: 20),
+
+        // Toggles
+        _buildToggleButton(
+          icon: Icons.hub,
+          isActive: controller.showConnections.value,
+          onTap: controller.toggleConnections,
+        ),
+        const SizedBox(height: 8),
+        _buildToggleButton(
+          icon: Icons.blur_on,
+          isActive: controller.showGlow.value,
+          onTap: controller.toggleGlow,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRightControlPanel(NeomFlockingController controller) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         // Cantidad de boids
         _buildControlGroup(
           icon: Icons.scatter_plot,
-          label: 'BOIDS',
+          label: 'NOID',
           value: controller.boidCount.value.toString(),
           onIncrease: controller.increaseBoids,
           onDecrease: controller.decreaseBoids,
@@ -204,31 +243,6 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
           min: 0.0,
           max: 2.0,
           onChanged: controller.setCohesion,
-        ),
-        const SizedBox(height: 15),
-
-        // Velocidad
-        _buildSliderControl(
-          icon: Icons.speed,
-          label: 'SPD',
-          value: controller.maxSpeed.value,
-          min: 1.0,
-          max: 8.0,
-          onChanged: controller.setSpeed,
-        ),
-        const SizedBox(height: 20),
-
-        // Toggles
-        _buildToggleButton(
-          icon: Icons.hub,
-          isActive: controller.showConnections.value,
-          onTap: controller.toggleConnections,
-        ),
-        const SizedBox(height: 8),
-        _buildToggleButton(
-          icon: Icons.blur_on,
-          isActive: controller.showGlow.value,
-          onTap: controller.toggleGlow,
         ),
       ],
     );

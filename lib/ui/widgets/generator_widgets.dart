@@ -1,5 +1,8 @@
+import 'dart:math' as math; // Necesario para calcular la nota musical
+
 import 'package:enum_to_string/enum_to_string.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:get/get.dart';
 import 'package:neom_commons/app_flavour.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
@@ -7,9 +10,12 @@ import 'package:neom_commons/ui/theme/app_theme.dart';
 import 'package:neom_commons/ui/widgets/images/handled_cached_network_image.dart';
 import 'package:neom_commons/ui/widgets/rating_heart_bar.dart';
 import 'package:neom_commons/utils/app_alerts.dart';
+import 'package:neom_commons/utils/app_utilities.dart';
+import 'package:neom_commons/utils/constants/app_assets.dart';
 import 'package:neom_commons/utils/constants/app_constants.dart';
 import 'package:neom_commons/utils/constants/translations/app_translation_constants.dart';
 import 'package:neom_commons/utils/constants/translations/common_translation_constants.dart';
+import 'package:neom_commons/utils/constants/translations/message_translation_constants.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/app_properties.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber.dart';
@@ -21,12 +27,6 @@ import 'package:neom_core/utils/enums/app_item_state.dart';
 import 'package:neom_core/utils/enums/chamber_preset_state.dart';
 import 'package:neom_core/utils/enums/profile_type.dart';
 import 'package:rflutter_alert/rflutter_alert.dart';
-import 'dart:math' as math; // Necesario para calcular la nota musical
-
-import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:neom_commons/utils/app_utilities.dart';
-import 'package:neom_commons/utils/constants/app_assets.dart';
-import 'package:neom_commons/utils/constants/translations/message_translation_constants.dart';
 
 import '../../utils/constants/generator_translation_constants.dart';
 import '../../utils/constants/neom_generator_constants.dart';

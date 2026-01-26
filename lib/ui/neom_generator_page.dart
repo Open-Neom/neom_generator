@@ -110,7 +110,7 @@ class NeomGeneratorPage extends StatelessWidget {
               ),
             ),
           ),
-          AppTheme.heightSpace20,
+          AppTheme.heightSpace30,
           Obx(() {
               // AudioParam currentParam = controller.getAudioParam();
               String note = getNoteFromFrequency(controller.currentFreq.value);
@@ -443,6 +443,264 @@ class NeomGeneratorPage extends StatelessWidget {
                       ],
                     ),
                   ),
+                  AppTheme.heightSpace20,
+                  // Botones de visualización inmersiva
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        // Botón Flocking
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Get.toNamed(
+                                AppRouteConstants.flockingFullscreen,
+                                arguments: controller.painterEngine,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    AppColor.bondiBlue.withOpacity(0.2),
+                                    Colors.purple.withOpacity(0.2),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColor.bondiBlue.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.scatter_plot, color: AppColor.bondiBlue, size: 20),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      AppTranslationConstants.attention.tr.toUpperCase(),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        letterSpacing: 1,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // Botón VR 360
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Get.toNamed(
+                                AppRouteConstants.spatial360Fullscreen,
+                                arguments: controller.painterEngine,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.indigo.withOpacity(0.2),
+                                    Colors.deepPurple.withOpacity(0.2),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.indigo.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.vrpano, color: Colors.indigo.shade300, size: 20),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      GeneratorTranslationConstants.spatiality.tr.toUpperCase(),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        letterSpacing: 1,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AppTheme.heightSpace10,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        // Botón Flocking
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Get.toNamed(
+                                AppRouteConstants.breathingFullscreen,
+                                arguments: controller.painterEngine,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.teal.withOpacity(0.2),
+                                    Colors.cyan.withOpacity(0.2),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.teal.withOpacity(0.4)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.air, color: Colors.teal.shade300, size: 22),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    GeneratorTranslationConstants.breathing.tr.toUpperCase(),
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      letterSpacing: 1.5,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // Botón VR 360
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              Get.toNamed(
+                                AppRouteConstants.vr360StereoFullscreen,
+                                arguments: controller.painterEngine,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.indigo.withOpacity(0.2),
+                                    Colors.deepPurple.withOpacity(0.2),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.indigo.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(FontAwesomeIcons.vrCardboard, color: Colors.indigo.shade300, size: 20),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      AppTranslationConstants.virtualReality.tr.toUpperCase(),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        letterSpacing: 1,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  AppTheme.heightSpace10,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.volume_up, size: 18, color: Colors.white70),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: SizedBox(
+                              height: 20,
+                              child: SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  activeTrackColor: AppColor.bondiBlue,
+                                  inactiveTrackColor: Colors.white12,
+                                  thumbColor: Colors.white,
+                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                  trackHeight: 2.0,
+                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                                ),
+                                child: Slider(
+                                  value: controller.currentVol.value,
+                                  min: NeomGeneratorConstants.volumeMin,
+                                  max: NeomGeneratorConstants.volumeMax,
+                                  onChanged: (val) {
+                                    controller.setVolume(val);
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            "${(controller.currentVol.value * 100).round()}%",
+                            style: const TextStyle(color: Colors.white, fontFamily: 'Courier', fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  AppTheme.heightSpace30,
+                  SizedBox(
+                    height: AppTheme.fullHeight(context) * 0.01,
+                    width: double.infinity,
+                    child: CustomPaint(
+                      painter: FrequencyPainter(
+                          engine: controller.painterEngine,
+                          color: AppColor.bondiBlue
+                      ),
+                      willChange: true,
+                    ),
+                  ),
+                  AppTheme.heightSpace5,
+                  SizedBox(
+                    height: AppTheme.fullHeight(context) * 0.01,
+                    width: double.infinity,
+                    child: CustomPaint(
+                      painter: NeomBinauralBeatPainter(
+                        engine: controller.painterEngine,
+                        beatHz: controller.currentBeat.value,
+                        intensity: controller.modulationDepth.value.clamp(0.2, 1.0),
+                        color: AppColor.bondiBlue,
+                      ),
+                    ),
+                  ),
                   AppTheme.heightSpace10,
                   //TODO Add visual mode
                   // const NeomVisualModeControlPanel(),
@@ -459,9 +717,9 @@ class NeomGeneratorPage extends StatelessWidget {
                               width: double.infinity,
                               child: CustomPaint(
                                 painter: OscilloscopePainter(
-                                    engine: controller.painterEngine,
-                                    signalColor: AppColor.bondiBlue,
-                                    gridColor: Colors.white12,
+                                  engine: controller.painterEngine,
+                                  signalColor: AppColor.bondiBlue,
+                                  gridColor: Colors.white12,
                                 ),
                                 willChange: true,
                               ),
@@ -619,194 +877,6 @@ class NeomGeneratorPage extends StatelessWidget {
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  AppTheme.heightSpace10,
-                  // Botones de visualización inmersiva
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        // Botón Flocking
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              Get.toNamed(
-                                AppRouteConstants.flockingFullscreen,
-                                arguments: controller.painterEngine,
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppColor.bondiBlue.withOpacity(0.2),
-                                    Colors.purple.withOpacity(0.2),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColor.bondiBlue.withOpacity(0.3)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.scatter_plot, color: AppColor.bondiBlue, size: 20),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      GeneratorTranslationConstants.neuroFlocking.tr.toUpperCase(),
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        letterSpacing: 1,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        // Botón VR 360
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              Get.toNamed(
-                                AppRouteConstants.spatial360Fullscreen,
-                                arguments: controller.painterEngine,
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.indigo.withOpacity(0.2),
-                                    Colors.deepPurple.withOpacity(0.2),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.indigo.withOpacity(0.3)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.vrpano, color: Colors.indigo.shade300, size: 20),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      GeneratorTranslationConstants.spatiality.tr.toUpperCase(),
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        letterSpacing: 1,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AppTheme.heightSpace10,
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        // Botón Flocking
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              Get.toNamed(
-                                AppRouteConstants.breathingFullscreen,
-                                arguments: controller.painterEngine,
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.teal.withOpacity(0.2),
-                                    Colors.cyan.withOpacity(0.2),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.teal.withOpacity(0.4)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.air, color: Colors.teal.shade300, size: 22),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    GeneratorTranslationConstants.breathing.tr.toUpperCase(),
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      letterSpacing: 1.5,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        // Botón VR 360
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              Get.toNamed(
-                                AppRouteConstants.vr360StereoFullscreen,
-                                arguments: controller.painterEngine,
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.indigo.withOpacity(0.2),
-                                    Colors.deepPurple.withOpacity(0.2),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.indigo.withOpacity(0.3)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(FontAwesomeIcons.vrCardboard, color: Colors.indigo.shade300, size: 20),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      AppTranslationConstants.virtualReality.tr.toUpperCase(),
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 11,
-                                        letterSpacing: 1,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                   AppTheme.heightSpace10,

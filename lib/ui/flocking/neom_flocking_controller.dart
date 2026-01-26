@@ -14,7 +14,7 @@ class NeomFlockingController extends GetxController {
   Timer? _simulationTimer;
 
   // Controles de UI
-  final RxInt boidCount = 150.obs;
+  final RxInt boidCount = 100.obs;
   final RxBool showConnections = true.obs;
   final RxBool showGlow = true.obs;
   final RxBool isRunning = true.obs;

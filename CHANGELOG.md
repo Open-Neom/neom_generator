@@ -1,4 +1,8 @@
 ## 1.3.0-dev - Architectural Enhancements and Refactoring:
+- Huge refactor and improvements.
+- Implementation of painter engines and new ways to use generator and chamber.
+
+## 1.3.0-dev - Architectural Enhancements and Refactoring:
 
 Translation Constants Modularization:
 
