@@ -2,7 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:get/get.dart';
+import 'package:neom_commons/domain/extensions/double_extensions.dart';
+import 'package:sint/sint.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
 import 'package:neom_commons/ui/widgets/appbar_child.dart';
@@ -40,7 +41,7 @@ class NeomGeneratorPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetBuilder<NeomGeneratorController>(
+    return SintBuilder<NeomGeneratorController>(
       id: AppPageIdConstants.generator,
       init: NeomGeneratorController(),
       builder: (controller) => WillPopScope(
@@ -453,7 +454,7 @@ class NeomGeneratorPage extends StatelessWidget {
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
-                              Get.toNamed(
+                              Sint.toNamed(
                                 AppRouteConstants.flockingFullscreen,
                                 arguments: controller.painterEngine,
                               );
@@ -497,7 +498,7 @@ class NeomGeneratorPage extends StatelessWidget {
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
-                              Get.toNamed(
+                              Sint.toNamed(
                                 AppRouteConstants.spatial360Fullscreen,
                                 arguments: controller.painterEngine,
                               );
@@ -548,7 +549,7 @@ class NeomGeneratorPage extends StatelessWidget {
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
-                              Get.toNamed(
+                              Sint.toNamed(
                                 AppRouteConstants.breathingFullscreen,
                                 arguments: controller.painterEngine,
                               );
@@ -589,7 +590,7 @@ class NeomGeneratorPage extends StatelessWidget {
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
-                              Get.toNamed(
+                              Sint.toNamed(
                                 AppRouteConstants.vr360StereoFullscreen,
                                 arguments: controller.painterEngine,
                               );
@@ -730,7 +731,7 @@ class NeomGeneratorPage extends StatelessWidget {
                               bottom: 10,
                               child: GestureDetector(
                                 onTap: () {
-                                  Get.toNamed(
+                                  Sint.toNamed(
                                     AppRouteConstants.oscilloscopeFullscreen,
                                     arguments: controller.painterEngine,
                                   );
@@ -1015,7 +1016,7 @@ class NeomGeneratorPage extends StatelessWidget {
       //     mini: true,
       //     child: Icon(FontAwesomeIcons.vrCardboard, size: 12,color: Colors.white,),
       //     onPressed: ()=>{
-      //       // Get.to(() => PanoramaView())
+      //       // Sint.to(() => PanoramaView())
       //     },
       //   ),
       //   FloatingActionButton(
@@ -1024,7 +1025,7 @@ class NeomGeneratorPage extends StatelessWidget {
       //     mini: true,
       //     child: Icon(FontAwesomeIcons.globe, size: 12,color: Colors.white,),
       //     onPressed: ()=> {
-      //       // Get.to(() => VideoSection())
+      //       // Sint.to(() => VideoSection())
       //     },
       //   ),
       //     FloatingActionButton(

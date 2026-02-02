@@ -1,4 +1,4 @@
-import 'package:get/get.dart';
+import 'package:sint/sint.dart';
 import 'package:neom_commons/app_flavour.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_core/app_config.dart';
@@ -16,9 +16,9 @@ import '../../data/firestore/chamber_firestore.dart';
 import '../../domain/use_cases/chamber_preset_service.dart';
 import '../../utils/constants/generator_translation_constants.dart';
 
-class ChamberPresetController extends GetxController implements ChamberPresetService {
+class ChamberPresetController extends SintController implements ChamberPresetService {
 
-  final userServiceImpl = Get.find<UserService>();
+  final userServiceImpl = Sint.find<UserService>();
 
   NeomChamberPreset chamberPreset = NeomChamberPreset();
   NeomChamber chamber = NeomChamber();
@@ -45,8 +45,8 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
       band = userServiceImpl.band;
       chamberOwner = userServiceImpl.itemlistOwnerType;
 
-      if(Get.arguments != null) {
-        List<dynamic> arguments = Get.arguments;
+      if(Sint.arguments != null) {
+        List<dynamic> arguments = Sint.arguments;
         if(arguments[0] is NeomChamber) {
           chamber =  arguments[0];
         } else if(arguments[0] is String) {
@@ -119,7 +119,7 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
         AppConfig.logger.e(e.toString());
       }
 
-      Get.back();
+      Sint.back();
       update([AppPageIdConstants.chamberPresets]);
     }
   }
@@ -186,7 +186,7 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
       return false;
     }
 
-    Get.back();
+    Sint.back();
     update([AppPageIdConstants.chamberPresets, AppPageIdConstants.chamber]);
     return true;
   }
@@ -207,7 +207,7 @@ class ChamberPresetController extends GetxController implements ChamberPresetSer
 
     NeomChamberPreset chamberPreset = chamber.chamberPresets?.firstWhere((element) => element.name == appMediaItem.name) ?? NeomChamberPreset();
     if(chamberPreset.name.isNotEmpty) {
-      Get.toNamed(AppFlavour.getMainItemDetailsRoute(), arguments: [chamberPreset.clone()]
+      Sint.toNamed(AppFlavour.getMainItemDetailsRoute(), arguments: [chamberPreset.clone()]
       );
     }
 

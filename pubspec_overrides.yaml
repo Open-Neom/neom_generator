@@ -5,5 +5,7 @@ dependency_overrides:
     path: ../neom_commons
   neom_vr:
     path: ../neom_vr
-  package_info_plus: 9.0.0
+  sint:
+    path: ../sint
+#  package_info_plus: 9.0.0
 

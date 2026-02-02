@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:sint/sint.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
 import 'package:neom_commons/ui/widgets/appbar_child.dart';
@@ -17,7 +17,7 @@ class ChamberPresetsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetBuilder<ChamberPresetController>(
+    return SintBuilder<ChamberPresetController>(
       id: AppPageIdConstants.chamberPresets,
       init: ChamberPresetController(),
       builder: (controller) => Scaffold(
@@ -36,7 +36,7 @@ class ChamberPresetsPage extends StatelessWidget {
             : FloatingActionButton(
           tooltip: CommonTranslationConstants.addItem.tr,
           onPressed: ()=> {
-            Get.toNamed(AppRouteConstants.itemSearch,
+            Sint.toNamed(AppRouteConstants.itemSearch,
                 arguments: [MediaSearchType.song, controller.chamber])
           },
           child: const Icon(Icons.playlist_add),

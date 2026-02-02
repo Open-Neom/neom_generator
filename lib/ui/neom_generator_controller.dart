@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_sound/flutter_sound.dart';
-import 'package:get/get.dart';
+import 'package:sint/sint.dart';
 import 'package:neom_commons/utils/app_utilities.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_commons/utils/constants/translations/app_translation_constants.dart';
@@ -40,7 +40,7 @@ import '../utils/enums/neom_numeric_target.dart';
 import '../utils/enums/neom_spatial_mode.dart';
 import '../utils/enums/neom_visual_mode.dart';
 
-class NeomGeneratorController extends GetxController implements NeomGeneratorService {
+class NeomGeneratorController extends SintController implements NeomGeneratorService {
 
   UserService? userServiceImpl;
   FrequencyService? frequencyServiceImpl;
@@ -107,7 +107,7 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
   @override
   void onInit() async {
     super.onInit();
-    List<dynamic> arguments  = Get.arguments ?? [];
+    List<dynamic> arguments  = Sint.arguments ?? [];
     painterEngine = NeomFrequencyPainterEngine();
     _sineEngine.painterEngine = painterEngine; // 🔗 conexión directa
     try {
@@ -119,8 +119,8 @@ class NeomGeneratorController extends GetxController implements NeomGeneratorSer
         }
       }
 
-      if(Get.isRegistered<UserService>()) userServiceImpl = Get.find<UserService>();
-      if(Get.isRegistered<FrequencyService>()) frequencyServiceImpl = Get.find<FrequencyService>();
+      if(Sint.isRegistered<UserService>()) userServiceImpl = Sint.find<UserService>();
+      if(Sint.isRegistered<FrequencyService>()) frequencyServiceImpl = Sint.find<FrequencyService>();
 
       profile = userServiceImpl?.profile;
       isAdmin = (userServiceImpl?.user.userRole.value ?? UserRole.subscriber.value) <= UserRole.admin.value;

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:sint/sint.dart';
 
 import '../../engine/neom_modulator_engine.dart';
 import '../neom_generator_controller.dart';
@@ -9,7 +9,7 @@ class NeomModulationControlPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<NeomGeneratorController>();
+    final controller = Sint.find<NeomGeneratorController>();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),

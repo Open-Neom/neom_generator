@@ -1,10 +1,10 @@
 import 'package:flutter/services.dart';
-import 'package:get/get.dart';
+import 'package:sint/sint.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 
 import '../../engine/neom_frequency_painter_engine.dart';
 
-class NeomOscilloscopeController extends GetxController {
+class NeomOscilloscopeController extends SintController {
 
   late NeomFrequencyPainterEngine painterEngine;
 
@@ -44,10 +44,10 @@ class NeomOscilloscopeController extends GetxController {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     // Recibir el engine del generador
-    if (Get.arguments != null && Get.arguments is NeomFrequencyPainterEngine) {
-      painterEngine = Get.arguments;
-    } else if (Get.isRegistered<NeomFrequencyPainterEngine>()) {
-      painterEngine = Get.find<NeomFrequencyPainterEngine>();
+    if (Sint.arguments != null && Sint.arguments is NeomFrequencyPainterEngine) {
+      painterEngine = Sint.arguments;
+    } else if (Sint.isRegistered<NeomFrequencyPainterEngine>()) {
+      painterEngine = Sint.find<NeomFrequencyPainterEngine>();
     } else {
       painterEngine = NeomFrequencyPainterEngine();
     }
@@ -151,6 +151,6 @@ class NeomOscilloscopeController extends GetxController {
   }
 
   void exitFullscreen() {
-    Get.back();
+    Sint.back();
   }
 }

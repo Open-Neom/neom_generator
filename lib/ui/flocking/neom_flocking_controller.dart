@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
-import 'package:get/get.dart';
+import 'package:sint/sint.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 
 import '../../engine/neom_flocking_engine.dart';
 import '../../engine/neom_frequency_painter_engine.dart';
 
-class NeomFlockingController extends GetxController {
+class NeomFlockingController extends SintController {
 
   late NeomFlockingEngine flockingEngine;
   NeomFrequencyPainterEngine? painterEngine;
@@ -46,10 +46,10 @@ class NeomFlockingController extends GetxController {
     flockingEngine = NeomFlockingEngine();
 
     // Recibir el painter engine del generador (para sincronización de audio)
-    if (Get.arguments != null && Get.arguments is NeomFrequencyPainterEngine) {
-      painterEngine = Get.arguments;
-    } else if (Get.isRegistered<NeomFrequencyPainterEngine>()) {
-      painterEngine = Get.find<NeomFrequencyPainterEngine>();
+    if (Sint.arguments != null && Sint.arguments is NeomFrequencyPainterEngine) {
+      painterEngine = Sint.arguments;
+    } else if (Sint.isRegistered<NeomFrequencyPainterEngine>()) {
+      painterEngine = Sint.find<NeomFrequencyPainterEngine>();
     }
   }
 
@@ -188,7 +188,7 @@ class NeomFlockingController extends GetxController {
   }
 
   void exitFullscreen() {
-    Get.back();
+    Sint.back();
   }
 
   void updateCanvasSize(double width, double height) {

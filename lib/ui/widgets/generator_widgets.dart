@@ -3,7 +3,7 @@ import 'dart:math' as math; // Necesario para calcular la nota musical
 import 'package:enum_to_string/enum_to_string.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:get/get.dart';
+import 'package:sint/sint.dart';
 import 'package:neom_commons/app_flavour.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
@@ -71,7 +71,7 @@ Widget buildChamberList(BuildContext context, ChamberController chamberControlle
             // if(!chamber.isModifiable) {
             //   await chamberController.gotoChamberPresets(chamber);
             // } else {
-            //   Get.toNamed(AppRouteConstants.itemSearch,
+            //   Sint.toNamed(AppRouteConstants.itemSearch,
             //       arguments: [SpotifySearchType.song, chamber]
             //   );
             // }
@@ -180,7 +180,7 @@ Widget buildPresetsList(BuildContext context, ChamberPresetController presetCont
               constraints: const BoxConstraints(),
               onPressed: () {
                 NeomChamberPreset preset = presetController.chamber.chamberPresets!.firstWhere((element) => element.id == chamberPreset.id);
-                Get.toNamed(AppRouteConstants.generator,  arguments: [preset.clone()]);
+                Sint.toNamed(AppRouteConstants.generator,  arguments: [preset.clone()]);
               }
           ),
           onTap: () {
@@ -188,7 +188,7 @@ Widget buildPresetsList(BuildContext context, ChamberPresetController presetCont
               presetController.getChamberPresetDetails(chamberPreset);
             } else {
               NeomChamberPreset preset = presetController.chamber.chamberPresets!.firstWhere((element) => element.id == chamberPreset.id);
-              Get.toNamed(AppRouteConstants.generator,  arguments: [preset.clone()]);
+              Sint.toNamed(AppRouteConstants.generator,  arguments: [preset.clone()]);
             }
           },
           onLongPress: () => presetController.chamber.isModifiable && (AppConfig.instance.appInUse != AppInUse.c || !presetController.isFixed) ? Alert(
@@ -436,7 +436,7 @@ void showSaveDialog(BuildContext context, NeomGeneratorController controller) {
             await controller.addPreset(context, frequencyPracticeState: controller.frequencyState.value);
             Navigator.pop(context);
           } else {
-            Get.snackbar(
+            Sint.snackbar(
                 CommonTranslationConstants.appItemPrefs.tr,
                 MessageTranslationConstants.selectItemStateMsg.tr,
                 snackPosition: SnackPosition.bottom,

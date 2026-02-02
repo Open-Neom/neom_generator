@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart';
-import 'package:get/get.dart';
+import 'package:sint/sint.dart';
 import 'package:neom_commons/utils/app_utilities.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_commons/utils/constants/translations/common_translation_constants.dart';
@@ -16,9 +16,9 @@ import 'package:neom_core/utils/enums/owner_type.dart';
 import '../../data/firestore/chamber_firestore.dart';
 import '../../utils/constants/generator_translation_constants.dart';
 
-class ChamberController extends GetxController implements ChamberService {
+class ChamberController extends SintController implements ChamberService {
 
-  final userServiceImpl = Get.find<UserService>();
+  final userServiceImpl = Sint.find<UserService>();
 
   NeomChamber currentChamber = NeomChamber();
 
@@ -63,9 +63,9 @@ class ChamberController extends GetxController implements ChamberService {
       ownerId = profile.id;
       ownerName = profile.name;
 
-      if(Get.arguments != null) {
-        if(Get.arguments.isNotEmpty && Get.arguments[0] is Band) {
-          band = Get.arguments[0];
+      if(Sint.arguments != null) {
+        if(Sint.arguments.isNotEmpty && Sint.arguments[0] is Band) {
+          band = Sint.arguments[0];
           userServiceImpl.band = band!;
         }
 
@@ -290,7 +290,7 @@ class ChamberController extends GetxController implements ChamberService {
 
   @override
   Future<void> gotoChamberPresets(NeomChamber chamber) async {
-    await Get.toNamed(AppRouteConstants.chamberPresets, arguments: [chamber]);
+    await Sint.toNamed(AppRouteConstants.chamberPresets, arguments: [chamber]);
     update([AppPageIdConstants.chamber]);
   }
 

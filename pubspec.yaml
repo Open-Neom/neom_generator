@@ -1,6 +1,6 @@
 name: neom_generator
 description: Neom Generator for Open Neom.
-version: 2.0.0-dev
+version: 2.0.0
 homepage: https://github.com/Open-Neom/neom_generator
 
 environment:
@@ -30,16 +30,16 @@ dependencies:
   #tonic: ^0.2.4
 
   # TRANSITIVE DEPENDENCIES FOR PUB.DEV PUBLISHING
-  cloud_firestore: ^6.0.0
-  get: ^5.0.0-release-candidate-9.3.2
-  enum_to_string: ^2.2.1
-  rflutter_alert: ^2.0.7
-  permission_handler: ^12.0.1 # Corrected to the version in the log
-  webview_flutter: ^4.13.0
-  webview_flutter_platform_interface: ^2.14.0
-  flutter_rating_bar: ^4.0.1
-  font_awesome_flutter: ^10.9.0
-  path_provider: ^2.1.5 # Inferred from file system access
+#  cloud_firestore: ^6.0.0
+#  get: ^5.0.0-release-candidate-9.3.2
+#  enum_to_string: ^2.2.1
+#  rflutter_alert: ^2.0.7
+#  permission_handler: ^12.0.1 # Corrected to the version in the log
+#  webview_flutter: ^4.13.0
+#  webview_flutter_platform_interface: ^2.14.0
+#  flutter_rating_bar: ^4.0.1
+#  font_awesome_flutter: ^10.9.0
+#  path_provider: ^2.1.5 # Inferred from file system access
 
 dev_dependencies:
   flutter_test:

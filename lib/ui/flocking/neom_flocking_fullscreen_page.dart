@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:sint/sint.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 
@@ -11,7 +11,7 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetBuilder<NeomFlockingController>(
+    return SintBuilder<NeomFlockingController>(
       id: AppPageIdConstants.flocking,
       init: NeomFlockingController(),
       builder: (controller) => Scaffold(

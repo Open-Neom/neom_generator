@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:sint/sint.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 
@@ -11,7 +11,7 @@ class NeomOscilloscopeFullscreenPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetBuilder<NeomOscilloscopeController>(
+    return SintBuilder<NeomOscilloscopeController>(
       id: AppPageIdConstants.oscilloscope,
       init: NeomOscilloscopeController(),
       builder: (controller) => Scaffold(
