@@ -70,7 +70,7 @@ class NeomBreathingPainter extends CustomPainter {
     final rect = Rect.fromLTWH(0, 0, size.width, size.height);
 
     // Gradiente basado en fase
-    final topColor = engine.sphereColor.withOpacity(0.15);
+    final topColor = engine.sphereColor.withValues(alpha: 0.15);
     final bottomColor = Colors.black;
 
     final gradient = LinearGradient(
@@ -87,7 +87,7 @@ class NeomBreathingPainter extends CustomPainter {
 
     // Líneas sutiles de guía
     final linePaint = Paint()
-      ..color = Colors.white.withOpacity(0.03)
+      ..color = Colors.white.withValues(alpha: 0.03)
       ..strokeWidth = 1;
 
     for (int i = 1; i < 10; i++) {
@@ -130,7 +130,7 @@ class NeomBreathingPainter extends CustomPainter {
       final distToSphere = (py - sphereY).abs() / size.height;
       final opacity = particle.opacity * (0.3 + (1 - distToSphere) * 0.7);
 
-      paint.color = engine.sphereColor.withOpacity(opacity * 0.5);
+      paint.color = engine.sphereColor.withValues(alpha: opacity * 0.5);
 
       canvas.drawCircle(
         Offset(px, py),
@@ -146,7 +146,7 @@ class NeomBreathingPainter extends CustomPainter {
     final guideWidth = size.width * 0.4;
 
     final guidePaint = Paint()
-      ..color = engine.sphereColor.withOpacity(0.08)
+      ..color = engine.sphereColor.withValues(alpha: 0.08)
       ..style = PaintingStyle.fill;
 
     final guideRect = RRect.fromRectAndRadius(
@@ -162,7 +162,7 @@ class NeomBreathingPainter extends CustomPainter {
 
     // Borde de la guía
     final borderPaint = Paint()
-      ..color = engine.sphereColor.withOpacity(0.15)
+      ..color = engine.sphereColor.withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
@@ -174,7 +174,7 @@ class NeomBreathingPainter extends CustomPainter {
 
   void _drawDirectionArrows(Canvas canvas, Size size, double centerX, double guideWidth) {
     final arrowPaint = Paint()
-      ..color = engine.sphereColor.withOpacity(0.2)
+      ..color = engine.sphereColor.withValues(alpha: 0.2)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
@@ -187,7 +187,7 @@ class NeomBreathingPainter extends CustomPainter {
       final yOffset = size.height * 0.3 + i * 80;
       final opacity = 0.1 + (engine.getPhaseProgress() * 0.2);
 
-      arrowPaint.color = engine.sphereColor.withOpacity(opacity);
+      arrowPaint.color = engine.sphereColor.withValues(alpha: opacity);
 
       final arrowY = isGoingUp ? yOffset : size.height - yOffset;
 
@@ -215,7 +215,7 @@ class NeomBreathingPainter extends CustomPainter {
 
     // Fondo del bar
     final bgPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = Colors.white.withValues(alpha: 0.1)
       ..style = PaintingStyle.fill;
 
     canvas.drawRRect(
@@ -235,8 +235,8 @@ class NeomBreathingPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          engine.sphereColor.withOpacity(0.8),
-          engine.sphereColor.withOpacity(0.3),
+          engine.sphereColor.withValues(alpha: 0.8),
+          engine.sphereColor.withValues(alpha: 0.3),
         ],
       ).createShader(Rect.fromLTWH(barX, barTop, barWidth, barHeight));
 
@@ -272,7 +272,7 @@ class NeomBreathingPainter extends CustomPainter {
       final glowOpacity = 0.05 * (5 - i) * engine.glowIntensity;
 
       final glowPaint = Paint()
-        ..color = engine.sphereColor.withOpacity(glowOpacity)
+        ..color = engine.sphereColor.withValues(alpha: glowOpacity)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, glowRadius * 0.5);
 
       canvas.drawCircle(
@@ -287,9 +287,9 @@ class NeomBreathingPainter extends CustomPainter {
       center: const Alignment(-0.3, -0.3),
       radius: 1.0,
       colors: [
-        Colors.white.withOpacity(0.9),
+        Colors.white.withValues(alpha: 0.9),
         engine.sphereColor,
-        engine.sphereColor.withOpacity(0.7),
+        engine.sphereColor.withValues(alpha: 0.7),
       ],
       stops: const [0.0, 0.4, 1.0],
     );
@@ -307,7 +307,7 @@ class NeomBreathingPainter extends CustomPainter {
 
     // Highlight brillante
     final highlightPaint = Paint()
-      ..color = Colors.white.withOpacity(0.6)
+      ..color = Colors.white.withValues(alpha: 0.6)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
 
     canvas.drawCircle(
@@ -318,7 +318,7 @@ class NeomBreathingPainter extends CustomPainter {
 
     // Anillo pulsante alrededor
     final ringPaint = Paint()
-      ..color = engine.sphereColor.withOpacity(0.3 + engine.audioAmplitude * 0.3)
+      ..color = engine.sphereColor.withValues(alpha: 0.3 + engine.audioAmplitude * 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -351,7 +351,7 @@ class NeomBreathingPainter extends CustomPainter {
           letterSpacing: 8,
           shadows: [
             Shadow(
-              color: engine.sphereColor.withOpacity(0.5),
+              color: engine.sphereColor.withValues(alpha: 0.5),
               blurRadius: 10,
             ),
           ],
@@ -373,7 +373,7 @@ class NeomBreathingPainter extends CustomPainter {
       text: TextSpan(
         text: timeText,
         style: TextStyle(
-          color: Colors.white.withOpacity(0.5),
+          color: Colors.white.withValues(alpha: 0.5),
           fontSize: 12,
           fontFamily: 'Courier',
           letterSpacing: 2,
@@ -426,7 +426,7 @@ class NeomBreathingPainter extends CustomPainter {
 
     // Fondo
     final bgPaint = Paint()
-      ..color = Colors.black.withOpacity(0.5);
+      ..color = Colors.black.withValues(alpha: 0.5);
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -442,7 +442,7 @@ class NeomBreathingPainter extends CustomPainter {
     final barY = indicatorY + 20;
 
     final barBgPaint = Paint()
-      ..color = Colors.white.withOpacity(0.2);
+      ..color = Colors.white.withValues(alpha: 0.2);
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -475,7 +475,7 @@ class NeomBreathingPainter extends CustomPainter {
       text: TextSpan(
         text: 'FOCUS',
         style: TextStyle(
-          color: Colors.white.withOpacity(0.6),
+          color: Colors.white.withValues(alpha: 0.6),
           fontSize: 9,
           letterSpacing: 2,
         ),
@@ -494,7 +494,7 @@ class NeomBreathingPainter extends CustomPainter {
       text: TextSpan(
         text: '${(avgScore * 100).toInt()}%',
         style: TextStyle(
-          color: Colors.white.withOpacity(0.8),
+          color: Colors.white.withValues(alpha: 0.8),
           fontSize: 10,
           fontFamily: 'Courier',
           fontWeight: FontWeight.bold,
@@ -517,7 +517,7 @@ class NeomBreathingPainter extends CustomPainter {
 
     // Línea horizontal donde está el dedo
     final linePaint = Paint()
-      ..color = Colors.white.withOpacity(0.3)
+      ..color = Colors.white.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     canvas.drawLine(
@@ -528,7 +528,7 @@ class NeomBreathingPainter extends CustomPainter {
 
     // Círculo indicador del dedo
     final touchPaint = Paint()
-      ..color = Colors.white.withOpacity(0.5)
+      ..color = Colors.white.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
@@ -540,7 +540,7 @@ class NeomBreathingPainter extends CustomPainter {
 
     // Punto central
     final dotPaint = Paint()
-      ..color = Colors.white.withOpacity(0.8);
+      ..color = Colors.white.withValues(alpha: 0.8);
 
     canvas.drawCircle(
       Offset(centerX, touchY),

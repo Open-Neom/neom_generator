@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:sint/sint.dart';
 import 'package:neom_commons/utils/app_utilities.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_commons/utils/constants/translations/common_translation_constants.dart';
@@ -8,10 +7,12 @@ import 'package:neom_core/app_config.dart';
 import 'package:neom_core/domain/model/app_profile.dart';
 import 'package:neom_core/domain/model/band.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber.dart';
+import 'package:neom_core/domain/repository/chamber_repository.dart';
 import 'package:neom_core/domain/use_cases/chamber_service.dart';
 import 'package:neom_core/domain/use_cases/user_service.dart';
 import 'package:neom_core/utils/constants/app_route_constants.dart';
 import 'package:neom_core/utils/enums/owner_type.dart';
+import 'package:sint/sint.dart';
 
 import '../../data/firestore/chamber_firestore.dart';
 import '../../utils/constants/generator_translation_constants.dart';
@@ -19,6 +20,7 @@ import '../../utils/constants/generator_translation_constants.dart';
 class ChamberController extends SintController implements ChamberService {
 
   final userServiceImpl = Sint.find<UserService>();
+  final ChamberRepository chamberRepository = ChamberFirestore();
 
   NeomChamber currentChamber = NeomChamber();
 
@@ -98,7 +100,7 @@ class ChamberController extends SintController implements ChamberService {
     }
 
     if(chambers.isEmpty) {
-      chambers.value = await ChamberFirestore().fetchAll(ownerId: ownerId, ownerType: ownerType);
+      chambers.value = await chamberRepository.fetchAll(ownerId: ownerId);
     }
     isLoading.value = false;
     update([AppPageIdConstants.chamber]);
@@ -166,7 +168,7 @@ class ChamberController extends SintController implements ChamberService {
         }
 
         newChamber.public = isPublicNewChamber.value;
-        newItemlistId = await ChamberFirestore().insert(newChamber);
+        newItemlistId = await chamberRepository.insert(newChamber);
 
 
         AppConfig.logger.i("Empty NeomChamber created successfully for profile ${newChamber.ownerId}");
@@ -208,7 +210,7 @@ class ChamberController extends SintController implements ChamberService {
       isLoading.value = true;
       update([AppPageIdConstants.itemlist]);
 
-      if(await ChamberFirestore().delete(chamber.id)) {
+      if(await chamberRepository.delete(chamber.id)) {
         AppConfig.logger.d("NeomChamber ${chamber.id} removed");
 
         chambers.remove(chamber.id);
@@ -254,7 +256,7 @@ class ChamberController extends SintController implements ChamberService {
           itemlist.description = newChamberDescController.text;
         }
 
-        if(await ChamberFirestore().update(itemlist)){
+        if(await chamberRepository.update(itemlist)){
           AppConfig.logger.d("NeomChamber $itemlistId updated");
           chambers[itemlist.id] = itemlist;
           clearNewChamber();

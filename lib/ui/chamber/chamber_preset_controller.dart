@@ -1,4 +1,3 @@
-import 'package:sint/sint.dart';
 import 'package:neom_commons/app_flavour.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_core/app_config.dart';
@@ -6,11 +5,13 @@ import 'package:neom_core/data/api_services/push_notification/firebase_messaging
 import 'package:neom_core/domain/model/band.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
+import 'package:neom_core/domain/repository/chamber_repository.dart';
 import 'package:neom_core/domain/use_cases/user_service.dart';
 import 'package:neom_core/utils/enums/app_in_use.dart';
 import 'package:neom_core/utils/enums/chamber_preset_state.dart';
 import 'package:neom_core/utils/enums/owner_type.dart';
 import 'package:neom_core/utils/enums/push_notification_type.dart';
+import 'package:sint/sint.dart';
 
 import '../../data/firestore/chamber_firestore.dart';
 import '../../domain/use_cases/chamber_preset_service.dart';
@@ -19,6 +20,7 @@ import '../../utils/constants/generator_translation_constants.dart';
 class ChamberPresetController extends SintController implements ChamberPresetService {
 
   final userServiceImpl = Sint.find<UserService>();
+  final ChamberRepository chamberRepository = ChamberFirestore();
 
   NeomChamberPreset chamberPreset = NeomChamberPreset();
   NeomChamber chamber = NeomChamber();
@@ -51,7 +53,7 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
           chamber =  arguments[0];
         } else if(arguments[0] is String) {
           chamberId = arguments[0];
-          chamber = await ChamberFirestore().retrieve(chamberId);
+          chamber = await chamberRepository.retrieve(chamberId);
         }
 
         if(arguments.length > 1) {
@@ -99,14 +101,14 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
       AppConfig.logger.d("updating itemlistItem ${updatedPreset.toString()}");
       try {
 
-        if (await ChamberFirestore().updatePreset(chamber.id, updatedPreset)) {
+        if (await chamberRepository.updatePreset(chamber.id, updatedPreset)) {
           chamberPresets.update(updatedPreset.id, (preset) => preset);
           userServiceImpl.profile.chambers![chamber.id]!
               .chamberPresets!.add(updatedPreset);
           updatedPreset.state = _prevItemState;
           userServiceImpl.profile.chambers![chamber.id]!
               .chamberPresets!.remove(updatedPreset);
-          if(await ChamberFirestore().deletePreset(chamber.id, updatedPreset)) {
+          if(await chamberRepository.deletePreset(chamber.id, updatedPreset)) {
             AppConfig.logger.d("NeomChamberPreset was updated and old version deleted.");
           } else {
             AppConfig.logger.d("NeomChamberPreset was updated but old version remains.");
@@ -130,7 +132,7 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
     AppConfig.logger.d("Item ${chamberPreset.name} would be added as $itemState for Itemlist $chamberId");
 
     try {
-      if(await ChamberFirestore().addPreset(chamberId, chamberPreset)) {
+      if(await chamberRepository.addPreset(chamberId, chamberPreset)) {
         if (chamberOwner == OwnerType.profile) {
           if (userServiceImpl.profile.itemlists!.isNotEmpty) {
             AppConfig.logger.d("Adding item to global itemlist from userController");
@@ -172,9 +174,9 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
     AppConfig.logger.d("removing itemlistItem ${chamberPreset.toString()}");
 
     try {
-      if(await ChamberFirestore().deletePreset(chamber.id, chamberPreset)) {
+      if(await chamberRepository.deletePreset(chamber.id, chamberPreset)) {
         AppConfig.logger.d("Removing item from global itemlist from userController");
-        userServiceImpl.profile.chambers = await ChamberFirestore().fetchAll(ownerId: userServiceImpl.profile.id);
+        userServiceImpl.profile.chambers = await chamberRepository.fetchAll(ownerId: userServiceImpl.profile.id);
         chamberPresets.remove(chamberPreset.id);
 
       } else {

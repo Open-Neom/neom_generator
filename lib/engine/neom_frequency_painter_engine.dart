@@ -2,9 +2,9 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:sint/sint.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/domain/model/neom_visual_state.dart';
+import 'package:sint/sint.dart';
 
 import '../utils/constants/generator_translation_constants.dart';
 import '../utils/enums/eeg_band.dart';
@@ -127,6 +127,11 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
     smoothAmp = amplitude;
     smoothBreath = breath;
     smoothNeuro = neuro;
+  }
+
+  /// Public method to notify listeners from outside the class
+  void notifyVisualUpdate() {
+    notifyListeners();
   }
 
   double _binauralPhase = 0.0;

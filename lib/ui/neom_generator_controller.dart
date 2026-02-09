@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_sound/flutter_sound.dart';
-import 'package:sint/sint.dart';
 import 'package:neom_commons/utils/app_utilities.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_commons/utils/constants/translations/app_translation_constants.dart';
@@ -19,6 +18,7 @@ import 'package:neom_core/domain/model/neom/neom_chamber.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
 import 'package:neom_core/domain/model/neom/neom_frequency.dart';
 import 'package:neom_core/domain/model/neom/neom_parameter.dart';
+import 'package:neom_core/domain/repository/chamber_repository.dart';
 import 'package:neom_core/domain/use_cases/frequency_service.dart';
 import 'package:neom_core/domain/use_cases/user_service.dart';
 import 'package:neom_core/utils/enums/app_item_state.dart';
@@ -26,6 +26,8 @@ import 'package:neom_core/utils/enums/user_role.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:pitch_detector_dart/pitch_detector.dart';
 import 'package:pitch_detector_dart/pitch_detector_result.dart';
+import 'package:sint/sint.dart';
+
 import '../data/firestore/chamber_firestore.dart';
 import '../domain/use_cases/neom_generator_service.dart';
 import '../engine/neom_breath_engine.dart';
@@ -44,6 +46,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
   UserService? userServiceImpl;
   FrequencyService? frequencyServiceImpl;
+  final ChamberRepository chamberRepository = ChamberFirestore();
 
   final NeomSineEngine _sineEngine = NeomSineEngine();
   late final NeomFrequencyPainterEngine painterEngine;
@@ -208,6 +211,9 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
     _audioStreamController?.close();
 
+    frequencyEditCtrl.dispose();
+    beatEditCtrl.dispose();
+
     super.onClose();
   }
 
@@ -328,7 +334,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
         chamber.value.description = CommonTranslationConstants.myFavItemlistDesc.tr;
         chamber.value.imgUrl = AppProperties.getAppLogoUrl();
         chamber.value.ownerId = profile?.id ?? '';
-        chamber.value.id = await ChamberFirestore().insert(chamber.value);
+        chamber.value.id = await chamberRepository.insert(chamber.value);
       } else {
         if(chamber.value.id.isEmpty) chamber.value.id = chambers.values.first.id;
       }
@@ -342,7 +348,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
           chamberPreset.imgUrl = AppProperties.getAppLogoUrl();
           chamberPreset.ownerId = profile?.id ?? '';
           chamberPreset.mainFrequency!.description = frequencyDescription.value;
-          if(await ChamberFirestore().addPreset(chamber.value.id, chamberPreset)) {
+          if(await chamberRepository.addPreset(chamber.value.id, chamberPreset)) {
             await ProfileFirestore().addChamberPreset(profileId: profile?.id ?? '', chamberPresetId: chamberPreset.id);
             await userServiceImpl?.reloadProfileItemlists();
             await userServiceImpl?.loadProfileChambers();
@@ -355,14 +361,15 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
           AppConfig.logger.e(e.toString());
           AppUtilities.showSnackBar(
               title: AppTranslationConstants.generator.tr,
-              message: 'Algo salió mal agregando tu preset a tu cámara Neom.'
+              message: GeneratorTranslationConstants.presetAddError.tr,
           );
         }
 
         AppUtilities.showSnackBar(
             title: AppTranslationConstants.generator.tr,
-            message: 'El preajuste para la frecuencia de "${chamberPreset.mainFrequency?.frequency.ceilToDouble().toString()}"'
-                ' Hz fue agregado a la Cámara Neom: ${chamber.value.name}.'
+            message: '${GeneratorTranslationConstants.presetAddedMsg.tr}'
+                ' ${chamberPreset.mainFrequency?.frequency.ceilToDouble().toString()}'
+                ' Hz - ${chamber.value.name}.',
         );
       }
     }
@@ -388,7 +395,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
       if(chamber.value.id.isNotEmpty) {
         try {
-          if(await ChamberFirestore().deletePreset(chamber.value.id, chamberPreset)) {
+          if(await chamberRepository.deletePreset(chamber.value.id, chamberPreset)) {
             await userServiceImpl?.reloadProfileItemlists();
             chambers.value = userServiceImpl?.profile.chambers ?? {};
             AppConfig.logger.d("Preset removed from Neom NeomChamber");
@@ -399,14 +406,15 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
           AppConfig.logger.e(e.toString());
           AppUtilities.showSnackBar(
               title: GeneratorTranslationConstants.neomChamber.tr,
-              message: 'Algo salió mal eliminando tu preset de tu cámara Neom.'
+              message: GeneratorTranslationConstants.presetRemoveError.tr,
           );
         }
 
         AppUtilities.showSnackBar(
             title: GeneratorTranslationConstants.neomChamber.tr,
-            message: 'El preajuste para la frecuencia de "${chamberPreset.binauralFrequency?.frequency.ceilToDouble().toString()}"'
-                ' Hz fue removido de la Cámara Neom: ${chamber.value.name} satisfactoriamente.'
+            message: '${GeneratorTranslationConstants.presetRemovedMsg.tr}'
+                ' ${chamberPreset.binauralFrequency?.frequency.ceilToDouble().toString()}'
+                ' Hz - ${chamber.value.name}.',
         );
       }
     }
@@ -714,7 +722,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
   void setVisualAmplitude(double v) {
     painterEngine.visualAmplitudeBase = v;
-    painterEngine.notifyListeners();
+    painterEngine.notifyVisualUpdate();
   }
 
   final Rx<NeomVisualMode> visualMode =
@@ -742,7 +750,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       );
     }
 
-    painterEngine.notifyListeners();
+    painterEngine.notifyVisualUpdate();
   }
 
   final isEditingFrequency = false.obs;

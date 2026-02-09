@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sint/sint.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
+import 'package:sint/sint.dart';
 
 import '../painters/neom_breathing_painter.dart';
 import 'neom_breathing_controller.dart';
@@ -54,7 +54,7 @@ class NeomBreathingFullscreenPage extends StatelessWidget {
                   Positioned.fill(
                     child: AnimatedBuilder(
                       animation: controller.breathingEngine,
-                      builder: (_, __) => CustomPaint(
+                      builder: (_, _) => CustomPaint(
                         painter: NeomBreathingPainter(
                           engine: controller.breathingEngine,
                           showGuide: controller.showGuide.value,
@@ -120,7 +120,7 @@ class NeomBreathingFullscreenPage extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.black87,
                   borderRadius: BorderRadius.circular(25),
-                  border: Border.all(color: AppColor.bondiBlue.withOpacity(0.5)),
+                  border: Border.all(color: AppColor.bondiBlue.withValues(alpha: 0.5)),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -153,7 +153,7 @@ class NeomBreathingFullscreenPage extends StatelessWidget {
                     Text(
                       'ATENCIÓN PROMEDIO',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 10,
                         letterSpacing: 2,
                       ),
@@ -179,7 +179,7 @@ class NeomBreathingFullscreenPage extends StatelessWidget {
               Text(
                 'Toca para continuar',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                   fontSize: 12,
                 ),
               ),
@@ -208,13 +208,13 @@ class NeomBreathingFullscreenPage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? AppColor.bondiBlue.withOpacity(0.3)
+                    ? AppColor.bondiBlue.withValues(alpha: 0.3)
                     : Colors.black54,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isSelected
                       ? AppColor.bondiBlue
-                      : Colors.white.withOpacity(0.2),
+                      : Colors.white.withValues(alpha: 0.2),
                 ),
               ),
               child: Row(
@@ -240,7 +240,7 @@ class NeomBreathingFullscreenPage extends StatelessWidget {
                       Text(
                         pattern['desc'],
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.4),
+                          color: Colors.white.withValues(alpha: 0.4),
                           fontSize: 8,
                           fontFamily: 'Courier',
                         ),
@@ -268,13 +268,13 @@ class NeomBreathingFullscreenPage extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: isTracking
-                ? Colors.green.withOpacity(0.2)
-                : Colors.orange.withOpacity(0.2),
+                ? Colors.green.withValues(alpha: 0.2)
+                : Colors.orange.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: isTracking
-                  ? Colors.green.withOpacity(0.5)
-                  : Colors.orange.withOpacity(0.5),
+                  ? Colors.green.withValues(alpha: 0.5)
+                  : Colors.orange.withValues(alpha: 0.5),
             ),
           ),
           child: Row(
@@ -303,7 +303,7 @@ class NeomBreathingFullscreenPage extends StatelessWidget {
         Text(
           'Sigue la esfera con tu dedo',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.4),
+            color: Colors.white.withValues(alpha: 0.4),
             fontSize: 11,
           ),
         ),
@@ -350,13 +350,13 @@ class NeomBreathingFullscreenPage extends StatelessWidget {
         height: 36,
         decoration: BoxDecoration(
           color: isActive
-              ? AppColor.bondiBlue.withOpacity(0.3)
+              ? AppColor.bondiBlue.withValues(alpha: 0.3)
               : Colors.black54,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isActive
                 ? AppColor.bondiBlue
-                : Colors.white.withOpacity(0.2),
+                : Colors.white.withValues(alpha: 0.2),
           ),
         ),
         child: Icon(
@@ -376,7 +376,7 @@ class NeomBreathingFullscreenPage extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.black54,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
         ),
         child: const Icon(
           Icons.arrow_back,

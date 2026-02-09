@@ -1,6 +1,5 @@
 
 import 'package:flutter/material.dart';
-import 'package:sint/sint.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
 import 'package:neom_commons/ui/widgets/appbar_child.dart';
@@ -9,6 +8,7 @@ import 'package:neom_commons/utils/constants/translations/app_translation_consta
 import 'package:neom_commons/utils/constants/translations/common_translation_constants.dart';
 import 'package:neom_core/utils/enums/owner_type.dart';
 import 'package:rflutter_alert/rflutter_alert.dart';
+import 'package:sint/sint.dart';
 
 import '../../utils/constants/generator_translation_constants.dart';
 import '../widgets/generator_widgets.dart';
@@ -92,27 +92,23 @@ class ChamberPage extends StatelessWidget {
                                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                                   children: [
                                     Text("Segunda Frecuencia:", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                                    Row(
-                                      children: [
-                                        Radio<bool>(
-                                          value: false,
-                                          groupValue: controller.isBinauralUpper.value,
-                                          onChanged: controller.toggleBinauralDirection,
-                                          activeColor: AppColor.bondiBlue75,
-                                        ),
-                                        const Text("-"), // Restar
+                                    SegmentedButton<bool>(
+                                      segments: const [
+                                        ButtonSegment(value: false, label: Text("-")),
+                                        ButtonSegment(value: true, label: Text("+")),
                                       ],
-                                    ),
-                                    Row(
-                                      children: [
-                                        Radio<bool>(
-                                          value: true,
-                                          groupValue: controller.isBinauralUpper.value,
-                                          onChanged: controller.toggleBinauralDirection,
-                                          activeColor: AppColor.bondiBlue75,
-                                        ),
-                                        const Text("+"), // Sumar
-                                      ],
+                                      selected: {controller.isBinauralUpper.value},
+                                      onSelectionChanged: (Set<bool> selection) {
+                                        controller.toggleBinauralDirection(selection.first);
+                                      },
+                                      style: ButtonStyle(
+                                        backgroundColor: WidgetStateProperty.resolveWith((states) {
+                                          if (states.contains(WidgetState.selected)) {
+                                            return AppColor.bondiBlue75;
+                                          }
+                                          return Colors.transparent;
+                                        }),
+                                      ),
                                     ),
                                   ],
                                 ),

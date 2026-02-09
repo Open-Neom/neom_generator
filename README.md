@@ -1,109 +1,199 @@
 # neom_generator
-Neom Generator for Open Neom.
-neom_generator is a core module within the Open Neom ecosystem, 
-dedicated to the generation and manipulation of frequencies and audio patterns.
-It provides the foundational tools for creating personalized sound experiences,
-enabling users to interact with the "Neom Chamber" (or "Neom Chamber") for guided meditation,
-conscious well-being, and biofeedback applications.
 
-This module is designed for mobile app integration with a future vision for wearables and IoT devices,
-aligning with the broader Tecnozenism philosophy of integrating technology and human consciousness.
+Neom Generator - Frequency Generation and Binaural Beat Engine for Open Neom.
 
-🌟 Features & Responsibilities
-neom_generator is responsible for:
-•	Frequency Generation: Core logic for generating specific audio frequencies based on user input
-    or predefined parameters.
-•	Parameter Control: Allowing users to adjust various audio parameters such as volume, and spatial
-    positioning (X, Y, Z axes) within a virtual sound environment.
-•	Neom Chamber (Chamber) Management: Providing functionality to create, manage, and interact with
-    "Chambers" – personalized collections of frequency presets. This includes:
-    -	Creating new Chambers (Collection of frequencies).
-    -	Adding, removing, and updating frequency presets within a Chamber.
-    -	Setting privacy options for Chambers (public/private).
-•	Voice Frequency Detection: Integrating microphone input and pitch detection algorithms to analyze
-    and display the user's voice frequency, enabling biofeedback and self-exploration.
-•	Preset Management: Saving, loading, updating, and removing user-defined frequency presets for
-    quick access and personalized experiences.
-•	Audio Playback Control: Managing the playback of generated frequencies, including play/stop functionality.
-•	Integration with Core Services: Consuming essential services from neom_core and neom_commons for user management,
-    logging, and common utilities.
+neom_generator is a core module within the Open Neom ecosystem, dedicated to the generation and manipulation of frequencies and audio patterns. It provides the foundational tools for creating personalized sound experiences, enabling users to interact with the "Neom Chamber" for guided meditation, conscious well-being, and biofeedback applications.
 
-📦 Installation
-Add neom_generator as a Git dependency in your pubspec.yaml file:
+This module is designed for mobile app integration with a future vision for wearables and IoT devices, aligning with the broader Tecnozenism philosophy of integrating technology and human consciousness.
+
+## Features & Responsibilities
+
+### Frequency Generation
+- Core logic for generating specific audio frequencies
+- Binaural beat synthesis with configurable differential
+- Isochronic tone generation
+- Real-time parameter modulation
+
+### Audio Visualization
+- **Oscilloscope View**: Real-time waveform display
+- **Lissajous Patterns**: Phase relationship visualization
+- **Flocking Animation**: Particle-based visual feedback
+- **Breathing Guide**: Animated breath synchronization
+
+### Neom Chamber Management
+- Create and manage frequency preset collections
+- Privacy options (public/private chambers)
+- Binaural configuration presets
+- Session recording and export
+
+### Control Panels
+- **Spatial Control**: 3D audio positioning (X, Y, Z axes)
+- **Breath Control**: Breathing rate synchronization
+- **Neuro State Control**: EEG band targeting (Delta, Theta, Alpha, Beta, Gamma)
+- **Modulation Control**: Amplitude and frequency modulation
+- **Visual Mode Control**: Scientific vs artistic display modes
+
+### Voice Frequency Detection
+- Microphone input analysis
+- Real-time pitch detection
+- Biofeedback visualization
+
+## Architecture
+
+```
+lib/
+├── engine/
+│   ├── neom_audio_engine.dart
+│   ├── neom_frequency_painter_engine.dart
+│   └── neom_sine_engine.dart
+├── ui/
+│   ├── neom_generator_controller.dart
+│   ├── neom_generator_page.dart
+│   ├── breathing/
+│   │   └── neom_breathing_fullscreen_page.dart
+│   ├── chamber/
+│   │   ├── chamber_controller.dart
+│   │   └── chamber_page.dart
+│   ├── flocking/
+│   │   └── neom_flocking_fullscreen_page.dart
+│   ├── oscilloscope/
+│   │   ├── neom_oscilloscope_fullscreen_page.dart
+│   │   └── neom_oscilloscope_fullscreen_painter.dart
+│   ├── painters/
+│   │   ├── frequency_painter.dart
+│   │   ├── lissajous_painter.dart
+│   │   ├── neom_binaural_beat_painter.dart
+│   │   ├── neom_breathing_painter.dart
+│   │   ├── neom_flocking_painter.dart
+│   │   └── oscilloscope_painter.dart
+│   ├── panels/
+│   │   ├── neom_breath_control_panel.dart
+│   │   ├── neom_modulation_control_panel.dart
+│   │   ├── neom_neuro_state_control_panel.dart
+│   │   ├── neom_spatial_control_panel.dart
+│   │   └── neom_visual_mode_control_panel.dart
+│   └── widgets/
+│       ├── generator_widgets.dart
+│       └── session_time_meter.dart
+├── utils/
+│   ├── constants/
+│   │   ├── generator_translation_constants.dart
+│   │   ├── neom_generator_constants.dart
+│   │   └── neom_slider_constants.dart
+│   └── enums/
+│       ├── eeg_band.dart
+│       ├── neom_frequency_target.dart
+│       └── neom_numeric_target.dart
+└── neom_generator.dart
+```
+
+## Dependencies
+
+```yaml
 dependencies:
-    neom_generator:
-        git:
-            url: https://github.com/Open-Neom/neom_generator.git
+  neom_core: ^2.0.0           # Core services and models
+  neom_commons: ^2.0.0        # Shared UI components
+  sint: ^1.0.0                # State management (SINT framework)
+  flutter_soloud: ^3.1.6      # High-performance audio engine
+  sleek_circular_slider: ^2.0.1  # Custom circular sliders
+  font_awesome_flutter: ^10.8.0  # Icon set
+```
 
-Then, run flutter pub get in your project's root directory.
+## Usage
 
-🚀 Usage
-neom_generator is typically integrated into the main application (neom_app) as a primary feature.
-It provides the UI and logic for the frequency generation and Neom Chamber experience.
+### Launching the Generator Page
 
-Example of launching the Neom Generator Page (e.g., from neom_app's routing):
-// In your main application's AppRoutes or a navigation method
-import 'package:get/get.dart';
-import 'package:neom_generator/generator/ui/frequency_generator_page.dart'; // Adjust path as needed
-import 'package:neom_generator/generator/bindings/generator_binding.dart'; // Adjust path as needed
-import 'package:neom_core/core/utils/constants/app_route_constants.dart'; // For AppRouteConstants.generator
+```dart
+import 'package:neom_generator/ui/neom_generator_page.dart';
 
-// In your GetPages list:
-GetPage(
-    name: AppRouteConstants.generator,
-    page: () => const NeomGeneratorPage(),
-    transition: Transition.zoom,
-),
+// Navigate to generator
+Sint.toNamed(AppRouteConstants.generator);
 
-// To navigate to it:
-// Get.toNamed(AppRouteConstants.generator);
+// Or embed directly
+NeomGeneratorPage(showAppBar: true)
+```
 
-Example of using a generator controller method:
-// In a UI widget within the neom_generator module
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:neom_generator/generator/ui/neom_generator_controller.dart'; // Adjust path
+### Using the Generator Controller
 
-class MyGeneratorControls extends StatelessWidget {
-    const MyGeneratorControls({Key? key}) : super(key: key);
+```dart
+import 'package:neom_generator/ui/neom_generator_controller.dart';
 
-    @override
-    Widget build(BuildContext context) {
-        return GetBuilder<NeomGeneratorController>(
-            builder: (_) => Column(
-                children: [
-                    Text("Frequency: ${_.soundController.value.freq.round()} Hz"),
-                    Slider(
-                        value: _.soundController.value.volume,
-                        min: 0, max: 1,
-                        onChanged: (val) => _.setVolume(val),
-                    ),
-                    IconButton(
-                        icon: Icon(_.isPlaying.value ? Icons.pause : Icons.play_arrow),
-                        onPressed: () => _.playStopPreview(),
-                    ),
-                ],
-            ),
-        );
-    }
-}
+final controller = Sint.find<NeomGeneratorController>();
 
-🛠️ Dependencies
-neom_generator relies on the following key packages to provide its functionalities:
-•	flutter: The Flutter SDK.
-•	neom_core: For core models, use cases, and utilities.
-•	neom_commons: For reusable UI components, common utilities, and translation constants.
-•	get: For state management and dependency injection.
-•	Audio Processing: flutter_sound (for audio recording/playback), pitch_detector_dart (for pitch detection),
-    surround_frequency_generator (for frequency generation logic).
-•	UI Components: sleek_circular_slider (for custom sliders), rflutter_alert (for custom alerts).
-•	System Utilities: enum_to_string (for enum conversions), path_provider (for file system access), 
-    permission_handler (for microphone permissions).
-•	Web Integration: webview_flutter (for potential web-based audio visualization or VR integrations).
+// Set frequency
+controller.setFrequency(432.0);
 
-🤝 Contributing
-We welcome contributions to neom_generator! Please refer to the main Open Neom repository for detailed contribution
-guidelines and code of conduct.
+// Set binaural beat differential
+controller.setBinauralBeat(10.0); // 10 Hz for Alpha state
 
-📄 License
+// Play/Stop
+controller.playStopPreview();
+```
+
+### Creating a Chamber Preset
+
+```dart
+import 'package:neom_generator/ui/chamber/chamber_controller.dart';
+
+final chamberController = Sint.find<ChamberController>();
+
+// Create new chamber
+await chamberController.createChamber(
+  name: "Morning Meditation",
+  baseFrequency: 432.0,
+  binauralBeat: 7.83, // Schumann resonance
+  isPublic: false,
+);
+```
+
+## EEG Bands and Frequencies
+
+| Band | Frequency | State |
+|------|-----------|-------|
+| Delta | 0.5 - 4 Hz | Deep sleep, healing |
+| Theta | 4 - 8 Hz | Meditation, creativity |
+| Alpha | 8 - 12 Hz | Relaxation, calm focus |
+| Beta | 12 - 30 Hz | Alert, active thinking |
+| Gamma | 30+ Hz | Peak performance, insight |
+
+## ROADMAP 2026
+
+### Q1 2026 - Advanced Audio Engine
+- [ ] Multi-voice synthesis (up to 8 simultaneous frequencies)
+- [ ] Custom waveform generation (sine, triangle, square, sawtooth)
+- [ ] Harmonic overtone series
+- [ ] ADSR envelope control
+
+### Q2 2026 - Biofeedback Integration
+- [ ] Heart rate variability (HRV) sync
+- [ ] Breathing sensor integration
+- [ ] EEG headband support (Muse, OpenBCI)
+- [ ] Real-time coherence feedback
+
+### Q3 2026 - Session Management
+- [ ] Guided session templates
+- [ ] Progress tracking and analytics
+- [ ] Session export (audio files)
+- [ ] Cloud sync for presets
+
+### Q4 2026 - Social Features
+- [ ] Public chamber sharing
+- [ ] Community presets
+- [ ] Collaborative sessions
+- [ ] Expert-curated programs
+
+## State Management
+
+neom_generator uses the SINT framework (GetX replacement) for:
+- Reactive audio parameter binding
+- Real-time visual state updates
+- Controller lifecycle management
+- Route-based dependency injection
+
+## Contributing
+
+We welcome contributions! If you're interested in audio processing, visualization, or meditation technology, your help can enhance the Neom Generator experience.
+
+## License
+
 This project is licensed under the Apache License, Version 2.0, January 2004. See the LICENSE file for details.

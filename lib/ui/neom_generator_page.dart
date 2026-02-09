@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:neom_commons/domain/extensions/double_extensions.dart';
-import 'package:sint/sint.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
 import 'package:neom_commons/ui/widgets/appbar_child.dart';
@@ -13,6 +12,7 @@ import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_commons/utils/constants/translations/app_translation_constants.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/utils/constants/app_route_constants.dart';
+import 'package:sint/sint.dart';
 import 'package:sleek_circular_slider/sleek_circular_slider.dart';
 
 import '../engine/neom_frequency_painter_engine.dart';
@@ -44,18 +44,19 @@ class NeomGeneratorPage extends StatelessWidget {
     return SintBuilder<NeomGeneratorController>(
       id: AppPageIdConstants.generator,
       init: NeomGeneratorController(),
-      builder: (controller) => WillPopScope(
-        onWillPop: () async {
-          try {
-            if(controller.isPlaying.value) {
-              await controller.playStopPreview(stop: true);
+      builder: (controller) => PopScope(
+        canPop: true,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) {
+            try {
+              if(controller.isPlaying.value) {
+                await controller.playStopPreview(stop: true);
+              }
+              controller.isPlaying.value = false;
+            } catch (e) {
+              AppConfig.logger.e(e.toString());
             }
-            // controller.soloud.disposeAllSources();
-            controller.isPlaying.value = false;
-          } catch (e) {
-            AppConfig.logger.e(e.toString());
           }
-          return true;
         },
     child: Scaffold(
       appBar: showAppBar ? AppBarChild(title: GeneratorTranslationConstants.neomChamber.tr,
@@ -211,18 +212,18 @@ class NeomGeneratorPage extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
                           decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
+                              color: Colors.black.withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: controller.activeNumericTarget.value ==
                                     NeomNumericTarget.rootFrequency
                                     ? AppColor.bondiBlue
-                                    : AppColor.bondiBlue.withOpacity(0.4),
+                                    : AppColor.bondiBlue.withValues(alpha: 0.4),
                                 width: 1,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                    color: AppColor.bondiBlue.withOpacity(0.1),
+                                    color: AppColor.bondiBlue.withValues(alpha: 0.1),
                                     blurRadius: 10,
                                     spreadRadius: 1
                                 )
@@ -302,18 +303,18 @@ class NeomGeneratorPage extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
                           decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
+                              color: Colors.black.withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: controller.activeNumericTarget.value ==
                                     NeomNumericTarget.binauralBeat
                                     ? AppColor.bondiBlue
-                                    : AppColor.bondiBlue.withOpacity(0.4),
+                                    : AppColor.bondiBlue.withValues(alpha: 0.4),
                                 width: 1,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                    color: AppColor.bondiBlue.withOpacity(0.1),
+                                    color: AppColor.bondiBlue.withValues(alpha: 0.1),
                                     blurRadius: 10,
                                     spreadRadius: 1
                                 )
@@ -405,7 +406,7 @@ class NeomGeneratorPage extends StatelessWidget {
                             duration: const Duration(milliseconds: 300),
                             padding: const EdgeInsets.all(15),
                             decoration: BoxDecoration(
-                                color: controller.isRecording ? Colors.red.withOpacity(0.2) : Colors.transparent,
+                                color: controller.isRecording ? Colors.red.withValues(alpha: 0.2) : Colors.transparent,
                                 border: Border.all(color: controller.isRecording ? Colors.red : Colors.white12),
                                 borderRadius: BorderRadius.circular(30)
                             ),
@@ -464,12 +465,12 @@ class NeomGeneratorPage extends StatelessWidget {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    AppColor.bondiBlue.withOpacity(0.2),
-                                    Colors.purple.withOpacity(0.2),
+                                    AppColor.bondiBlue.withValues(alpha: 0.2),
+                                    Colors.purple.withValues(alpha: 0.2),
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColor.bondiBlue.withOpacity(0.3)),
+                                border: Border.all(color: AppColor.bondiBlue.withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -508,12 +509,12 @@ class NeomGeneratorPage extends StatelessWidget {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    Colors.indigo.withOpacity(0.2),
-                                    Colors.deepPurple.withOpacity(0.2),
+                                    Colors.indigo.withValues(alpha: 0.2),
+                                    Colors.deepPurple.withValues(alpha: 0.2),
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.indigo.withOpacity(0.3)),
+                                border: Border.all(color: Colors.indigo.withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -559,12 +560,12 @@ class NeomGeneratorPage extends StatelessWidget {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    Colors.teal.withOpacity(0.2),
-                                    Colors.cyan.withOpacity(0.2),
+                                    Colors.teal.withValues(alpha: 0.2),
+                                    Colors.cyan.withValues(alpha: 0.2),
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.teal.withOpacity(0.4)),
+                                border: Border.all(color: Colors.teal.withValues(alpha: 0.4)),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -600,12 +601,12 @@ class NeomGeneratorPage extends StatelessWidget {
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    Colors.indigo.withOpacity(0.2),
-                                    Colors.deepPurple.withOpacity(0.2),
+                                    Colors.indigo.withValues(alpha: 0.2),
+                                    Colors.deepPurple.withValues(alpha: 0.2),
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.indigo.withOpacity(0.3)),
+                                border: Border.all(color: Colors.indigo.withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -638,7 +639,7 @@ class NeomGeneratorPage extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
+                        color: Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(color: Colors.white10),
                       ),
@@ -741,7 +742,7 @@ class NeomGeneratorPage extends StatelessWidget {
                                   decoration: BoxDecoration(
                                     color: Colors.black54,
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppColor.bondiBlue.withOpacity(0.5)),
+                                    border: Border.all(color: AppColor.bondiBlue.withValues(alpha: 0.5)),
                                   ),
                                   child: const Icon(
                                     Icons.fullscreen,
@@ -762,7 +763,7 @@ class NeomGeneratorPage extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
+                        color: Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(color: Colors.white10),
                       ),
@@ -811,7 +812,7 @@ class NeomGeneratorPage extends StatelessWidget {
                               Text(
                                 GeneratorTranslationConstants.surroundSound.tr.toUpperCase(),
                                 style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
+                                    color: Colors.white.withValues(alpha: 0.5),
                                     fontSize: 10, letterSpacing: 1.5
                                 ),
                               ),
@@ -837,7 +838,7 @@ class NeomGeneratorPage extends StatelessWidget {
                                 children: [
                                   Text(AppTranslationConstants.musicalNote.tr.toUpperCase(),
                                     style: TextStyle(
-                                        color: Colors.white.withOpacity(0.5),
+                                        color: Colors.white.withValues(alpha: 0.5),
                                         fontSize: 10, letterSpacing: 1.5
                                     ),
                                   ),
@@ -860,7 +861,7 @@ class NeomGeneratorPage extends StatelessWidget {
                                 children: [
                                   Text(GeneratorTranslationConstants.waveLength.tr.toUpperCase(),
                                     style: TextStyle(
-                                        color: Colors.white.withOpacity(0.5),
+                                        color: Colors.white.withValues(alpha: 0.5),
                                         fontSize: 10,
                                         letterSpacing: 1.5
                                     ),
@@ -923,7 +924,7 @@ class NeomGeneratorPage extends StatelessWidget {
                           width: double.infinity,
                           child: AnimatedBuilder(
                             animation: controller.painterEngine,
-                            builder: (_, __) => CustomPaint(
+                            builder: (_, _) => CustomPaint(
                               painter: LissajousPainter(
                                 engine: controller.painterEngine,
                                 color: controller.painterEngine.eegColor,

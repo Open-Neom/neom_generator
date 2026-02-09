@@ -1,7 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/services.dart';
-import 'package:sint/sint.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
+import 'package:sint/sint.dart';
 
 import '../../engine/neom_flocking_engine.dart';
 import '../../engine/neom_frequency_painter_engine.dart';

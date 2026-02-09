@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sint/sint.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
+import 'package:sint/sint.dart';
 
 import 'neom_oscilloscope_controller.dart';
 import 'neom_oscilloscope_fullscreen_painter.dart';
@@ -35,11 +35,11 @@ class NeomOscilloscopeFullscreenPage extends StatelessWidget {
               Positioned.fill(
                 child: AnimatedBuilder(
                   animation: controller.painterEngine,
-                  builder: (_, __) => CustomPaint(
+                  builder: (_, _) => CustomPaint(
                     painter: NeomOscilloscopeFullscreenPainter(
                       samples: controller.displaySamples,
                       signalColor: controller.isPaused.value
-                          ? AppColor.bondiBlue.withOpacity(0.6)
+                          ? AppColor.bondiBlue.withValues(alpha: 0.6)
                           : AppColor.bondiBlue,
                       gridColor: Colors.white12,
                       thickness: controller.waveThickness.value,
@@ -66,7 +66,7 @@ class NeomOscilloscopeFullscreenPage extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.black54,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppColor.bondiBlue.withOpacity(0.5)),
+                        border: Border.all(color: AppColor.bondiBlue.withValues(alpha: 0.5)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -203,7 +203,7 @@ class NeomOscilloscopeFullscreenPage extends StatelessWidget {
               width: 36,
               height: 28,
               decoration: BoxDecoration(
-                color: AppColor.bondiBlue.withOpacity(0.2),
+                color: AppColor.bondiBlue.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: const Icon(Icons.add, color: Colors.white70, size: 18),
@@ -226,7 +226,7 @@ class NeomOscilloscopeFullscreenPage extends StatelessWidget {
               width: 36,
               height: 28,
               decoration: BoxDecoration(
-                color: AppColor.bondiBlue.withOpacity(0.2),
+                color: AppColor.bondiBlue.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: const Icon(Icons.remove, color: Colors.white70, size: 18),
@@ -249,7 +249,7 @@ class NeomOscilloscopeFullscreenPage extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: isActive ? AppColor.bondiBlue.withOpacity(0.3) : Colors.black54,
+          color: isActive ? AppColor.bondiBlue.withValues(alpha: 0.3) : Colors.black54,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isActive ? AppColor.bondiBlue : Colors.white12,
@@ -310,7 +310,7 @@ class NeomOscilloscopeFullscreenPage extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: AppColor.bondiBlue.withOpacity(0.2),
+            color: AppColor.bondiBlue.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(

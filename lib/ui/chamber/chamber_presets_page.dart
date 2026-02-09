@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sint/sint.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
 import 'package:neom_commons/ui/widgets/appbar_child.dart';
@@ -8,6 +7,7 @@ import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_commons/utils/constants/translations/common_translation_constants.dart';
 import 'package:neom_core/utils/constants/app_route_constants.dart';
 import 'package:neom_core/utils/enums/media_search_type.dart';
+import 'package:sint/sint.dart';
 
 import '../widgets/generator_widgets.dart';
 import 'chamber_preset_controller.dart';

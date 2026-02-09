@@ -28,5 +28,9 @@ class GeneratorTranslationConstants {
   static const String neuroVR360 = 'neuroVR360';
   static const String neuroVR360Stereo = 'neuroVR360Stereo';
   static const String neuroBreathing = 'neuroBreathing';
+  static const String presetAddError = 'presetAddError';
+  static const String presetAddedMsg = 'presetAddedMsg';
+  static const String presetRemoveError = 'presetRemoveError';
+  static const String presetRemovedMsg = 'presetRemovedMsg';
 
 }

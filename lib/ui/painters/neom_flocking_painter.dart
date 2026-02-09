@@ -61,7 +61,7 @@ class NeomFlockingPainter extends CustomPainter {
       final avgDepth = (boid1.depthOpacity + boid2.depthOpacity) / 2;
 
       final color = Color.lerp(boid1.color, boid2.color, 0.5)!
-          .withOpacity(opacity * 0.25 * amp * avgDepth);
+          .withValues(alpha: opacity * 0.25 * amp * avgDepth);
 
       final paint = Paint()
         ..color = color
@@ -81,7 +81,7 @@ class NeomFlockingPainter extends CustomPainter {
     // Glow effect (más tenue para boids lejanos)
     if (showGlow && visualSize > 1.5) {
       final glowPaint = Paint()
-        ..color = baseColor.withOpacity(0.25 * energy * glowIntensity * depthOpacity)
+        ..color = baseColor.withValues(alpha: 0.25 * energy * glowIntensity * depthOpacity)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, visualSize * 2);
 
       canvas.drawCircle(boid.position, visualSize * 1.8, glowPaint);
@@ -89,7 +89,7 @@ class NeomFlockingPainter extends CustomPainter {
 
     // Core del boid
     final corePaint = Paint()
-      ..color = baseColor.withOpacity((0.7 + energy * 0.3) * depthOpacity)
+      ..color = baseColor.withValues(alpha: (0.7 + energy * 0.3) * depthOpacity)
       ..style = PaintingStyle.fill;
 
     canvas.drawCircle(boid.position, visualSize, corePaint);
@@ -97,7 +97,7 @@ class NeomFlockingPainter extends CustomPainter {
     // Centro brillante (solo para boids cercanos)
     if (boid.z < 0.6) {
       final centerPaint = Paint()
-        ..color = Colors.white.withOpacity(0.5 * energy * depthOpacity)
+        ..color = Colors.white.withValues(alpha: 0.5 * energy * depthOpacity)
         ..style = PaintingStyle.fill;
 
       canvas.drawCircle(boid.position, visualSize * 0.3, centerPaint);
@@ -122,8 +122,8 @@ class NeomFlockingPainter extends CustomPainter {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          boid.color.withOpacity(0.5 * depthOpacity),
-          boid.color.withOpacity(0.0),
+          boid.color.withValues(alpha: 0.5 * depthOpacity),
+          boid.color.withValues(alpha: 0.0),
         ],
       ).createShader(Rect.fromPoints(boid.position, tailEnd))
       ..strokeWidth = visualSize * 0.6
@@ -143,8 +143,8 @@ class NeomFlockingPainter extends CustomPainter {
         radius: 0.75,
         colors: [
           Colors.transparent,
-          Colors.black.withOpacity(0.2),
-          Colors.black.withOpacity(0.5),
+          Colors.black.withValues(alpha: 0.2),
+          Colors.black.withValues(alpha: 0.5),
         ],
         stops: const [0.5, 0.8, 1.0],
       ).createShader(Rect.fromCircle(center: center, radius: radius));

@@ -1,5 +1,5 @@
-import 'package:sint/sint.dart';
 import 'package:neom_core/utils/constants/app_route_constants.dart';
+import 'package:sint/sint.dart';
 
 import 'ui/breathing/neom_breathing_fullscreen_page.dart';
 import 'ui/chamber/chamber_page.dart';

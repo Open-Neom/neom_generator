@@ -19,7 +19,7 @@ class FrequencyPainter extends CustomPainter {
     final glow = engine.glowIntensity.clamp(0.0, 1.0);
     final stroke = 1.0 + engine.waveHeight * 2.5 + engine.glowIntensity * strokeWidth;
     final paint = Paint()
-      ..color = color.withOpacity(glow)
+      ..color = color.withValues(alpha: glow)
       ..strokeWidth = stroke
       ..style = PaintingStyle.stroke;
 

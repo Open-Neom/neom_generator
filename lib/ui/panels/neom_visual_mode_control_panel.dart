@@ -16,7 +16,7 @@ class NeomVisualModeControlPanel extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.25),
+          color: Colors.black.withValues(alpha: 0.25),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: Colors.white12),
         ),

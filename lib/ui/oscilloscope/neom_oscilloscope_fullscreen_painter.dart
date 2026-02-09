@@ -58,11 +58,11 @@ class NeomOscilloscopeFullscreenPainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Size size) {
     final major = Paint()
-      ..color = gridColor.withOpacity(0.25)
+      ..color = gridColor.withValues(alpha: 0.25)
       ..strokeWidth = 1;
 
     final minor = Paint()
-      ..color = gridColor.withOpacity(0.08)
+      ..color = gridColor.withValues(alpha: 0.08)
       ..strokeWidth = 0.5;
 
     const divisionsH = 20;
@@ -91,7 +91,7 @@ class NeomOscilloscopeFullscreenPainter extends CustomPainter {
 
   void _drawCenterLine(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = signalColor.withOpacity(0.3)
+      ..color = signalColor.withValues(alpha: 0.3)
       ..strokeWidth = 1;
 
     final midY = size.height / 2;
@@ -124,7 +124,7 @@ class NeomOscilloscopeFullscreenPainter extends CustomPainter {
     // Glow effect
     if (showGlow) {
       final glow = Paint()
-        ..color = signalColor.withOpacity(0.15)
+        ..color = signalColor.withValues(alpha: 0.15)
         ..style = PaintingStyle.stroke
         ..strokeWidth = thickness * 4
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
@@ -133,7 +133,7 @@ class NeomOscilloscopeFullscreenPainter extends CustomPainter {
 
       // Segundo layer de glow más intenso
       final glowInner = Paint()
-        ..color = signalColor.withOpacity(0.25)
+        ..color = signalColor.withValues(alpha: 0.25)
         ..style = PaintingStyle.stroke
         ..strokeWidth = thickness * 2
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
@@ -154,12 +154,12 @@ class NeomOscilloscopeFullscreenPainter extends CustomPainter {
 
   void _drawPauseOverlay(Canvas canvas, Size size) {
     // Overlay semitransparente
-    final overlay = Paint()..color = Colors.black.withOpacity(0.2);
+    final overlay = Paint()..color = Colors.black.withValues(alpha: 0.2);
     canvas.drawRect(Offset.zero & size, overlay);
 
     // Marcadores de tiempo congelado
     final markerPaint = Paint()
-      ..color = signalColor.withOpacity(0.5)
+      ..color = signalColor.withValues(alpha: 0.5)
       ..strokeWidth = 2;
 
     // Línea vertical pulsante en el centro
@@ -173,7 +173,7 @@ class NeomOscilloscopeFullscreenPainter extends CustomPainter {
 
   void _drawBorder(Canvas canvas, Size size) {
     final borderPaint = Paint()
-      ..color = signalColor.withOpacity(0.3)
+      ..color = signalColor.withValues(alpha: 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 

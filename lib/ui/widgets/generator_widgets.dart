@@ -3,7 +3,6 @@ import 'dart:math' as math; // Necesario para calcular la nota musical
 import 'package:enum_to_string/enum_to_string.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:sint/sint.dart';
 import 'package:neom_commons/app_flavour.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
@@ -27,6 +26,7 @@ import 'package:neom_core/utils/enums/app_item_state.dart';
 import 'package:neom_core/utils/enums/chamber_preset_state.dart';
 import 'package:neom_core/utils/enums/profile_type.dart';
 import 'package:rflutter_alert/rflutter_alert.dart';
+import 'package:sint/sint.dart';
 
 import '../../utils/constants/generator_translation_constants.dart';
 import '../../utils/constants/neom_generator_constants.dart';
@@ -318,7 +318,7 @@ Widget buildAxisIndicator(String label, double value, Color color) {
           child: LinearProgressIndicator(
             value: normalized,
             backgroundColor: Colors.white10,
-            valueColor: AlwaysStoppedAnimation<Color>(color.withOpacity(0.7)),
+            valueColor: AlwaysStoppedAnimation<Color>(color.withValues(alpha: 0.7)),
             minHeight: 5,
           ),
         )

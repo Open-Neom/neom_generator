@@ -24,7 +24,7 @@ class NeomBinauralBeatPainter extends CustomPainter {
     final centerY = size.height / 2;
 
     final paint = Paint()
-      ..color = color.withOpacity(0.6)
+      ..color = color.withValues(alpha: 0.6)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5 + intensity * 2;
 

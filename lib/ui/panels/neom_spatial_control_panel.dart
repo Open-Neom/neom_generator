@@ -16,7 +16,7 @@ class NeomSpatialControlPanel extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.18),
+          color: Colors.black.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white12),
         ),

@@ -36,11 +36,11 @@ class OscilloscopePainter extends CustomPainter {
 
   void _drawGrid(Canvas canvas, Size size) {
     final major = Paint()
-      ..color = gridColor.withOpacity(0.25)
+      ..color = gridColor.withValues(alpha: 0.25)
       ..strokeWidth = 1;
 
     final minor = Paint()
-      ..color = gridColor.withOpacity(0.08)
+      ..color = gridColor.withValues(alpha: 0.08)
       ..strokeWidth = 0.5;
 
     const divisions = 10;
@@ -77,7 +77,7 @@ class OscilloscopePainter extends CustomPainter {
 
     // Glow
     final glow = Paint()
-      ..color = signalColor.withOpacity(0.15)
+      ..color = signalColor.withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 6
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);

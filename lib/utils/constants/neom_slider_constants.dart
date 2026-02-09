@@ -14,8 +14,8 @@ class NeomSliderConstants {
   static final customWidth01 = CustomSliderWidths(trackWidth: 3, progressBarWidth: 15, shadowWidth: 20);
 
   static final customColors01 = CustomSliderColors(
-    dotColor: Colors.white.withOpacity(0.8),
-    trackColor: const Color(0xffFFD4BE).withOpacity(0.4),
+    dotColor: Colors.white.withValues(alpha: 0.8),
+    trackColor: const Color(0xffFFD4BE).withValues(alpha: 0.4),
     progressBarColor: const Color(0xffF6A881),
     shadowColor: const Color(0xffFFD4BE),
     shadowStep: 10.0,
@@ -33,8 +33,8 @@ class NeomSliderConstants {
   static final customWidth02 = CustomSliderWidths(trackWidth: 2, progressBarWidth: 10, shadowWidth: 20);
 
   static final customColors02 = CustomSliderColors(
-    dotColor: Colors.white.withOpacity(0.8),
-    trackColor: const Color(0xff98DBFC).withOpacity(0.3),
+    dotColor: Colors.white.withValues(alpha: 0.8),
+    trackColor: const Color(0xff98DBFC).withValues(alpha: 0.3),
     progressBarColor: const Color(0xff6DCFFF),
     shadowColor: const Color(0xff98DBFC),
     shadowStep: 15.0,
@@ -52,8 +52,8 @@ class NeomSliderConstants {
   static final customWidth03 = CustomSliderWidths(trackWidth: 2, progressBarWidth: 10, shadowWidth: 10);
 
   static final customColors03 = CustomSliderColors(
-    dotColor: Colors.white.withOpacity(0.8),
-    trackColor: const Color(0xffEFC8FC).withOpacity(0.3),
+    dotColor: Colors.white.withValues(alpha: 0.8),
+    trackColor: const Color(0xffEFC8FC).withValues(alpha: 0.3),
     progressBarColor: const Color(0xffA177B0),
     shadowColor: const Color(0xffEFC8FC),
     shadowStep: 20.0,
@@ -70,8 +70,8 @@ static final CircularSliderAppearance appearance04 = CircularSliderAppearance(
   static final customWidth04 = CustomSliderWidths(trackWidth: 1, progressBarWidth: 5, shadowWidth: 5);
 
   static final customColors04 = CustomSliderColors(
-      dotColor: Colors.white.withOpacity(0.8),
-      trackColor: const Color(0xffEFC8FC).withOpacity(0.3),
+      dotColor: Colors.white.withValues(alpha: 0.8),
+      trackColor: const Color(0xffEFC8FC).withValues(alpha: 0.3),
       progressBarColor: const Color(0xffA177B0),
       shadowColor: const Color(0xffEFC8FC),
       shadowStep: 20.0,

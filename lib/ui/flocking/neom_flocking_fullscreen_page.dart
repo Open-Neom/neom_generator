@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sint/sint.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
+import 'package:sint/sint.dart';
 
 import '../painters/neom_flocking_painter.dart';
 import 'neom_flocking_controller.dart';
@@ -57,7 +57,7 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
                   Positioned.fill(
                     child: AnimatedBuilder(
                       animation: controller.flockingEngine,
-                      builder: (_, __) => CustomPaint(
+                      builder: (_, _) => CustomPaint(
                         painter: NeomFlockingPainter(
                           engine: controller.flockingEngine,
                           showConnections: controller.showConnections.value,
@@ -80,7 +80,7 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: Colors.black54,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppColor.bondiBlue.withOpacity(0.5)),
+                            border: Border.all(color: AppColor.bondiBlue.withValues(alpha: 0.5)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -274,7 +274,7 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
               width: 32,
               height: 24,
               decoration: BoxDecoration(
-                color: AppColor.bondiBlue.withOpacity(0.2),
+                color: AppColor.bondiBlue.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: const Icon(Icons.add, color: Colors.white70, size: 16),
@@ -289,7 +289,7 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
               width: 32,
               height: 24,
               decoration: BoxDecoration(
-                color: AppColor.bondiBlue.withOpacity(0.2),
+                color: AppColor.bondiBlue.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: const Icon(Icons.remove, color: Colors.white70, size: 16),
@@ -363,7 +363,7 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: isActive ? AppColor.bondiBlue.withOpacity(0.3) : Colors.black54,
+          color: isActive ? AppColor.bondiBlue.withValues(alpha: 0.3) : Colors.black54,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: isActive ? AppColor.bondiBlue : Colors.white12),
         ),
@@ -412,7 +412,7 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
           decoration: BoxDecoration(
-            color: AppColor.bondiBlue.withOpacity(0.2),
+            color: AppColor.bondiBlue.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(key, style: const TextStyle(color: AppColor.bondiBlue, fontFamily: 'Courier', fontSize: 9, fontWeight: FontWeight.bold)),
@@ -445,7 +445,7 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 3),
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: isSelected ? colors[i].withOpacity(0.3) : Colors.transparent,
+                color: isSelected ? colors[i].withValues(alpha: 0.3) : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
                   color: isSelected ? colors[i] : Colors.transparent,

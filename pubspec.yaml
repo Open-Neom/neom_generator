@@ -11,19 +11,12 @@ dependencies:
   flutter:
     sdk: flutter
 
-  neom_core: ^2.1.2-dev
-  neom_commons: ^2.1.1-dev
+  neom_core: ^3.0.0
+  neom_commons: ^3.0.0
+  neom_sound: ^1.0.0
   neom_vr: ^2.1.0-dev
 
   sleek_circular_slider: ^2.1.0
-
-  #Audio Processing Experimental
-#  surround_frequency_generator: ^1.0.0
-#  flutter_soloud: ^3.4.6
-
-  #AudioProcessing
-  flutter_sound: ^9.30.0
-  pitch_detector_dart: ^0.0.7
 
   #Tonic is a Flutter-compatible Dart package that models components of music theory.
   #Used for Neom Harmony
@@ -44,6 +37,6 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 flutter:

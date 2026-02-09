@@ -1,45 +1,77 @@
-## 1.3.0-dev - Architectural Enhancements and Refactoring:
-- Huge refactor and improvements.
-- Implementation of painter engines and new ways to use generator and chamber.
+# Changelog
 
-## 1.3.0-dev - Architectural Enhancements and Refactoring:
+All notable changes to neom_generator will be documented in this file.
 
-Translation Constants Modularization:
+## [2.0.0] - 2025-02-09
 
-GeneratorTranslationConstants has been introduced to centralize all module-specific translation keys related to the frequency generator and Neom Chamber.
+### Changed
+- Replaced deprecated `withOpacity()` with `withValues(alpha:)` across all files (100+ instances)
+- Replaced deprecated `WillPopScope` with `PopScope` and `onPopInvokedWithResult`
+- Replaced deprecated `Radio` groupValue/onChanged with `SegmentedButton`
+- Added `notifyVisualUpdate()` public method to NeomFrequencyPainterEngine
+- README.md with comprehensive documentation and ROADMAP 2026
 
-This change is part of the broader refactoring of AppTranslationConstants from neom_commons, ensuring that neom_generator now uses its own dedicated translation keys, improving modularity and allowing for flavor-specific overrides at the application level.
+### Fixed
+- Protected member access warning for `notifyListeners()` in controller
+- Import ordering compliance with flutter_lints ^6.0.0
 
-Dependency Injection Refinement:
+### Improved
+- Code compliance with latest Flutter/Dart deprecation guidelines
+- Clean Architecture adherence
 
-Refactored the consumption of user-related functionalities from direct UserController access to injecting the UserService interface. This adheres to the Dependency Inversion Principle (DIP), enhancing decoupling and testability.
+## [1.5.0] - 2025-01-20
 
-UserService is now obtained via Get.find<UserService>() at the composition root, making neom_generator agnostic to the concrete UserController implementation.
+### Added
+- Oscilloscope fullscreen visualization
+- Flocking animation with boid simulation
+- Breathing guide fullscreen mode
+- Lissajous pattern painter
+- Session time meter widget
 
-Chamber Management Logic:
+### Changed
+- Enhanced painter engine with smoothing profiles
+- Improved binaural beat visualization
 
-The ChamberController has been refined to manage the creation, update, and deletion of "Chambers" (collections of frequency presets), ensuring clear separation of concerns from the main NeomGeneratorController.
+## [1.4.0] - 2025-01-01
 
-ChamberPresetController specifically handles the management of individual frequency presets within a Chamber.
+### Added
+- Control panels: Spatial, Breath, Neuro State, Modulation, Visual Mode
+- EEG band detection and color coding
+- Hemispheric coherence meter
+- Visual amplitude controls
 
-Audio Processing and Recording:
+### Changed
+- Migrated from GetX to SINT framework
+- Updated SDK constraint to >=3.8.0 <4.0.0
 
-Consolidated the logic for audio recording, pitch detection, and frequency processing within NeomGeneratorController, leveraging flutter_sound and pitch_detector_dart.
+## [1.3.0-dev] - 2024-11-01
 
-Introduced playStopPreview for managing the playback of generated frequencies.
+### Added
+- Painter engines for visual feedback
+- Chamber management improvements
+- Voice frequency detection
 
-Core Functionality and Features:
+### Changed
+- Refactored translation constants modularization
+- Dependency injection refinement (DIP compliance)
+- Consolidated audio processing logic
 
-Frequency Generation and Parameter Control: Enhanced control over frequency generation (setFrequency) and spatial parameters (setParameterPosition), along with volume adjustment (setVolume).
+## [1.2.0] - 2024-08-15
 
-Voice Frequency Detection: Implemented functionality to detect and display the user's voice frequency, providing real-time biofeedback.
+### Added
+- ChamberController for preset collections
+- ChamberPresetController for individual presets
+- Privacy options for chambers
 
-Preset Management: Improved the flow for adding, removing, and updating frequency presets within the Neom Chamber.
+### Changed
+- Enhanced frequency generation controls
+- Improved spatial parameter positioning
 
-Performance and Maintainability Improvements:
+## [1.0.0] - 2024-05-01
 
-Reduced Coupling: neom_generator is now more decoupled from other modules by relying on service interfaces and dedicated translation constants, leading to a cleaner dependency graph.
-
-Enhanced Testability: The shift to interface-based dependency injection makes it significantly easier to write isolated unit tests for NeomGeneratorController and its related components.
-
-Improved Code Clarity: Clearer separation of concerns within the module (e.g., dedicated controllers for Chamber and Chamber Presets) enhances code readability and maintainability.
+### Added
+- Initial release
+- Core frequency generation engine
+- Neom Chamber management
+- Basic UI components
+- Integration with neom_core and neom_commons
