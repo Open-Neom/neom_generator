@@ -1,0 +1,40 @@
+import 'package:neom_generator/utils/constants/generator_translation_constants.dart';
+
+class GeneratorEnTranslations {
+
+  static const Map<String, String> values = {
+    GeneratorTranslationConstants.breathing: 'Breathing',
+    GeneratorTranslationConstants.chamberCreated: 'Chamber created',
+    GeneratorTranslationConstants.chamberPrefs: 'Neom Chamber Preferences',
+    GeneratorTranslationConstants.chamberPresetAdded: 'Chamber preset added',
+    GeneratorTranslationConstants.coherenceMeter: 'Coherence Meter',
+    GeneratorTranslationConstants.createPresetList: 'Create preset list',
+    GeneratorTranslationConstants.detectMyVoice: 'Detect my voice',
+    GeneratorTranslationConstants.detecting: 'Detecting',
+    GeneratorTranslationConstants.findsYourVoiceFrequency: 'Find your voice\'s frequency',
+    GeneratorTranslationConstants.hemisfericCoherence: 'Hemispheric Coherence',
+    GeneratorTranslationConstants.modulation: 'Modulation',
+    GeneratorTranslationConstants.neomChamber: 'Neom Chamber',
+    GeneratorTranslationConstants.neuroBreathing: 'Neuro Breathing',
+    GeneratorTranslationConstants.neuroFlocking: 'Neuro Flocking',
+    GeneratorTranslationConstants.neuroHarmonicOscilloscope: 'Neuro-Harmonic Oscilloscope',
+    GeneratorTranslationConstants.neuroVR360: 'Neuro VR 360',
+    GeneratorTranslationConstants.neuroVR360Stereo: 'Neuro VR Stereo',
+    GeneratorTranslationConstants.neuroharmony: 'Neuroharmony',
+    GeneratorTranslationConstants.presetAddError: 'Error adding preset to Neom Chamber',
+    GeneratorTranslationConstants.presetAddedMsg: 'Preset added for frequency',
+    GeneratorTranslationConstants.presetRemoveError: 'Error removing preset from Neom Chamber',
+    GeneratorTranslationConstants.presetRemovedMsg: 'Preset removed for frequency',
+    GeneratorTranslationConstants.removePreset: 'Remove preset',
+    GeneratorTranslationConstants.savePreset: 'Save preset',
+    GeneratorTranslationConstants.sessionTime: 'Session Time',
+    GeneratorTranslationConstants.spatiality: 'Spatiality',
+    GeneratorTranslationConstants.surroundSound: 'Surround Sound',
+    GeneratorTranslationConstants.updatePreset: 'Update preset',
+    GeneratorTranslationConstants.waveLength: '\u03BB',
+    GeneratorTranslationConstants.xAxis: 'X-Axis',
+    GeneratorTranslationConstants.yAxis: 'Y-Axis',
+    GeneratorTranslationConstants.zAxis: 'Z-Axis',
+  };
+
+}
