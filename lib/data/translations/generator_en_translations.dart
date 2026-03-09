@@ -35,6 +35,7 @@ class GeneratorEnTranslations {
     GeneratorTranslationConstants.xAxis: 'X-Axis',
     GeneratorTranslationConstants.yAxis: 'Y-Axis',
     GeneratorTranslationConstants.zAxis: 'Z-Axis',
+    GeneratorTranslationConstants.fractalVisualization: 'Fractal Visualization',
   };
 
 }

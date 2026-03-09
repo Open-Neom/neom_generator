@@ -634,6 +634,49 @@ class NeomGeneratorPage extends StatelessWidget {
                     ),
                   ),
                   AppTheme.heightSpace10,
+                  // Fractal Visualization button
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: GestureDetector(
+                      onTap: () {
+                        Sint.toNamed(
+                          AppRouteConstants.fractalFullscreen,
+                          arguments: [controller.painterEngine],
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.deepPurple.withValues(alpha: 0.2),
+                              Colors.pink.withValues(alpha: 0.15),
+                              Colors.cyan.withValues(alpha: 0.2),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.grain, color: Colors.purpleAccent.shade100, size: 22),
+                            const SizedBox(width: 10),
+                            Text(
+                              GeneratorTranslationConstants.fractalVisualization.tr.toUpperCase(),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                letterSpacing: 1.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  AppTheme.heightSpace10,
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Container(

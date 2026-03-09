@@ -32,5 +32,6 @@ class GeneratorTranslationConstants {
   static const String presetAddedMsg = 'presetAddedMsg';
   static const String presetRemoveError = 'presetRemoveError';
   static const String presetRemovedMsg = 'presetRemovedMsg';
+  static const String fractalVisualization = 'fractalVisualization';
 
 }
