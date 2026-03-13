@@ -17,7 +17,7 @@ class NeomBreathingFullscreenPage extends StatelessWidget {
       id: AppPageIdConstants.breathing,
       init: NeomBreathingController(),
       builder: (controller) => Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColor.darkBackground,
         body: LayoutBuilder(
           builder: (context, constraints) {
             final currentWidth = constraints.maxWidth;
@@ -125,7 +125,7 @@ class NeomBreathingFullscreenPage extends StatelessWidget {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.pause_circle_outline, color: AppColor.bondiBlue, size: 28),
+                    Icon(Icons.pause_circle_outline, color: Colors.white, size: 28),
                     SizedBox(width: 12),
                     Text(
                       'PAUSADO',

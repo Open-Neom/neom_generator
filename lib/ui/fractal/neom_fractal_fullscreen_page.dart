@@ -81,7 +81,7 @@ class NeomFractalFullscreenPage extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.pause, color: AppColor.bondiBlue, size: 20),
+                        Icon(Icons.pause, color: Colors.white, size: 20),
                         const SizedBox(width: 8),
                         Text(
                           'PAUSED',

@@ -21,7 +21,7 @@ class ChamberPresetsPage extends StatelessWidget {
       id: AppPageIdConstants.chamberPresets,
       init: ChamberPresetController(),
       builder: (controller) => Scaffold(
-        backgroundColor: AppColor.getMain(),
+        backgroundColor: AppColor.scaffold,
         appBar: AppBarChild(title: controller.chamber.name.length > AppConstants.maxItemlistNameLength
             ? "${controller.chamber.name.substring(0,AppConstants.maxItemlistNameLength)}..."
             : controller.chamber.name),

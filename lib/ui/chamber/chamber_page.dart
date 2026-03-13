@@ -23,7 +23,7 @@ class ChamberPage extends StatelessWidget {
         id: AppPageIdConstants.chamber,
         init: ChamberController(),
         builder: (controller) => Scaffold(
-          backgroundColor: AppColor.main75,
+          backgroundColor: AppColor.surfaceElevated,
           appBar: AppBarChild(title: AppTranslationConstants.presets.tr,),
           body: Container(
               decoration: AppTheme.appBoxDecoration,
@@ -39,7 +39,7 @@ class ChamberPage extends StatelessWidget {
                       (await showDialog(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          backgroundColor: AppColor.main75,
+                          backgroundColor: AppColor.surfaceElevated,
                           title: Text(CommonTranslationConstants.addNewItemlist.tr),
                           content: Obx(() => SingleChildScrollView( // Scroll por si el teclado tapa
                             child: Column(

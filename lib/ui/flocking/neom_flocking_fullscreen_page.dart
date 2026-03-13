@@ -15,7 +15,7 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
       id: AppPageIdConstants.flocking,
       init: NeomFlockingController(),
       builder: (controller) => Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColor.darkBackground,
         body: LayoutBuilder(
           builder: (context, constraints) {
             final currentWidth = constraints.maxWidth;
@@ -85,7 +85,7 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.pause, color: AppColor.bondiBlue, size: 16),
+                              Icon(Icons.pause, color: Colors.white, size: 16),
                               const SizedBox(width: 8),
                               Text(
                                 'PAUSED',
@@ -415,7 +415,7 @@ class NeomFlockingFullscreenPage extends StatelessWidget {
             color: AppColor.bondiBlue.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Text(key, style: const TextStyle(color: AppColor.bondiBlue, fontFamily: 'Courier', fontSize: 9, fontWeight: FontWeight.bold)),
+          child: Text(key, style: const TextStyle(color: Colors.white, fontFamily: 'Courier', fontSize: 9, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(width: 4),
         Text(action, style: const TextStyle(color: Colors.white54, fontSize: 9)),

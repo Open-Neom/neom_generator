@@ -57,7 +57,7 @@ Widget buildChamberList(BuildContext context, ChamberController chamberControlle
         subtitle: chamber.description.isNotEmpty ? Text(chamber.description.capitalizeFirst, maxLines: 3, overflow: TextOverflow.ellipsis,) : null,
         trailing: ActionChip(
           labelPadding: EdgeInsets.zero,
-          backgroundColor: AppColor.main25,
+          backgroundColor: AppColor.surfaceDim,
           avatar: CircleAvatar(
             backgroundColor: AppColor.white80,
             child: Text(((chamber.chamberPresets?.length ?? 0)).toString(),
@@ -84,7 +84,7 @@ Widget buildChamberList(BuildContext context, ChamberController chamberControlle
           (await showDialog(
               context: context,
               builder: (ctx) => AlertDialog(
-            backgroundColor: AppColor.main75,
+            backgroundColor: AppColor.surfaceElevated,
             title: Text(CommonTranslationConstants.itemlistName.tr,),
             content: SizedBox(
               height: AppTheme.fullHeight(context)*0.25,
@@ -195,7 +195,7 @@ Widget buildPresetsList(BuildContext context, ChamberPresetController presetCont
               context: context,
               title: CommonTranslationConstants.appItemPrefs.tr,
               style: AlertStyle(
-                  backgroundColor: AppColor.main50,
+                  backgroundColor: AppColor.scaffold,
                   titleStyle: const TextStyle(color: Colors.white)
               ),
               content: Column(
@@ -374,7 +374,7 @@ void showSaveDialog(BuildContext context, NeomGeneratorController controller) {
   Alert(
     context: context,
     style: AlertStyle(
-        backgroundColor: AppColor.main75,
+        backgroundColor: AppColor.surfaceElevated,
         titleStyle: const TextStyle(color: Colors.white),
         descStyle: const TextStyle(color: Colors.white70)
     ),
@@ -418,7 +418,7 @@ void showSaveDialog(BuildContext context, NeomGeneratorController controller) {
               },
               value: CoreUtilities.getItemState(controller.frequencyState.value).name,
               isExpanded: true,
-              dropdownColor: AppColor.main75,
+              dropdownColor: AppColor.surfaceElevated,
               style: const TextStyle(color: Colors.white),
               underline: Container(height: 1, color: AppColor.bondiBlue),
             )
@@ -440,7 +440,7 @@ void showSaveDialog(BuildContext context, NeomGeneratorController controller) {
                 CommonTranslationConstants.appItemPrefs.tr,
                 MessageTranslationConstants.selectItemStateMsg.tr,
                 snackPosition: SnackPosition.bottom,
-                backgroundColor: AppColor.main50,
+                backgroundColor: AppColor.scaffold,
                 colorText: Colors.white
             );
           }

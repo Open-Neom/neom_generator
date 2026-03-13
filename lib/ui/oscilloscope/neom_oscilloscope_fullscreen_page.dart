@@ -15,7 +15,7 @@ class NeomOscilloscopeFullscreenPage extends StatelessWidget {
       id: AppPageIdConstants.oscilloscope,
       init: NeomOscilloscopeController(),
       builder: (controller) => Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColor.darkBackground,
         body: GestureDetector(
           // Tap simple: toggle pausa
           onTap: controller.togglePause,
@@ -71,7 +71,7 @@ class NeomOscilloscopeFullscreenPage extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.pause, color: AppColor.bondiBlue, size: 16),
+                          Icon(Icons.pause, color: Colors.white, size: 16),
                           const SizedBox(width: 8),
                           Text(
                             'PAUSED',

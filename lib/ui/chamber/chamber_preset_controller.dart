@@ -209,7 +209,7 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
 
     NeomChamberPreset chamberPreset = chamber.chamberPresets?.firstWhere((element) => element.name == appMediaItem.name) ?? NeomChamberPreset();
     if(chamberPreset.name.isNotEmpty) {
-      Sint.toNamed(AppFlavour.getMainItemDetailsRoute(), arguments: [chamberPreset.clone()]
+      Sint.toNamed(AppFlavour.getMainItemDetailsRoute(chamberPreset.id), arguments: [chamberPreset.clone()]
       );
     }
 

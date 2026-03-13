@@ -475,7 +475,7 @@ class NeomGeneratorPage extends StatelessWidget {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.scatter_plot, color: AppColor.bondiBlue, size: 20),
+                                  Icon(Icons.scatter_plot, color: Colors.white, size: 20),
                                   const SizedBox(width: 8),
                                   Flexible(
                                     child: Text(
