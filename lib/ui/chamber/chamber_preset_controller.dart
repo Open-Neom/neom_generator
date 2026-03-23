@@ -2,6 +2,7 @@ import 'package:neom_commons/app_flavour.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/data/api_services/push_notification/firebase_messaging_calls.dart';
+import 'package:neom_core/utils/neom_error_logger.dart';
 import 'package:neom_core/domain/model/band.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
@@ -72,8 +73,8 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
       if(AppConfig.instance.appInUse == AppInUse.c) {
         isFixed = true;
       }
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'onInit');
     }
 
   }
@@ -117,8 +118,8 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
         } else {
           AppConfig.logger.e("NeomChamberPreset not updated");
         }
-      } catch (e) {
-        AppConfig.logger.e(e.toString());
+      } catch (e, st) {
+        NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'updateChamberPreset');
       }
 
       Sint.back();
@@ -161,8 +162,8 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
           return true;
         }
       }
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'addPresetToChamber');
     }
 
     update([AppPageIdConstants.chamberPresets, AppPageIdConstants.chamber, AppPageIdConstants.chamberPresetDetails]);
@@ -183,8 +184,8 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
         AppConfig.logger.d("NeomChamberPreset not removed");
         return false;
       }
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'removePresetFromChamber');
       return false;
     }
 

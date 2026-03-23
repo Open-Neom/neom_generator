@@ -14,6 +14,7 @@ dependencies:
   neom_core: ^3.0.0
   neom_commons: ^3.0.0
   neom_sound: ^1.0.0
+  neom_states: ^1.0.0
   neom_vr: ^2.1.0-dev
 
   sleek_circular_slider: ^2.1.0

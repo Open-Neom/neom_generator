@@ -11,6 +11,7 @@ import 'package:neom_commons/utils/constants/translations/app_translation_consta
 import 'package:neom_commons/utils/constants/translations/common_translation_constants.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/app_properties.dart';
+import 'package:neom_core/utils/neom_error_logger.dart';
 import 'package:neom_core/data/firestore/profile_firestore.dart';
 import 'package:neom_core/data/implementations/neom_stopwatch.dart';
 import 'package:neom_core/domain/model/app_profile.dart';
@@ -170,8 +171,8 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
       });
 
-    } catch(e) {
-      AppConfig.logger.e(e.toString());
+    } catch(e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'onInit');
     }
 
   }
@@ -192,8 +193,8 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       frequencyDescription.value = chamberPreset.description.isNotEmpty
           ? chamberPreset.description : chamberPreset.mainFrequency?.description ?? '';
 
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'onReady');
     }
 
     isLoading.value = false;
@@ -250,6 +251,20 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     chamberPreset.mainFrequency?.frequency = frequency;
     updateDescriptionForFrequency(frequency);
     if (existsInChamber.value) isUpdate.value = true;
+
+    // Update painter immediately so visualizations reflect the change
+    // even when not playing (idle preview mode).
+    if (!isPlaying.value) {
+      painterEngine.updateFromAudio(
+        phase: wavePhase.value,
+        amplitude: currentVol.value.clamp(0.1, 1.0),
+        pan: posX.value,
+        breath: breathDepth.value,
+        modulation: modulationDepth.value,
+        neuro: neuroState.value.index / NeomNeuroState.values.length,
+        frequency: frequency,
+      );
+    }
   }
 
   @override
@@ -273,6 +288,19 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       );
     } else {
       chamberPreset.binauralFrequency = null;
+    }
+
+    // Update painter for idle preview
+    if (!isPlaying.value) {
+      painterEngine.updateFromAudio(
+        phase: wavePhase.value,
+        amplitude: currentVol.value.clamp(0.1, 1.0),
+        pan: posX.value,
+        breath: breathDepth.value,
+        modulation: modulationDepth.value,
+        neuro: neuroState.value.index / NeomNeuroState.values.length,
+        frequency: currentFreq.value,
+      );
     }
 
     update([AppPageIdConstants.generator]);
@@ -357,8 +385,8 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
           } else {
             AppConfig.logger.d("Preset not added to Neom NeomChamber");
           }
-        } catch (e) {
-          AppConfig.logger.e(e.toString());
+        } catch (e, st) {
+          NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'addPreset');
           AppUtilities.showSnackBar(
               title: AppTranslationConstants.generator.tr,
               message: GeneratorTranslationConstants.presetAddError.tr,
@@ -402,8 +430,8 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
           } else {
             AppConfig.logger.d("Preset not removed from Neom NeomChamber");
           }
-        } catch (e) {
-          AppConfig.logger.e(e.toString());
+        } catch (e, st) {
+          NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'removePreset');
           AppUtilities.showSnackBar(
               title: GeneratorTranslationConstants.neomChamber.tr,
               message: GeneratorTranslationConstants.presetRemoveError.tr,
@@ -551,8 +579,8 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
           setFrequency(detectedFrequency);
         }
       });
-    } catch(e) {
-      AppConfig.logger.e(e.toString());
+    } catch(e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'startRecording');
     }
 
     update([AppPageIdConstants.generator]);
@@ -589,8 +617,8 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
         PitchDetectorResult pitchResult = await pitchDetectorDart.getPitchFromIntBuffer(chunkAsUint8List);
         pitch = pitchResult.pitch.roundToDouble();
-      } catch (e) {
-        AppConfig.logger.e("Pitch detector error: $e");
+      } catch (e, st) {
+        NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'getPitchFromAudioData');
       }
     }
 

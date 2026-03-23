@@ -1,17 +1,19 @@
 // Necesario para calcular la nota musical
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:neom_commons/domain/extensions/double_extensions.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
-import 'package:neom_commons/ui/widgets/appbar_child.dart';
+
 import 'package:neom_commons/ui/widgets/read_more_container.dart';
 import 'package:neom_commons/utils/auth_guard.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_commons/utils/constants/translations/app_translation_constants.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/utils/constants/app_route_constants.dart';
+import 'package:neom_core/utils/neom_error_logger.dart';
 import 'package:sint/sint.dart';
 import 'package:sleek_circular_slider/sleek_circular_slider.dart';
 
@@ -30,6 +32,7 @@ import 'panels/neom_breath_control_panel.dart';
 import 'panels/neom_modulation_control_panel.dart';
 import 'panels/neom_neuro_state_control_panel.dart';
 import 'panels/neom_spatial_control_panel.dart';
+import 'web/neom_generator_web_page.dart';
 import 'widgets/generator_widgets.dart';
 import 'widgets/session_time_meter.dart';
 
@@ -53,15 +56,17 @@ class NeomGeneratorPage extends StatelessWidget {
                 await controller.playStopPreview(stop: true);
               }
               controller.isPlaying.value = false;
-            } catch (e) {
-              AppConfig.logger.e(e.toString());
+            } catch (e, st) {
+              NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'onPopInvokedWithResult');
             }
           }
         },
-    child: Scaffold(
-      appBar: showAppBar ? AppBarChild(title: GeneratorTranslationConstants.neomChamber.tr,
+    child: kIsWeb && MediaQuery.of(context).size.width > 900
+        ? NeomGeneratorWebPage(controller: controller)
+        : Scaffold(
+      appBar: showAppBar ? SintAppBar(title: GeneratorTranslationConstants.neomChamber.tr,
       centerTitle: true,
-      actionWidgets: controller.userServiceImpl != null ? [
+      actions: controller.userServiceImpl != null ? [
           SizedBox(
             child: IconButton(
               onPressed: () async {

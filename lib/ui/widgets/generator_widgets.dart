@@ -434,7 +434,7 @@ void showSaveDialog(BuildContext context, NeomGeneratorController controller) {
         onPressed: () async {
           if(controller.frequencyState > 0) {
             await controller.addPreset(context, frequencyPracticeState: controller.frequencyState.value);
-            Navigator.pop(context);
+            Sint.back();
           } else {
             Sint.snackbar(
                 CommonTranslationConstants.appItemPrefs.tr,

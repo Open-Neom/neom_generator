@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
-import 'package:neom_commons/ui/widgets/appbar_child.dart';
+
 import 'package:neom_commons/utils/constants/app_constants.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_commons/utils/constants/translations/common_translation_constants.dart';
@@ -22,7 +22,7 @@ class ChamberPresetsPage extends StatelessWidget {
       init: ChamberPresetController(),
       builder: (controller) => Scaffold(
         backgroundColor: AppColor.scaffold,
-        appBar: AppBarChild(title: controller.chamber.name.length > AppConstants.maxItemlistNameLength
+        appBar: SintAppBar(title: controller.chamber.name.length > AppConstants.maxItemlistNameLength
             ? "${controller.chamber.name.substring(0,AppConstants.maxItemlistNameLength)}..."
             : controller.chamber.name),
         body: Container(

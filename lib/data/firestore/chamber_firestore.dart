@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:neom_core/app_config.dart';
+import 'package:neom_core/utils/neom_error_logger.dart';
 import 'package:neom_core/data/firestore/constants/app_firestore_collection_constants.dart';
 import 'package:neom_core/data/firestore/constants/app_firestore_constants.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber.dart';
@@ -31,8 +32,8 @@ class ChamberFirestore implements ChamberRepository {
       }
 
       AppConfig.logger.d("Public NeomChamber $chamberId inserted");
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'insert');
     }
 
     return chamberId;
@@ -51,8 +52,8 @@ class ChamberFirestore implements ChamberRepository {
         chamber.id = documentSnapshot.id;
         AppConfig.logger.t(chamber.toString());
       }
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'retrieve');
     }
 
 
@@ -80,8 +81,8 @@ class ChamberFirestore implements ChamberRepository {
           }
         }
       });
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'fetchAll');
     }
 
     AppConfig.logger.d("${chambers .length} chambers found in total.");
@@ -98,8 +99,8 @@ class ChamberFirestore implements ChamberRepository {
       AppConfig.logger.d("NeomChamber $chamberId removed");
       return true;
 
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'delete');
       return false;
     }
   }
@@ -118,8 +119,8 @@ class ChamberFirestore implements ChamberRepository {
 
       AppConfig.logger.d("NeomChamber ${chamber.id} was updated");
       return true;
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'update');
     }
 
     AppConfig.logger.d("NeomChamber ${chamber.id} was not updated");
@@ -137,8 +138,8 @@ class ChamberFirestore implements ChamberRepository {
         AppFirestoreConstants.chamberPresets: FieldValue.arrayUnion([preset.toJSON()])
       });
       addedItem = true;
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'addPreset');
     }
 
     addedItem ? AppConfig.logger.d("Preset was added to chamber $chamberId") :
@@ -160,8 +161,8 @@ class ChamberFirestore implements ChamberRepository {
 
       AppConfig.logger.d("Preset was removed from chamber $chamberId");
       return true;
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'deletePreset');
     }
 
     AppConfig.logger.d("Preset was not  removed from chamber $chamberId");
@@ -180,8 +181,8 @@ class ChamberFirestore implements ChamberRepository {
 
       AppConfig.logger.d("Preset ${preset.name} was updated to ${preset.state}");
       return true;
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'updatePreset');
     }
 
     AppConfig.logger.d("Preset ${preset.name} was not updated");

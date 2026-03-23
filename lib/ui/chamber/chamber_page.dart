@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
-import 'package:neom_commons/ui/widgets/appbar_child.dart';
+
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_commons/utils/constants/translations/app_translation_constants.dart';
 import 'package:neom_commons/utils/constants/translations/common_translation_constants.dart';
@@ -24,7 +24,7 @@ class ChamberPage extends StatelessWidget {
         init: ChamberController(),
         builder: (controller) => Scaffold(
           backgroundColor: AppColor.surfaceElevated,
-          appBar: AppBarChild(title: AppTranslationConstants.presets.tr,),
+          appBar: SintAppBar(title: AppTranslationConstants.presets.tr,),
           body: Container(
               decoration: AppTheme.appBoxDecoration,
               padding: EdgeInsets.only(bottom: controller.ownerType == OwnerType.profile ? 80 : 0),

@@ -1,5 +1,5 @@
 import 'package:flutter/scheduler.dart';
-import 'package:neom_core/app_config.dart';
+import 'package:neom_core/utils/neom_error_logger.dart';
 import 'package:sint/sint.dart';
 
 import '../../engine/neom_fractal_engine.dart';
@@ -38,8 +38,8 @@ class NeomFractalController extends SintController {
     try {
       await fractalEngine.loadShaders();
       _ticker.start();
-    } catch (e) {
-      AppConfig.logger.e('FractalController: shader load failed: $e');
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: '_loadAndStart');
     }
   }
 

@@ -5,6 +5,7 @@ import 'package:neom_commons/utils/constants/translations/common_translation_con
 import 'package:neom_commons/utils/constants/translations/message_translation_constants.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/domain/model/app_profile.dart';
+import 'package:neom_core/utils/neom_error_logger.dart';
 import 'package:neom_core/domain/model/band.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber.dart';
 import 'package:neom_core/domain/repository/chamber_repository.dart';
@@ -83,8 +84,8 @@ class ChamberController extends SintController implements ChamberService {
       baseFreqController.addListener(_updateBinauralPreview);
       binauralBeatController.addListener(_updateBinauralPreview);
 
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'onInit');
     }
 
   }
@@ -195,8 +196,8 @@ class ChamberController extends SintController implements ChamberService {
           message: MessageTranslationConstants.pleaseFillItemlistInfo.tr,
         );
       }
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'createChamber');
     }
 
     update([AppPageIdConstants.chamber]);
@@ -225,8 +226,8 @@ class ChamberController extends SintController implements ChamberService {
         );
         AppConfig.logger.e("Something happens trying to remove itemlist");
       }
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'deleteChamber');
     }
 
     isLoading.value = false;
@@ -277,8 +278,8 @@ class ChamberController extends SintController implements ChamberService {
             message: CommonTranslationConstants.itemlistUpdateSameInfo.tr
         );
       }
-    } catch (e) {
-      AppConfig.logger.e(e.toString());
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'updateChamber');
       AppUtilities.showSnackBar(
           title: CommonTranslationConstants.itemlistPrefs.tr,
           message: MessageTranslationConstants.itemlistUpdatedErrorMsg.tr
