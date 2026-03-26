@@ -76,6 +76,9 @@ class NeomSineEngine {
     while (_running) {
       final buffer = _generateBuffer();
       await _player.feedUint8FromStream(buffer);
+      // Yield to event loop so parameter changes (frequency, volume, beat)
+      // are picked up in real-time without needing stop/start.
+      await Future.delayed(Duration.zero);
     }
   }
 

@@ -33,5 +33,9 @@ class GeneratorTranslationConstants {
   static const String presetRemoveError = 'presetRemoveError';
   static const String presetRemovedMsg = 'presetRemovedMsg';
   static const String fractalVisualization = 'fractalVisualization';
+  static const String activateChamber = 'activateChamber';
+  static const String stopChamber = 'stopChamber';
+  static const String frequency = 'frequency';
+  static const String binauralBeat = 'binauralBeat';
 
 }

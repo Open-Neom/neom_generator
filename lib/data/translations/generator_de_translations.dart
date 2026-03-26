@@ -36,6 +36,10 @@ class GeneratorDeTranslations {
     GeneratorTranslationConstants.yAxis: 'Y-Achse',
     GeneratorTranslationConstants.zAxis: 'Z-Achse',
     GeneratorTranslationConstants.fractalVisualization: 'Fraktale Visualisierung',
+    GeneratorTranslationConstants.activateChamber: 'Frequenz starten',
+    GeneratorTranslationConstants.stopChamber: 'Frequenz stoppen',
+    GeneratorTranslationConstants.frequency: 'Frequenz',
+    GeneratorTranslationConstants.binauralBeat: 'Binauraler Beat',
   };
 
 }

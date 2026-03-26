@@ -175,6 +175,16 @@ class NeomGeneratorWebPage extends StatelessWidget {
                         _buildOscilloscope(context),
                       ),
 
+                      const SizedBox(height: 8),
+
+                      // ═══ Frequency & Amplitude sliders (web controls) ═══
+                      _buildWaveSliders(),
+
+                      const SizedBox(height: 8),
+
+                      // ═══ Voice detection + Chamber activation ═══
+                      _buildVoiceAndChamberRow(),
+
                       const SizedBox(height: 12),
 
                       // Coherence + Lissajous row
@@ -424,6 +434,212 @@ class NeomGeneratorWebPage extends StatelessWidget {
             ),
             tooltip: 'Fullscreen',
           ),
+        ),
+      ],
+    );
+  }
+
+  /// Frequency + Amplitude sliders below the oscilloscope.
+  /// These provide direct, intuitive control over the wave shape.
+  Widget _buildWaveSliders() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(5),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withAlpha(10)),
+      ),
+      child: Column(
+        children: [
+          // ─── Frequency slider + buttons ───
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove, color: Colors.white54, size: 18),
+                onPressed: () => controller.decreaseFrequency(),
+                tooltip: '-1 Hz',
+              ),
+              const Icon(Icons.waves, color: AppColor.bondiBlue, size: 16),
+              const SizedBox(width: 8),
+              Text(GeneratorTranslationConstants.frequency.tr,
+                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
+              Expanded(
+                child: Obx(() => Slider(
+                  value: controller.currentFreq.value.clamp(
+                    NeomGeneratorConstants.frequencyMin.toDouble(),
+                    NeomGeneratorConstants.frequencyLimit.toDouble(),
+                  ),
+                  min: NeomGeneratorConstants.frequencyMin.toDouble(),
+                  max: NeomGeneratorConstants.frequencyLimit.toDouble(),
+                  activeColor: AppColor.bondiBlue,
+                  inactiveColor: Colors.white12,
+                  onChanged: (val) => controller.setFrequency(val),
+                )),
+              ),
+              Obx(() => SizedBox(
+                width: 60,
+                child: Text('${controller.currentFreq.value.toStringAsFixed(1)} Hz',
+                    style: const TextStyle(fontFamily: 'Courier', color: Colors.white70, fontSize: 11),
+                    textAlign: TextAlign.right),
+              )),
+              IconButton(
+                icon: const Icon(Icons.add, color: Colors.white54, size: 18),
+                onPressed: () => controller.increaseFrequency(),
+                tooltip: '+1 Hz',
+              ),
+            ],
+          ),
+          // ─── Amplitude/Volume slider ───
+          Row(
+            children: [
+              const SizedBox(width: 40), // Align with frequency row
+              const Icon(Icons.graphic_eq, color: Colors.amber, size: 16),
+              const SizedBox(width: 8),
+              Text(AppTranslationConstants.volume.tr,
+                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
+              Expanded(
+                child: Obx(() => Slider(
+                  value: controller.currentVol.value,
+                  min: 0.0,
+                  max: 1.0,
+                  activeColor: Colors.amber,
+                  inactiveColor: Colors.white12,
+                  onChanged: (val) => controller.setVolume(val),
+                )),
+              ),
+              Obx(() => SizedBox(
+                width: 60,
+                child: Text('${(controller.currentVol.value * 100).round()}%',
+                    style: const TextStyle(fontFamily: 'Courier', color: Colors.white70, fontSize: 11),
+                    textAlign: TextAlign.right),
+              )),
+              const SizedBox(width: 40), // Balance with buttons
+            ],
+          ),
+          // ─── Binaural beat slider ───
+          Row(
+            children: [
+              const SizedBox(width: 40),
+              const Icon(Icons.hearing, color: Colors.purpleAccent, size: 16),
+              const SizedBox(width: 8),
+              Text(GeneratorTranslationConstants.binauralBeat.tr,
+                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
+              Expanded(
+                child: Obx(() => Slider(
+                  value: controller.currentBeat.value.clamp(0.0, NeomGeneratorConstants.binauralBeatMax.toDouble()),
+                  min: 0.0,
+                  max: NeomGeneratorConstants.binauralBeatMax.toDouble(),
+                  activeColor: Colors.purpleAccent,
+                  inactiveColor: Colors.white12,
+                  onChanged: (val) => controller.setBinauralBeat(beat: val),
+                )),
+              ),
+              Obx(() => SizedBox(
+                width: 60,
+                child: Text('${controller.currentBeat.value.toStringAsFixed(1)} Hz',
+                    style: const TextStyle(fontFamily: 'Courier', color: Colors.white70, fontSize: 11),
+                    textAlign: TextAlign.right),
+              )),
+              const SizedBox(width: 40),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Voice detection button + Chamber (play/stop) activation for web.
+  Widget _buildVoiceAndChamberRow() {
+    return Row(
+      children: [
+        // ─── Detect Voice button ───
+        Expanded(
+          child: Obx(() => GestureDetector(
+            onTap: () {
+              if (controller.isRecording) {
+                controller.stopRecording();
+              } else {
+                controller.startRecording();
+              }
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              decoration: BoxDecoration(
+                color: controller.isRecording
+                    ? Colors.red.withAlpha(30)
+                    : Colors.white.withAlpha(5),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: controller.isRecording ? Colors.red : Colors.white.withAlpha(15),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    FontAwesomeIcons.microphone,
+                    size: 14,
+                    color: controller.isRecording ? Colors.red : Colors.white54,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    controller.isRecording
+                        ? '${GeneratorTranslationConstants.detecting.tr.toUpperCase()}: ${controller.detectedFrequency.toInt()} Hz'
+                        : GeneratorTranslationConstants.detectMyVoice.tr.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: controller.isRecording ? Colors.red : Colors.white54,
+                      letterSpacing: 1,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )),
+        ),
+        const SizedBox(width: 8),
+        // ─── Chamber play/stop button ───
+        Expanded(
+          child: Obx(() => GestureDetector(
+            onTap: () => controller.playStopPreview(),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              decoration: BoxDecoration(
+                color: controller.isPlaying.value
+                    ? AppColor.bondiBlue.withAlpha(30)
+                    : Colors.white.withAlpha(5),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: controller.isPlaying.value ? AppColor.bondiBlue : Colors.white.withAlpha(15),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    controller.isPlaying.value ? Icons.stop_circle : Icons.play_circle,
+                    size: 18,
+                    color: controller.isPlaying.value ? AppColor.bondiBlue : Colors.white54,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    controller.isPlaying.value
+                        ? GeneratorTranslationConstants.stopChamber.tr.toUpperCase()
+                        : GeneratorTranslationConstants.activateChamber.tr.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: controller.isPlaying.value ? AppColor.bondiBlue : Colors.white54,
+                      letterSpacing: 1,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )),
         ),
       ],
     );

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../engine/neom_fractal_engine.dart';
@@ -35,8 +36,10 @@ class NeomFractalPainter extends CustomPainter {
       return;
     }
 
-    // CPU Mandelbrot at reduced resolution for performance
-    final scale = 4; // Render at 1/4 resolution
+    // CPU Mandelbrot at reduced resolution for performance.
+    // Web uses 1/8 resolution (each pixel = 8x8 block) since CPU iteration
+    // per-pixel is expensive. Mobile uses 1/4 for better quality.
+    final scale = kIsWeb ? 8 : 4;
     final w = (size.width / scale).ceil();
     final h = (size.height / scale).ceil();
     final minDim = min(size.width, size.height);

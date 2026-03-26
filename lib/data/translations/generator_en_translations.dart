@@ -36,6 +36,10 @@ class GeneratorEnTranslations {
     GeneratorTranslationConstants.yAxis: 'Y-Axis',
     GeneratorTranslationConstants.zAxis: 'Z-Axis',
     GeneratorTranslationConstants.fractalVisualization: 'Fractal Visualization',
+    GeneratorTranslationConstants.activateChamber: 'Start Frequency',
+    GeneratorTranslationConstants.stopChamber: 'Stop Frequency',
+    GeneratorTranslationConstants.frequency: 'Frequency',
+    GeneratorTranslationConstants.binauralBeat: 'Binaural Beat',
   };
 
 }

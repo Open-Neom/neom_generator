@@ -66,7 +66,7 @@ class FractalConfig {
   /// Returns iteration count scaled for the current platform.
   /// Mobile/web GPUs need fewer iterations to maintain 60fps.
   double get platformIterations {
-    if (kIsWeb) return (maxIterations * 0.5).clamp(32, 100);
+    if (kIsWeb) return (maxIterations * 0.3).clamp(24, 60);
     return maxIterations;
   }
 }
@@ -165,6 +165,8 @@ class NeomFractalEngine extends ChangeNotifier {
     notifyListeners();
   }
 
+  double _timeSinceLastNotify = 0.0;
+
   /// Update animation frame.
   void tick(double dt) {
     _time += dt;
@@ -174,6 +176,15 @@ class NeomFractalEngine extends ChangeNotifier {
       _zoom *= 1.0 + _config.zoomDriftSpeed * dt * 0.01;
       // Reset zoom to prevent float precision issues on mobile
       if (_zoom > 1e5) _zoom = _config.defaultZoom;
+    }
+
+    // Throttle repaints: GPU shaders run at 60fps fine,
+    // but CPU fallback (web without shader support) needs throttling
+    // to ~8fps to stay responsive — each frame is a full Mandelbrot compute.
+    if (useFallback) {
+      _timeSinceLastNotify += dt;
+      if (_timeSinceLastNotify < 0.125) return; // ~8fps
+      _timeSinceLastNotify = 0.0;
     }
 
     notifyListeners();
