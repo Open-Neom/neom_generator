@@ -44,10 +44,10 @@ class NeomSpatialControlPanel extends StatelessWidget {
             const SizedBox(height: 12),
 
             /// ───────── MODO ESPACIAL ─────────
-            _paramLabel(
+            Obx(() => _paramLabel(
               "MODO",
-              controller.spatialMode.value.name.toUpperCase(),
-            ),
+              controller.spatialMode.value.translationKey.tr,
+            )),
 
             Obx(() => DropdownButton<NeomSpatialMode>(
               value: controller.spatialMode.value,
@@ -58,7 +58,7 @@ class NeomSpatialControlPanel extends StatelessWidget {
                 return DropdownMenuItem(
                   value: mode,
                   child: Text(
-                    mode.name.toUpperCase(),
+                    mode.translationKey.tr,
                     style: const TextStyle(
                       color: Colors.white,
                       fontFamily: 'Courier',
@@ -77,10 +77,10 @@ class NeomSpatialControlPanel extends StatelessWidget {
             const SizedBox(height: 14),
 
             /// ───────── INTENSIDAD ESPACIAL ─────────
-            _paramLabel(
+            Obx(() => _paramLabel(
               "INTENSIDAD",
               "${(controller.spatialIntensity.value * 100).round()}%",
-            ),
+            )),
 
             Obx(() => Slider(
               min: 0.0,
@@ -101,17 +101,17 @@ class NeomSpatialControlPanel extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
 
-                  _paramLabel(
+                  Obx(() => _paramLabel(
                     "VELOCIDAD DE ÓRBITA",
                     controller.orbitSpeed.value.toStringAsFixed(2),
-                  ),
+                  )),
 
-                  Slider(
+                  Obx(() => Slider(
                     min: 0.01,
                     max: 1.0,
                     value: controller.orbitSpeed.value,
                     onChanged: controller.setOrbitSpeed,
-                  ),
+                  )),
 
                   /// 🔹 Dirección de órbita (funcionalidad nueva)
                   const SizedBox(height: 8),

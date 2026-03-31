@@ -3,6 +3,7 @@ import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:sint/sint.dart';
 
 import '../../engine/neom_frequency_painter_engine.dart';
+import '../neom_generator_controller.dart';
 
 class NeomOscilloscopeController extends SintController {
 
@@ -10,8 +11,8 @@ class NeomOscilloscopeController extends SintController {
 
   // Controles visuales
   final RxDouble waveThickness = 1.8.obs;
-  final RxDouble waveScale = 0.4.obs;      // Altura de la onda (0.1 - 0.8)
-  final RxDouble timeScale = 1.0.obs;      // Velocidad/compresión horizontal
+  final RxDouble waveScale = 0.4.obs;
+  final RxDouble timeScale = 1.0.obs;
   final RxBool isPaused = false.obs;
   final RxBool showGrid = true.obs;
   final RxBool showGlow = true.obs;
@@ -43,14 +44,15 @@ class NeomOscilloscopeController extends SintController {
     // Ocultar barras del sistema para fullscreen inmersivo
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-    // Recibir el engine del generador
-    if (Sint.arguments != null && Sint.arguments is NeomFrequencyPainterEngine) {
+    // Get the live engine from the generator controller (permanent singleton)
+    if (Sint.isRegistered<NeomGeneratorController>()) {
+      painterEngine = Sint.find<NeomGeneratorController>().painterEngine;
+    } else if (Sint.arguments is NeomFrequencyPainterEngine) {
       painterEngine = Sint.arguments;
-    } else if (Sint.isRegistered<NeomFrequencyPainterEngine>()) {
-      painterEngine = Sint.find<NeomFrequencyPainterEngine>();
     } else {
       painterEngine = NeomFrequencyPainterEngine();
     }
+
   }
 
   @override

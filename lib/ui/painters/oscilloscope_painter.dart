@@ -6,11 +6,14 @@ class OscilloscopePainter extends CustomPainter {
   final NeomFrequencyPainterEngine engine;
   final Color signalColor;
   final Color gridColor;
+  /// Time scale: 1.0 = full buffer, 0.25 = zoomed in 4x, 2.0 = zoomed out.
+  final double timeScale;
 
   OscilloscopePainter({
     required this.engine,
     required this.signalColor,
     required this.gridColor,
+    this.timeScale = 1.0,
   });
 
   @override
@@ -57,8 +60,13 @@ class OscilloscopePainter extends CustomPainter {
   }
 
   void _drawWave(Canvas canvas, Size size) {
-    final samples = engine.samples; // Float32List o List<double>
-    if (samples.isEmpty) return;
+    final allSamples = engine.samples; // Float32List o List<double>
+    if (allSamples.isEmpty) return;
+
+    // Apply time scale: show only a portion of the buffer when zoomed in
+    final visibleCount = (allSamples.length * timeScale.clamp(0.1, 2.0)).round().clamp(10, allSamples.length);
+    final startIdx = allSamples.length - visibleCount;
+    final samples = allSamples.sublist(startIdx);
 
     final path = Path();
     final midY = size.height / 2;

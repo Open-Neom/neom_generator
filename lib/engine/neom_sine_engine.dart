@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter_sound/flutter_sound.dart';
+import 'package:logger/logger.dart' show Level;
 
 import '../utils/constants/neom_generator_constants.dart';
 import '../utils/enums/neom_spatial_mode.dart';
@@ -12,12 +13,29 @@ import 'neom_neuro_state_engine.dart';
 
 class NeomSineEngine {
 
+  // ── Singleton ──
+  static NeomSineEngine? _instance;
+
+  /// Shared singleton instance. Use this to ensure onboarding and
+  /// Cámara Neom share the same audio engine (like NeomAudioHandler).
+  static NeomSineEngine get shared {
+    _instance ??= NeomSineEngine._internal();
+    return _instance!;
+  }
+
+  /// Named constructor for singleton.
+  NeomSineEngine._internal();
+
+  /// Public constructor — returns the singleton.
+  factory NeomSineEngine() => shared;
+
   final FlutterSoundPlayer _player = FlutterSoundPlayer();
   final NeomBreathEngine breathEngine = NeomBreathEngine();
   final NeomNeuroStateEngine neuroStateEngine = NeomNeuroStateEngine();
   NeomFrequencyPainterEngine? painterEngine;
 
   bool _running = false;
+  bool get isPlaying => _running;
 
   double _phaseL = 0.0;
   double _phaseR = 0.0;
@@ -48,6 +66,14 @@ class NeomSineEngine {
   Future<void> start() async {
     if (_running) return;
 
+    // Ensure player is open (may have been closed by dispose or never opened)
+    if (!_player.isOpen()) {
+      await _player.openPlayer();
+    }
+
+    try { _player.setLogLevel(Level.off); } catch (_) {
+      // setLogLevel not implemented on web — safe to ignore
+    }
     await _player.startPlayerFromStream(
       codec: Codec.pcm16,
       numChannels: NeomGeneratorConstants.channels,
@@ -69,7 +95,11 @@ class NeomSineEngine {
 
   Future<void> dispose() async {
     _running = false;
-    await _player.closePlayer();
+    // Don't close the player on singleton — it will be reused.
+    // Only stop the audio loop. Player stays open for next start().
+    if (_player.isPlaying) {
+      await _player.stopPlayer();
+    }
   }
 
   Future<void> _audioLoop() async {

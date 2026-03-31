@@ -30,7 +30,7 @@ class NeomBinauralBeatPainter extends CustomPainter {
 
     final path = Path();
 
-    final pulses = beatHz.abs().clamp(0.5, 40);
+    final pulses = beatHz.abs().clamp(0.5, 50);
     final wavelength = size.width / pulses;
 
     for (double x = 0; x <= size.width; x++) {

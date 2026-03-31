@@ -4,7 +4,15 @@ enum NeomBreathMode {
   off,
   box,
   fourSevenEight,
-  free,
+  free;
+
+  /// Translation key for humanized label.
+  String get translationKey => switch (this) {
+    off => 'breathOff',
+    box => 'breathBox',
+    fourSevenEight => 'breathFourSevenEight',
+    free => 'breathFree',
+  };
 }
 
 class NeomBreathEngine {

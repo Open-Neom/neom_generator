@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:sint/sint.dart';
@@ -6,8 +7,32 @@ import 'package:sint/sint.dart';
 import 'neom_oscilloscope_controller.dart';
 import 'neom_oscilloscope_fullscreen_painter.dart';
 
-class NeomOscilloscopeFullscreenPage extends StatelessWidget {
+class NeomOscilloscopeFullscreenPage extends StatefulWidget {
   const NeomOscilloscopeFullscreenPage({super.key});
+
+  @override
+  State<NeomOscilloscopeFullscreenPage> createState() => _NeomOscilloscopeFullscreenPageState();
+}
+
+class _NeomOscilloscopeFullscreenPageState extends State<NeomOscilloscopeFullscreenPage>
+    with SingleTickerProviderStateMixin {
+  late Ticker _frameTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    _frameTicker = createTicker((_) {
+      if (mounted) setState(() {});
+    });
+    _frameTicker.start();
+  }
+
+  @override
+  void dispose() {
+    _frameTicker.stop();
+    _frameTicker.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,12 +42,9 @@ class NeomOscilloscopeFullscreenPage extends StatelessWidget {
       builder: (controller) => Scaffold(
         backgroundColor: AppColor.darkBackground,
         body: GestureDetector(
-          // Tap simple: toggle pausa
           onTap: controller.togglePause,
-          // Long press: pausa mientras se mantiene
           onLongPressStart: (_) => controller.onLongPressStart(),
           onLongPressEnd: (_) => controller.onLongPressEnd(),
-          // Pinch vertical: escala de onda
           onScaleUpdate: (details) {
             if (details.scale != 1.0) {
               final delta = (details.scale - 1.0) * 0.01;
@@ -31,26 +53,23 @@ class NeomOscilloscopeFullscreenPage extends StatelessWidget {
           },
           child: Stack(
             children: [
-              // Osciloscopio fullscreen
+              // Osciloscopio fullscreen — driven by _frameTicker setState
               Positioned.fill(
-                child: AnimatedBuilder(
-                  animation: controller.painterEngine,
-                  builder: (_, _) => CustomPaint(
-                    painter: NeomOscilloscopeFullscreenPainter(
-                      samples: controller.displaySamples,
-                      signalColor: controller.isPaused.value
-                          ? AppColor.bondiBlue.withValues(alpha: 0.6)
-                          : AppColor.bondiBlue,
-                      gridColor: Colors.white12,
-                      thickness: controller.waveThickness.value,
-                      waveScale: controller.waveScale.value,
-                      timeScale: controller.timeScale.value,
-                      showGrid: controller.showGrid.value,
-                      showGlow: controller.showGlow.value,
-                      isPaused: controller.isPaused.value,
-                    ),
-                    size: Size.infinite,
+                child: CustomPaint(
+                  painter: NeomOscilloscopeFullscreenPainter(
+                    samples: controller.displaySamples,
+                    signalColor: controller.isPaused.value
+                        ? AppColor.bondiBlue.withValues(alpha: 0.6)
+                        : AppColor.bondiBlue,
+                    gridColor: Colors.white12,
+                    thickness: controller.waveThickness.value,
+                    waveScale: controller.waveScale.value,
+                    timeScale: controller.timeScale.value,
+                    showGrid: controller.showGrid.value,
+                    showGlow: controller.showGlow.value,
+                    isPaused: controller.isPaused.value,
                   ),
+                  size: Size.infinite,
                 ),
               ),
 

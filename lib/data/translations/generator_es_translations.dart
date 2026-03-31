@@ -1,4 +1,4 @@
-import 'package:neom_generator/utils/constants/generator_translation_constants.dart';
+import '../../utils/constants/generator_translation_constants.dart';
 
 class GeneratorEsTranslations {
 
@@ -9,10 +9,11 @@ class GeneratorEsTranslations {
     GeneratorTranslationConstants.chamberPresetAdded: 'Preset de Cámara Neom agregado',
     GeneratorTranslationConstants.coherenceMeter: 'Medidor de coherencia',
     GeneratorTranslationConstants.createPresetList: 'Crear lista de presets',
-    GeneratorTranslationConstants.detectMyVoice: 'Detectando mi voz',
+    GeneratorTranslationConstants.detectMyVoice: 'Detectar mi voz',
     GeneratorTranslationConstants.detecting: 'Detectando',
     GeneratorTranslationConstants.findsYourVoiceFrequency: 'Encuentra la frecuencia de tu voz',
     GeneratorTranslationConstants.hemisfericCoherence: 'Coherencia hemisférica',
+    GeneratorTranslationConstants.coherenceDisclaimer: 'Estimado basado en la sincronía de fase del estímulo auditivo. Lectura cerebral real requiere hardware EEG (próximamente).',
     GeneratorTranslationConstants.modulation: 'Modulación',
     GeneratorTranslationConstants.neomChamber: 'Cámara Neom',
     GeneratorTranslationConstants.neuroBreathing: 'Neuro Respiración',
@@ -40,6 +41,85 @@ class GeneratorEsTranslations {
     GeneratorTranslationConstants.stopChamber: 'Detener Frecuencia',
     GeneratorTranslationConstants.frequency: 'Frecuencia',
     GeneratorTranslationConstants.binauralBeat: 'Beat Binaural',
+    // Incienso Review Modal
+    GeneratorTranslationConstants.reviewOverallExperience: 'Experiencia general',
+    GeneratorTranslationConstants.reviewIntensityLevel: 'Nivel de intensidad',
+    GeneratorTranslationConstants.reviewRecommend: '\u00bfRecomendar\u00edas este Incienso?',
+    GeneratorTranslationConstants.reviewTags: 'Etiquetas',
+    GeneratorTranslationConstants.reviewNoteHint: '\u00bfC\u00f3mo te sentiste?',
+    GeneratorTranslationConstants.reviewSkip: 'Omitir',
+    GeneratorTranslationConstants.reviewSave: 'Guardar',
+    GeneratorTranslationConstants.reviewOptional: 'opcional',
+    GeneratorTranslationConstants.reviewEmotionRelaxed: 'Relajado',
+    GeneratorTranslationConstants.reviewEmotionPeaceful: 'En paz',
+    GeneratorTranslationConstants.reviewEmotionDeep: 'Profundo',
+    GeneratorTranslationConstants.reviewEmotionEnergized: 'Energizado',
+    GeneratorTranslationConstants.reviewEmotionTransformed: 'Transformado',
+    GeneratorTranslationConstants.reviewIntensityGentle: 'Suave',
+    GeneratorTranslationConstants.reviewIntensityModerate: 'Moderado',
+    GeneratorTranslationConstants.reviewIntensityIntense: 'Intenso',
+    GeneratorTranslationConstants.reviewTierExplorer: 'Explorador',
+    GeneratorTranslationConstants.reviewTierPractitioner: 'Practicante',
+    GeneratorTranslationConstants.reviewTierMaster: 'Maestro',
+    GeneratorTranslationConstants.reviewTagSleep: 'Para dormir',
+    GeneratorTranslationConstants.reviewTagStudy: 'Para estudiar',
+    GeneratorTranslationConstants.reviewTagAnxiety: 'Para ansiedad',
+    GeneratorTranslationConstants.reviewTagCreativity: 'Para creatividad',
+    GeneratorTranslationConstants.reviewTagMeditate: 'Para meditar',
+    GeneratorTranslationConstants.reviewTagWorkout: 'Antes de entrenar',
+    GeneratorTranslationConstants.reviewTagPain: 'Para el dolor',
+    GeneratorTranslationConstants.reviewTagFocus: 'Para concentrarse',
+    // ── Humanized labels ──
+    // Modulation types
+    GeneratorTranslationConstants.modNone: 'Sin efecto',
+    GeneratorTranslationConstants.modAm: 'Pulso suave',
+    GeneratorTranslationConstants.modFm: 'Vibrato tonal',
+    GeneratorTranslationConstants.modPhase: 'Cambio de fase',
+    GeneratorTranslationConstants.modPm: 'Modulación profunda',
+    // Octave
+    GeneratorTranslationConstants.octave: 'Octava',
+    GeneratorTranslationConstants.octaveBase: 'Base',
+    // Isochronic
+    GeneratorTranslationConstants.isochronicPulse: 'Pulso Rítmico',
+    GeneratorTranslationConstants.isochronicDuty: 'Intensidad del pulso',
+    // Breathing
+    GeneratorTranslationConstants.breathOff: 'Desactivada',
+    GeneratorTranslationConstants.breathBox: 'Cuadrada (4-4-4-4)',
+    GeneratorTranslationConstants.breathFourSevenEight: 'Relajante (4-7-8)',
+    GeneratorTranslationConstants.breathFree: 'Libre',
+    // Spatial
+    GeneratorTranslationConstants.spatialSoftPan: 'Suave',
+    GeneratorTranslationConstants.spatialHardPan: 'Definido',
+    GeneratorTranslationConstants.spatialCrossfade: 'Progresivo',
+    GeneratorTranslationConstants.spatialOrbit: 'Órbita',
+    GeneratorTranslationConstants.spatialCentered: 'Centrado',
+    // Neuro states (nameKey from neom_core)
+    'neuroStateNeutral': 'Neutro',
+    'neuroStateCalm': 'Calma',
+    'neuroStateFocus': 'Enfoque',
+    'neuroStateSleep': 'Sueño',
+    'neuroStateCreativity': 'Creatividad',
+    'neuroStateIntegration': 'Integración',
+    // Visual modes
+    GeneratorTranslationConstants.visualScientific: 'Científico',
+    GeneratorTranslationConstants.visualMeditative: 'Meditativo',
+    // Visualizations
+    GeneratorTranslationConstants.lissajous: 'Patrón Armónico',
+    // Helper tooltips
+    GeneratorTranslationConstants.helpModulation: 'Modifica cómo suena la frecuencia. Pulso suave la hace palpitar, Vibrato la hace vibrar como un instrumento.',
+    GeneratorTranslationConstants.helpIsochronic: 'Genera pulsos rítmicos que estimulan el cerebro. A diferencia del binaural, funciona con una sola bocina.',
+    GeneratorTranslationConstants.helpBreathing: 'Sincroniza el volumen con un patrón de respiración. Cuadrada: 4 seg inhala, 4 retén, 4 exhala, 4 pausa. Relajante (4-7-8): técnica de calma profunda.',
+    GeneratorTranslationConstants.helpSpatiality: 'Controla cómo se mueve el sonido entre tus oídos. Órbita lo hace girar alrededor de tu cabeza.',
+    GeneratorTranslationConstants.helpNeuroState: 'Selecciona un estado mental objetivo. Cada estado ajusta automáticamente la respiración, modulación y frecuencia isocrónica para favorecer ese patrón cerebral.',
+    GeneratorTranslationConstants.helpIncienso: 'INCIENSO (Inducción Cíclica de Enfoque Sostenido). Protocolos de frecuencia basados en investigación científica que combinan binaural beats, respiración y modulación para inducir estados mentales específicos.',
+    GeneratorTranslationConstants.helpLissajous: 'Figura que muestra la relación entre las dos frecuencias (izquierda y derecha). Cuando forma un patrón estable, tus oídos están sincronizados.',
+    GeneratorTranslationConstants.helpCoherence: 'Mide qué tan sincronizadas están las señales del oído izquierdo y derecho. 100% = perfecta sincronía.',
+    GeneratorTranslationConstants.helpOscilloscope: 'Muestra la forma de onda del sonido en tiempo real. Puedes ver la frecuencia y amplitud de lo que estás escuchando.',
+    GeneratorTranslationConstants.experiences: 'Experiencias',
+    GeneratorTranslationConstants.states: 'Estados',
+    GeneratorTranslationConstants.goToExperiences: 'Ir a Experiencias',
+    GeneratorTranslationConstants.experiencesSubtitle: 'Visualizaciones inmersivas para potenciar tu sesión',
+    GeneratorTranslationConstants.statesSubtitle: 'Frecuencias preconfiguradas para estados mentales específicos',
   };
 
 }

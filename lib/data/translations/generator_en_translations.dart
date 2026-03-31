@@ -1,4 +1,4 @@
-import 'package:neom_generator/utils/constants/generator_translation_constants.dart';
+import '../../utils/constants/generator_translation_constants.dart';
 
 class GeneratorEnTranslations {
 
@@ -13,6 +13,7 @@ class GeneratorEnTranslations {
     GeneratorTranslationConstants.detecting: 'Detecting',
     GeneratorTranslationConstants.findsYourVoiceFrequency: 'Find your voice\'s frequency',
     GeneratorTranslationConstants.hemisfericCoherence: 'Hemispheric Coherence',
+    GeneratorTranslationConstants.coherenceDisclaimer: 'Estimated from audio stimulus phase sync. Real brain reading requires EEG hardware (coming soon).',
     GeneratorTranslationConstants.modulation: 'Modulation',
     GeneratorTranslationConstants.neomChamber: 'Neom Chamber',
     GeneratorTranslationConstants.neuroBreathing: 'Neuro Breathing',
@@ -40,6 +41,83 @@ class GeneratorEnTranslations {
     GeneratorTranslationConstants.stopChamber: 'Stop Frequency',
     GeneratorTranslationConstants.frequency: 'Frequency',
     GeneratorTranslationConstants.binauralBeat: 'Binaural Beat',
+    // Incienso Review Modal
+    GeneratorTranslationConstants.reviewOverallExperience: 'Overall experience',
+    GeneratorTranslationConstants.reviewIntensityLevel: 'Intensity level',
+    GeneratorTranslationConstants.reviewRecommend: 'Would you recommend this Incienso?',
+    GeneratorTranslationConstants.reviewTags: 'Tags',
+    GeneratorTranslationConstants.reviewNoteHint: 'How did you feel?',
+    GeneratorTranslationConstants.reviewSkip: 'Skip',
+    GeneratorTranslationConstants.reviewSave: 'Save',
+    GeneratorTranslationConstants.reviewOptional: 'optional',
+    GeneratorTranslationConstants.reviewEmotionRelaxed: 'Relaxed',
+    GeneratorTranslationConstants.reviewEmotionPeaceful: 'Peaceful',
+    GeneratorTranslationConstants.reviewEmotionDeep: 'Deep',
+    GeneratorTranslationConstants.reviewEmotionEnergized: 'Energized',
+    GeneratorTranslationConstants.reviewEmotionTransformed: 'Transformed',
+    GeneratorTranslationConstants.reviewIntensityGentle: 'Gentle',
+    GeneratorTranslationConstants.reviewIntensityModerate: 'Moderate',
+    GeneratorTranslationConstants.reviewIntensityIntense: 'Intense',
+    GeneratorTranslationConstants.reviewTierExplorer: 'Explorer',
+    GeneratorTranslationConstants.reviewTierPractitioner: 'Practitioner',
+    GeneratorTranslationConstants.reviewTierMaster: 'Master',
+    GeneratorTranslationConstants.reviewTagSleep: 'For sleeping',
+    GeneratorTranslationConstants.reviewTagStudy: 'For studying',
+    GeneratorTranslationConstants.reviewTagAnxiety: 'For anxiety',
+    GeneratorTranslationConstants.reviewTagCreativity: 'For creativity',
+    GeneratorTranslationConstants.reviewTagMeditate: 'For meditation',
+    GeneratorTranslationConstants.reviewTagWorkout: 'Before workout',
+    GeneratorTranslationConstants.reviewTagPain: 'For pain relief',
+    GeneratorTranslationConstants.reviewTagFocus: 'For focus',
+    // Modulation types
+    GeneratorTranslationConstants.modNone: 'No effect',
+    GeneratorTranslationConstants.modAm: 'Soft pulse',
+    GeneratorTranslationConstants.modFm: 'Tonal vibrato',
+    GeneratorTranslationConstants.modPhase: 'Phase shift',
+    GeneratorTranslationConstants.modPm: 'Deep modulation',
+    // Isochronic
+    GeneratorTranslationConstants.octave: 'Octave',
+    GeneratorTranslationConstants.octaveBase: 'Base',
+    GeneratorTranslationConstants.isochronicPulse: 'Rhythmic Pulse',
+    GeneratorTranslationConstants.isochronicDuty: 'Pulse intensity',
+    // Breathing
+    GeneratorTranslationConstants.breathOff: 'Off',
+    GeneratorTranslationConstants.breathBox: 'Square (4-4-4-4)',
+    GeneratorTranslationConstants.breathFourSevenEight: 'Relaxing (4-7-8)',
+    GeneratorTranslationConstants.breathFree: 'Free',
+    // Spatial
+    GeneratorTranslationConstants.spatialSoftPan: 'Gentle',
+    GeneratorTranslationConstants.spatialHardPan: 'Sharp',
+    GeneratorTranslationConstants.spatialCrossfade: 'Progressive',
+    GeneratorTranslationConstants.spatialOrbit: 'Orbit',
+    GeneratorTranslationConstants.spatialCentered: 'Centered',
+    // States
+    'neuroStateNeutral': 'Neutral',
+    'neuroStateCalm': 'Calm',
+    'neuroStateFocus': 'Focus',
+    'neuroStateSleep': 'Sleep',
+    'neuroStateCreativity': 'Creativity',
+    'neuroStateIntegration': 'Integration',
+    // Visual modes
+    GeneratorTranslationConstants.visualScientific: 'Scientific',
+    GeneratorTranslationConstants.visualMeditative: 'Meditative',
+    // Visualizations
+    GeneratorTranslationConstants.lissajous: 'Harmonic Pattern',
+    // Tooltips
+    GeneratorTranslationConstants.helpModulation: 'Changes how the frequency sounds. Soft pulse makes it throb, Vibrato makes it oscillate like an instrument.',
+    GeneratorTranslationConstants.helpIsochronic: 'Generates rhythmic pulses that stimulate the brain. Unlike binaural, works with a single speaker.',
+    GeneratorTranslationConstants.helpBreathing: 'Syncs volume with a breathing pattern. Square: 4s inhale, 4s hold, 4s exhale, 4s pause. Relaxing (4-7-8): deep calm technique.',
+    GeneratorTranslationConstants.helpSpatiality: 'Controls how sound moves between your ears. Orbit makes it circle around your head.',
+    GeneratorTranslationConstants.helpNeuroState: 'Select a target mental state. Each state auto-adjusts breathing, modulation, and isochronic frequency to promote that brainwave pattern.',
+    GeneratorTranslationConstants.helpIncienso: 'INCIENSO (Cyclic Induction of Sustained Focus). Evidence-based frequency protocols combining binaural beats, breathing, and modulation to induce specific mental states.',
+    GeneratorTranslationConstants.helpLissajous: 'Shows the relationship between L/R frequencies. When the pattern stabilizes, your ears are in sync.',
+    GeneratorTranslationConstants.helpCoherence: 'Measures how synchronized left and right ear signals are. 100% = perfect synchrony.',
+    GeneratorTranslationConstants.helpOscilloscope: 'Shows the sound waveform in real time. You can see the frequency and amplitude of what you\'re hearing.',
+    GeneratorTranslationConstants.experiences: 'Experiences',
+    GeneratorTranslationConstants.states: 'States',
+    GeneratorTranslationConstants.goToExperiences: 'Go to Experiences',
+    GeneratorTranslationConstants.experiencesSubtitle: 'Immersive visualizations to enhance your session',
+    GeneratorTranslationConstants.statesSubtitle: 'Preconfigured frequencies for specific mental states',
   };
 
 }

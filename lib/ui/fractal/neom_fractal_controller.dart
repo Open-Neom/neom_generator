@@ -1,10 +1,10 @@
 import 'package:flutter/scheduler.dart';
+import 'package:neom_core/domain/model/neom/neom_neuro_state.dart';
 import 'package:neom_core/utils/neom_error_logger.dart';
 import 'package:sint/sint.dart';
 
 import '../../engine/neom_fractal_engine.dart';
 import '../../engine/neom_frequency_painter_engine.dart';
-import '../../utils/enums/neom_neuro_state.dart';
 
 class NeomFractalController extends SintController {
   final NeomFractalEngine fractalEngine = NeomFractalEngine();

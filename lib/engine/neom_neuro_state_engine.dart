@@ -1,6 +1,7 @@
+import 'package:neom_core/domain/model/neom/neom_neuro_state.dart';
+
 import '../engine/neom_breath_engine.dart';
 import '../engine/neom_modulator_engine.dart';
-import '../utils/enums/neom_neuro_state.dart';
 import '../utils/enums/neom_spatial_mode.dart';
 
 class NeomNeuroStateEngine {

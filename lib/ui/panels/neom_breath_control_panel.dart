@@ -37,7 +37,8 @@ class NeomBreathControlPanel extends StatelessWidget {
                 return DropdownMenuItem(
                   value: mode,
                   child: Text(
-                    mode.name.toUpperCase(),
+                    mode.
+                    translationKey.tr,
                     style: const TextStyle(
                       color: Colors.white,
                       fontFamily: 'Courier',
@@ -52,8 +53,8 @@ class NeomBreathControlPanel extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            _label("RITMO (resp/min)",
-                controller.breathRate.value.toStringAsFixed(1)),
+            Obx(() => _label("RITMO (resp/min)",
+                controller.breathRate.value.toStringAsFixed(1))),
 
             Obx(() => Slider(
               min: 3,
@@ -62,8 +63,8 @@ class NeomBreathControlPanel extends StatelessWidget {
               onChanged: controller.setBreathRate,
             )),
 
-            _label("PROFUNDIDAD",
-                "${(controller.breathDepth.value * 100).round()}%"),
+            Obx(() => _label("PROFUNDIDAD",
+                "${(controller.breathDepth.value * 100).round()}%")),
 
             Obx(() => Slider(
               min: 0,

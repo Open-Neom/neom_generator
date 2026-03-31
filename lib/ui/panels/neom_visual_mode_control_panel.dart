@@ -70,7 +70,7 @@ class NeomVisualModeControlPanel extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            mode.name.toUpperCase(),
+                            mode.translationKey.tr,
                             style: TextStyle(
                               color: active
                                   ? Colors.white

@@ -2,7 +2,6 @@ import 'package:neom_commons/app_flavour.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/data/api_services/push_notification/firebase_messaging_calls.dart';
-import 'package:neom_core/utils/neom_error_logger.dart';
 import 'package:neom_core/domain/model/band.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
@@ -12,6 +11,7 @@ import 'package:neom_core/utils/enums/app_in_use.dart';
 import 'package:neom_core/utils/enums/chamber_preset_state.dart';
 import 'package:neom_core/utils/enums/owner_type.dart';
 import 'package:neom_core/utils/enums/push_notification_type.dart';
+import 'package:neom_core/utils/neom_error_logger.dart';
 import 'package:sint/sint.dart';
 
 import '../../data/firestore/chamber_firestore.dart';

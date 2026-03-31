@@ -4,7 +4,7 @@ class NeomGeneratorConstants {
   static const double defaultFrequency  = 345;
   static const double frequencyLimit  = 1500;
   static const double frequencyMax  = 2500;
-  static const double binauralBeatMax  = 250;
+  static const double binauralBeatMax  = 50;
   static const double volumeMin  = 0;
   static const double volumeMax  = 1;
   static const double positionMin  = -1;

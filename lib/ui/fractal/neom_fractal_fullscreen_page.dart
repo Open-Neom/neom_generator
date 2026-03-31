@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
+import 'package:neom_core/domain/model/neom/neom_neuro_state.dart';
 import 'package:sint/sint.dart';
 
 import '../../engine/neom_fractal_engine.dart';
-import '../../utils/enums/neom_neuro_state.dart';
 import '../painters/neom_fractal_painter.dart';
 import 'neom_fractal_controller.dart';
 
@@ -41,7 +41,7 @@ class NeomFractalFullscreenPage extends StatelessWidget {
               Positioned.fill(
                 child: AnimatedBuilder(
                   animation: controller.fractalEngine,
-                  builder: (_, __) => CustomPaint(
+                  builder: (_, _) => CustomPaint(
                     painter: NeomFractalPainter(
                       engine: controller.fractalEngine,
                     ),

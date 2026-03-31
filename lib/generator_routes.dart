@@ -1,11 +1,9 @@
 import 'package:neom_core/utils/constants/app_route_constants.dart';
 import 'package:sint/sint.dart';
 
-import 'ui/breathing/neom_breathing_fullscreen_page.dart';
 import 'ui/chamber/chamber_page.dart';
 import 'ui/chamber/chamber_presets_page.dart';
-import 'ui/flocking/neom_flocking_fullscreen_page.dart';
-import 'ui/fractal/neom_fractal_fullscreen_page.dart';
+import 'ui/experiences/neom_experiences_page.dart';
 import 'ui/neom_generator_page.dart';
 import 'ui/oscilloscope/neom_oscilloscope_fullscreen_page.dart';
 
@@ -28,23 +26,13 @@ class GeneratorRoutes {
         transition: Transition.zoom
     ),
     SintPage(
+        name: AppRouteConstants.chamberExperiences,
+        page: () => const NeomExperiencesPage(),
+        transition: Transition.rightToLeft,
+    ),
+    SintPage(
         name: AppRouteConstants.oscilloscopeFullscreen,
         page: () => const NeomOscilloscopeFullscreenPage(),
-        transition: Transition.fadeIn
-    ),
-    SintPage(
-        name: AppRouteConstants.flockingFullscreen,
-        page: () => const NeomFlockingFullscreenPage(),
-        transition: Transition.fadeIn
-    ),
-    SintPage(
-        name: AppRouteConstants.breathingFullscreen,
-        page: () => const NeomBreathingFullscreenPage(),
-        transition: Transition.fadeIn
-    ),
-    SintPage(
-        name: AppRouteConstants.fractalFullscreen,
-        page: () => const NeomFractalFullscreenPage(),
         transition: Transition.fadeIn
     ),
   ];

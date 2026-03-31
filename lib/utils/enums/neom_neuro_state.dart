@@ -4,5 +4,14 @@ enum NeomNeuroState {
   focus,
   sleep,
   creativity,
-  integration,
+  integration;
+
+  String get translationKey => switch (this) {
+    neutral => 'generatorStateNeutral',
+    calm => 'generatorStateCalm',
+    focus => 'generatorStateFocus',
+    sleep => 'generatorStateSleep',
+    creativity => 'generatorStateCreativity',
+    integration => 'generatorStateIntegration',
+  };
 }

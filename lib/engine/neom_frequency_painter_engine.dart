@@ -175,11 +175,13 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
     _phaseR = phaseR;
   }
 
+  double get phaseL => _phaseL;
+  double get phaseR => _phaseR;
   double get lissajousX => sin(_phaseL);
   double get lissajousY => sin(_phaseR);
 
   EEGband get eegBand {
-    final b = (_binauralBeat * 40).clamp(0.0, 40.0);
+    final b = _binauralBeat.abs();
 
     if (b < 4) return EEGband.delta;
     if (b < 8) return EEGband.theta;
@@ -211,12 +213,22 @@ Widget coherenceMeter(NeomFrequencyPainterEngine engine) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(GeneratorTranslationConstants.hemisfericCoherence.tr.toUpperCase(),
-        style: TextStyle(
-          color: Colors.white54,
-          fontSize: 10,
-          letterSpacing: 1.5,
-        ),
+      Row(
+        children: [
+          Text(GeneratorTranslationConstants.hemisfericCoherence.tr.toUpperCase(),
+            style: TextStyle(
+              color: Colors.white54,
+              fontSize: 10,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Tooltip(
+            message: GeneratorTranslationConstants.coherenceDisclaimer.tr,
+            preferBelow: true,
+            child: Icon(Icons.info_outline, size: 12, color: Colors.white24),
+          ),
+        ],
       ),
       const SizedBox(height: 6),
       ClipRRect(

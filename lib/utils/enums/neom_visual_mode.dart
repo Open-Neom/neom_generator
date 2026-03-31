@@ -1,4 +1,9 @@
 enum NeomVisualMode {
   scientific,
-  meditative,
+  meditative;
+
+  String get translationKey => switch (this) {
+    scientific => 'generatorVisualScientific',
+    meditative => 'generatorVisualMeditative',
+  };
 }

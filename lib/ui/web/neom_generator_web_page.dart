@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:neom_commons/domain/extensions/double_extensions.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
 import 'package:neom_commons/utils/auth_guard.dart';
@@ -13,11 +14,15 @@ import '../../engine/neom_frequency_painter_engine.dart';
 import '../../utils/constants/generator_translation_constants.dart';
 import '../../utils/constants/neom_generator_constants.dart';
 import '../../utils/constants/neom_slider_constants.dart';
-import '../../utils/enums/neom_frequency_target.dart';
+import '../../utils/enums/neom_neuro_state.dart';
 import '../../utils/enums/neom_numeric_target.dart';
 import '../neom_generator_controller.dart';
 import '../painters/frequency_painter.dart';
+import '../painters/lissajous_3d_painter.dart';
+import '../painters/circuit_wave_painter.dart';
+import '../painters/perimeter_wave_painter.dart';
 import '../painters/lissajous_painter.dart';
+import '../painters/mic_waveform_painter.dart';
 import '../painters/neom_binaural_beat_painter.dart';
 import '../painters/oscilloscope_painter.dart';
 import '../panels/neom_breath_control_panel.dart';
@@ -25,9 +30,6 @@ import '../panels/neom_modulation_control_panel.dart';
 import '../panels/neom_neuro_state_control_panel.dart';
 import '../panels/neom_spatial_control_panel.dart';
 import '../widgets/generator_widgets.dart';
-import 'package:neom_states/data/state_catalog.dart';
-import 'package:neom_states/domain/models/frequency_state.dart';
-// import '../widgets/session_time_meter.dart'; // TODO: create web version
 
 /// Web dashboard layout for the Neom Chamber (Cámara Neom).
 ///
@@ -45,82 +47,142 @@ class NeomGeneratorWebPage extends StatelessWidget {
       appBar: SintAppBar(
         title: GeneratorTranslationConstants.neomChamber.tr,
         centerTitle: true,
-        actions: controller.userServiceImpl != null
-            ? [
+        leading: IconButton(
+          icon: const Icon(Icons.home, color: Colors.white),
+          onPressed: () {
+            Sint.offAllNamed(AppRouteConstants.home);
+          },
+        ),
+        actions: [
+                // Compact volume control in AppBar
+                Obx(() => SizedBox(
+                  width: 140,
+                  child: Row(
+                    children: [
+                      Icon(Icons.volume_down, size: 16,
+                          color: controller.currentVol.value > 0 ? Colors.amber : Colors.white24),
+                      Expanded(
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 2,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
+                            activeTrackColor: Colors.amber,
+                            inactiveTrackColor: Colors.white12,
+                            thumbColor: Colors.amber,
+                          ),
+                          child: Slider(
+                            value: controller.currentVol.value,
+                            min: 0.0,
+                            max: 1.0,
+                            onChanged: (val) => controller.setVolume(val),
+                          ),
+                        ),
+                      ),
+                      Text('${(controller.currentVol.value * 100).round()}',
+                          style: const TextStyle(fontFamily: 'Courier', color: Colors.white54, fontSize: 10)),
+                    ],
+                  ),
+                )),
+                const SizedBox(width: 4),
+          Obx(() => IconButton(
+            onPressed: () => controller.showCircuitWave.toggle(),
+            icon: Icon(
+              Icons.cable,
+              color: controller.showCircuitWave.value ? AppColor.bondiBlue : Colors.white24,
+              size: 20,
+            ),
+            tooltip: 'Circuit Wave',
+          )),
+          Obx(() => IconButton(
+            onPressed: () => controller.showPerimeterWave.toggle(),
+            icon: Icon(
+              Icons.waves,
+              color: controller.showPerimeterWave.value ? Colors.purpleAccent : Colors.white24,
+              size: 20,
+            ),
+            tooltip: 'Perimeter Wave',
+          )),
                 IconButton(
-                  onPressed: () => Sint.toNamed(AppRouteConstants.chamberPresets),
-                  icon: const Icon(Icons.library_music_outlined, color: Colors.white70, size: 22),
-                  tooltip: 'Presets',
+                  onPressed: () => Sint.toNamed(AppRouteConstants.chamberExperiences),
+                  icon: const Icon(Icons.auto_awesome, color: Colors.amber, size: 22),
+                  tooltip: GeneratorTranslationConstants.experiences.tr,
                 ),
-                IconButton(
-                  onPressed: () async {
-                    AuthGuard.protect(context, () async {
-                      if (controller.existsInChamber.value && !controller.isUpdate.value) {
-                        await controller.removePreset(context);
-                      } else {
-                        showSaveDialog(context, controller);
-                      }
-                    });
-                  },
-                  icon: const Icon(Icons.save_outlined, color: Colors.white, size: 22),
-                ),
-              ]
-            : null,
+                if (controller.userServiceImpl != null) ...[
+                  IconButton(
+                    onPressed: () => Sint.toNamed(AppRouteConstants.chamberPresets),
+                    icon: const Icon(Icons.library_music_outlined, color: Colors.white70, size: 22),
+                    tooltip: 'Presets',
+                  ),
+                  IconButton(
+                    onPressed: () async {
+                      AuthGuard.protect(context, () async {
+                        if (controller.existsInChamber.value && !controller.isUpdate.value) {
+                          await controller.removePreset(context);
+                        } else {
+                          showSaveDialog(context, controller);
+                        }
+                      });
+                    },
+                    icon: const Icon(Icons.save_outlined, color: Colors.white, size: 22),
+                  ),
+                ],
+              ],
       ),
       body: Container(
         decoration: AppTheme.appBoxDecoration,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ═══ LEFT: Modulación / Espacialidad + Experiencias ═══
+          child: Obx(() => CircuitWaveOverlay(
+            engine: controller.painterEngine,
+            isActive: controller.isPlaying.value && controller.showCircuitWave.value,
+            primaryColor: AppColor.bondiBlue,
+            secondaryColor: Colors.purpleAccent,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+              // ═══ LEFT: Modulación / Espacialidad + Lissajous 2D ═══
               Flexible(
                 flex: 1,
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      _buildPanel(
-                        '${GeneratorTranslationConstants.modulation.tr} / ${GeneratorTranslationConstants.spatiality.tr}',
-                        Column(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
                           children: [
-                            NeomModulationControlPanel(),
-                            const SizedBox(height: 8),
-                            NeomSpatialControlPanel(),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Immersive experiences
-                      _buildPanel(
-                        'EXPERIENCIAS',
-                        Column(
-                          children: [
-                            _experienceChip(
-                              icon: Icons.blur_on,
-                              label: GeneratorTranslationConstants.neuroFlocking.tr,
-                              color: Colors.cyan,
-                              onTap: () => Sint.toNamed(AppRouteConstants.flockingFullscreen),
-                            ),
-                            const SizedBox(height: 8),
-                            _experienceChip(
-                              icon: Icons.self_improvement,
-                              label: GeneratorTranslationConstants.neuroBreathing.tr,
-                              color: Colors.green,
-                              onTap: () => Sint.toNamed(AppRouteConstants.breathingFullscreen),
-                            ),
-                            const SizedBox(height: 8),
-                            _experienceChip(
-                              icon: Icons.auto_awesome,
-                              label: 'Fractales',
-                              color: Colors.purple,
-                              onTap: () => Sint.toNamed(AppRouteConstants.fractalFullscreen),
+                            CircuitNode(
+                              child: _buildPanel(
+                                '${GeneratorTranslationConstants.modulation.tr} / ${GeneratorTranslationConstants.spatiality.tr}',
+                                Column(
+                                  children: [
+                                    NeomModulationControlPanel(),
+                                    const SizedBox(height: 8),
+                                    NeomSpatialControlPanel(),
+                                  ],
+                                ),
+                                helpTooltip: '${GeneratorTranslationConstants.helpModulation.tr}\n\n${GeneratorTranslationConstants.helpSpatiality.tr}',
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Lissajous 2D — pinned at bottom, outside CircuitNode
+                    Obx(() => PerimeterWaveWidget(
+                      isActive: controller.isPlaying.value && controller.showPerimeterWave.value,
+                      engine: controller.painterEngine,
+                      primaryColor: AppColor.bondiBlue,
+                      secondaryColor: Colors.purpleAccent,
+                      amplitude: 5,
+                      strokeWidth: 1.0,
+                      child: _buildPanel(
+                        'LISSAJOUS',
+                        SizedBox(height: 180, child: _buildLissajous(context)),
+                        helpTooltip: GeneratorTranslationConstants.helpLissajous.tr,
+                      ),
+                    )),
+                  ],
                 ),
               ),
 
@@ -129,43 +191,34 @@ class NeomGeneratorWebPage extends StatelessWidget {
               // ═══ CENTER: Sleek + Oscilloscope (protagonist) ═══
               Flexible(
                 flex: 2,
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      // Frequency painter strip
-                      SizedBox(
-                        height: 6,
-                        width: double.infinity,
-                        child: CustomPaint(
-                          painter: FrequencyPainter(
-                            engine: controller.painterEngine,
-                            color: AppColor.bondiBlue,
-                          ),
-                          willChange: true,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      SizedBox(
-                        height: 6,
-                        width: double.infinity,
-                        child: CustomPaint(
-                          painter: NeomBinauralBeatPainter(
-                            engine: controller.painterEngine,
-                            beatHz: controller.currentBeat.value,
-                            intensity: controller.modulationDepth.value.clamp(0.2, 1.0),
-                            color: AppColor.bondiBlue,
-                          ),
-                        ),
-                      ),
+                child: Obx(() => PerimeterWaveWidget(
+                  isActive: controller.isPlaying.value && controller.showPerimeterWave.value,
+                  engine: controller.painterEngine,
+                  primaryColor: AppColor.bondiBlue,
+                  secondaryColor: Colors.purpleAccent,
+                  amplitude: 8,
+                  strokeWidth: 1.5,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      children: [
+                        // Frequency painter strip
+                        _buildFrequencyPainter(),
+                        const SizedBox(height: 2),
+                        _buildBinauralBeatPainter(),
+                        const SizedBox(height: 30),
+                        // Circular sliders
+                        _buildCircularSliders(context),
+                      // Frequency + Beat sliders above their displays
+                      _buildFreqBeatSliders(),
+
+                      // Frequency + Beat displays (textboxes with +/-)
+                      _buildFrequencyDisplays(context),
+
                       const SizedBox(height: 8),
 
-                      // Circular sliders — the main controller
-                      _buildCircularSliders(context),
-
-                      const SizedBox(height: 12),
-
-                      // Frequency + Beat displays
-                      _buildFrequencyDisplays(context),
+                      // Octave multiplier
+                      _buildOctaveSelector(),
 
                       const SizedBox(height: 12),
 
@@ -173,78 +226,141 @@ class NeomGeneratorWebPage extends StatelessWidget {
                       _buildPanel(
                         GeneratorTranslationConstants.neuroHarmonicOscilloscope.tr,
                         _buildOscilloscope(context),
+                        helpTooltip: GeneratorTranslationConstants.helpOscilloscope.tr,
                       ),
 
                       const SizedBox(height: 8),
 
-                      // ═══ Frequency & Amplitude sliders (web controls) ═══
-                      _buildWaveSliders(),
+                      // ═══ INCIENSO Status + Session Timer ═══
+                      _buildSessionStatus(),
 
-                      const SizedBox(height: 8),
-
-                      // ═══ Voice detection + Chamber activation ═══
+                      // ═══ Voice detection + Mic waveform ═══
                       _buildVoiceAndChamberRow(),
-
-                      const SizedBox(height: 12),
-
-                      // Coherence + Lissajous row
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: _buildPanel(
-                            GeneratorTranslationConstants.coherenceMeter.tr,
-                            _buildCoherence(context),
-                          )),
-                          const SizedBox(width: 12),
-                          Expanded(child: _buildPanel(
-                            'LISSAJOUS',
-                            _buildLissajous(context),
-                          )),
-                        ],
-                      ),
+                      Obx(() => controller.isRecording.value
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Container(
+                                height: 48,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withAlpha(60),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.red.withAlpha(40)),
+                                ),
+                                child: Obx(() => CustomPaint(
+                                  painter: MicWaveformPainter(
+                                    bars: controller.micWaveform.toList(),
+                                    color: Colors.red.withAlpha(200),
+                                  ),
+                                )),
+                              ),
+                            )
+                          : const SizedBox.shrink()),
 
                     ],
                   ),
                 ),
-              ),
+              )),  // PerimeterWaveWidget + Obx
+              ),  // Flexible
 
               const SizedBox(width: 12),
 
-              // ═══ RIGHT: Respiración / Neuroarmonía + States ═══
+              // ═══ RIGHT: Respiración / Neuroarmonía + Lissajous 3D ═══
               Flexible(
                 flex: 1,
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      _buildPanel(
-                        '${GeneratorTranslationConstants.breathing.tr} / ${GeneratorTranslationConstants.neuroharmony.tr}',
-                        Column(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
                           children: [
-                            NeomBreathControlPanel(),
-                            const SizedBox(height: 8),
-                            NeomNeuroStateControlPanel(),
+                            CircuitNode(
+                              child: _buildPanel(
+                                '${GeneratorTranslationConstants.breathing.tr} / ${GeneratorTranslationConstants.neuroharmony.tr}',
+                                Column(
+                                  children: [
+                                    NeomBreathControlPanel(),
+                                    const SizedBox(height: 8),
+                                    NeomNeuroStateControlPanel(),
+                                  ],
+                                ),
+                                helpTooltip: '${GeneratorTranslationConstants.helpBreathing.tr}\n\n${GeneratorTranslationConstants.helpNeuroState.tr}',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            CircuitNode(
+                              child: _buildPanel(
+                                GeneratorTranslationConstants.coherenceMeter.tr,
+                                _buildCoherence(context),
+                                helpTooltip: GeneratorTranslationConstants.helpCoherence.tr,
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      // Quick-start states
-                      _buildPanel(
-                        'ESTADOS',
-                        _buildStatesQuickStart(),
+                    ),
+                    const SizedBox(height: 8),
+                    // Lissajous 3D — pinned at bottom, outside CircuitNode
+                    Obx(() => PerimeterWaveWidget(
+                      isActive: controller.isPlaying.value && controller.showPerimeterWave.value,
+                      engine: controller.painterEngine,
+                      primaryColor: Colors.purpleAccent,
+                      secondaryColor: AppColor.bondiBlue,
+                      amplitude: 5,
+                      strokeWidth: 1.0,
+                      child: _buildPanel(
+                        GeneratorTranslationConstants.lissajous.tr,
+                        SizedBox(
+                          height: 180,
+                          child: Lissajous3DWidget(
+                            engine: controller.painterEngine,
+                            baseColor: AppColor.getAccentColor(),
+                          ),
+                        ),
+                        helpTooltip: GeneratorTranslationConstants.helpLissajous.tr,
                       ),
-                    ],
-                  ),
+                    )),
+                  ],
                 ),
               ),
             ],
-          ),
+          ))),  // Row + CircuitWaveOverlay + Obx
         ),
       ),
     );
   }
 
+  SizedBox _buildFrequencyPainter() {
+    return SizedBox(
+                      height: 6,
+                      width: double.infinity,
+                      child: CustomPaint(
+                        painter: FrequencyPainter(
+                          engine: controller.painterEngine,
+                          color: AppColor.bondiBlue,
+                        ),
+                        willChange: true,
+                      ),
+                    );
+  }
+
+  SizedBox _buildBinauralBeatPainter() {
+    return SizedBox(
+                      height: 6,
+                      width: double.infinity,
+                      child: CustomPaint(
+                        painter: NeomBinauralBeatPainter(
+                          engine: controller.painterEngine,
+                          beatHz: controller.currentBeat.value,
+                          intensity: controller.modulationDepth.value.clamp(0.2, 1.0),
+                          color: AppColor.bondiBlue,
+                        ),
+                      ),
+                    );
+  }
+
   /// Reusable panel container with title header.
-  Widget _buildPanel(String title, Widget content) {
+  Widget _buildPanel(String title, Widget content, {String? helpTooltip}) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -255,14 +371,30 @@ class NeomGeneratorWebPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title.toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-              letterSpacing: 1.2,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title.toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (helpTooltip != null)
+                Tooltip(
+                  message: helpTooltip,
+                  preferBelow: true,
+                  showDuration: const Duration(seconds: 8),
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 6),
+                    child: Icon(Icons.info_outline, size: 13, color: Colors.white24),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           content,
@@ -273,7 +405,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
 
   Widget _buildCircularSliders(BuildContext context) {
     return Obx(() {
-      String note = getNoteFromFrequency(controller.currentFreq.value);
+      getNoteFromFrequency(controller.currentFreq.value);
       return SleekCircularSlider(
         appearance: NeomSliderConstants.appearance01,
         min: NeomGeneratorConstants.frequencyMin,
@@ -290,10 +422,10 @@ class NeomGeneratorWebPage extends StatelessWidget {
               appearance: NeomSliderConstants.appearance02,
               min: NeomGeneratorConstants.positionMin,
               max: NeomGeneratorConstants.positionMax,
-              initialValue: controller.posX.value,
+              initialValue: -controller.posX.value,
               onChange: (double val) {
                 controller.setParameterPosition(
-                  x: val, y: controller.posY.value, z: controller.posZ.value);
+                  x: -val, y: controller.posY.value, z: controller.posZ.value);
               },
               innerWidget: (double v) {
                 return Align(
@@ -325,21 +457,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
                           innerWidget: (double val) {
                             return Padding(
                               padding: const EdgeInsets.all(25),
-                              child: Ink(
-                                decoration: BoxDecoration(
-                                  color: controller.isPlaying.value
-                                      ? AppColor.deepDarkViolet
-                                      : Colors.transparent,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: InkWell(
-                                  child: IconButton(
-                                    onPressed: () async =>
-                                        await controller.playStopPreview(),
-                                    icon: const Icon(FontAwesomeIcons.om, size: 50),
-                                  ),
-                                ),
-                              ),
+                              child: _OmButton(controller: controller),
                             );
                           },
                         ),
@@ -357,57 +475,86 @@ class NeomGeneratorWebPage extends StatelessWidget {
 
   Widget _buildFrequencyDisplays(BuildContext context) {
     return Obx(() {
-      String note = getNoteFromFrequency(controller.currentFreq.value);
       return Row(
         children: [
-          Expanded(child: _freqBox(
-            AppTranslationConstants.rootFrequency.tr.toUpperCase(),
-            '${controller.currentFreq.value.toStringAsFixed(0)} Hz',
-            controller.activeNumericTarget.value == NeomNumericTarget.rootFrequency,
+          // ── Root Frequency (editable + increment buttons) ──
+          Expanded(child: _editableFreqBox(
+            context: context,
+            label: AppTranslationConstants.rootFrequency.tr.toUpperCase(),
+            value: controller.currentFreq.value,
+            suffix: 'Hz',
+            decimals: 0,
+            active: controller.activeNumericTarget.value == NeomNumericTarget.rootFrequency,
             onTap: controller.selectRootFrequency,
+            onSubmit: (v) => controller.setFrequencyFromText(v),
+            onIncrement: () {
+              controller.selectRootFrequency();
+              controller.increaseSelected();
+            },
+            onDecrement: () {
+              controller.selectRootFrequency();
+              controller.decreaseSelected();
+            },
+            showIncrementButtons: true,
           )),
           const SizedBox(width: 8),
-          Expanded(child: _freqBox(
-            AppTranslationConstants.binauralBeat.tr.toUpperCase(),
-            '${controller.currentBeat.value.toStringAsFixed(1)} Hz',
-            controller.activeNumericTarget.value == NeomNumericTarget.binauralBeat,
-            onTap: () {
-              if (controller.selectedTarget.value == NeomFrequencyTarget.binaural) {
-                controller.increaseSelected();
-              } else {
-                controller.selectBinauralBeat();
-                controller.increaseSelected();
+          // ── Binaural Beat (editable + increment buttons) ──
+          Expanded(child: _editableFreqBox(
+            context: context,
+            label: AppTranslationConstants.binauralBeat.tr.toUpperCase(),
+            value: controller.currentBeat.value,
+            suffix: 'Hz',
+            decimals: 1,
+            active: controller.activeNumericTarget.value == NeomNumericTarget.binauralBeat,
+            onTap: controller.selectBinauralBeat,
+            onSubmit: (v) {
+              final parsed = double.tryParse(v);
+              if (parsed != null) {
+                controller.setBinauralBeat(beat: parsed.clamp(0, NeomGeneratorConstants.binauralBeatMax));
               }
             },
+            onIncrement: () {
+              controller.selectBinauralBeat();
+              controller.increaseSelected();
+            },
+            onDecrement: () {
+              controller.selectBinauralBeat();
+              controller.decreaseSelected();
+            },
+            showIncrementButtons: true,
           )),
         ],
       );
     });
   }
 
-  Widget _freqBox(String label, String value, bool active, {VoidCallback? onTap}) {
-    return GestureDetector(
+  Widget _editableFreqBox({
+    required BuildContext context,
+    required String label,
+    required double value,
+    required String suffix,
+    required int decimals,
+    required bool active,
+    required VoidCallback onTap,
+    required Function(String) onSubmit,
+    VoidCallback? onIncrement,
+    VoidCallback? onDecrement,
+    bool showIncrementButtons = false,
+  }) {
+    return _InlineEditableFreqBox(
+      label: label,
+      value: value,
+      suffix: suffix,
+      decimals: decimals,
+      active: active,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-        decoration: BoxDecoration(
-          color: Colors.black.withAlpha(128),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: active ? AppColor.bondiBlue : AppColor.bondiBlue.withAlpha(100),
-          ),
-        ),
-        child: Column(
-          children: [
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10, letterSpacing: 1.2)),
-            const SizedBox(height: 4),
-            Text(value, style: const TextStyle(
-              fontFamily: 'Courier', fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-          ],
-        ),
-      ),
+      onSubmit: onSubmit,
+      onIncrement: onIncrement,
+      onDecrement: onDecrement,
+      showIncrementButtons: showIncrementButtons,
     );
   }
+
 
   Widget _buildOscilloscope(BuildContext context) {
     return Column(
@@ -415,234 +562,324 @@ class NeomGeneratorWebPage extends StatelessWidget {
         SizedBox(
           height: 160,
           width: double.infinity,
-          child: CustomPaint(
+          child: Obx(() => CustomPaint(
             painter: OscilloscopePainter(
               engine: controller.painterEngine,
               signalColor: AppColor.bondiBlue,
               gridColor: Colors.white12,
+              timeScale: controller.oscTimeScale.value,
             ),
             willChange: true,
-          ),
+          )),
         ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: IconButton(
-            icon: const Icon(Icons.fullscreen, color: AppColor.bondiBlue, size: 18),
-            onPressed: () => Sint.toNamed(
-              AppRouteConstants.oscilloscopeFullscreen,
-              arguments: controller.painterEngine,
+        Row(
+          children: [
+            const SizedBox(width: 8),
+            Icon(Icons.speed, color: Colors.white24, size: 14),
+            const SizedBox(width: 4),
+            const Text('TIME', style: TextStyle(color: Colors.white24, fontSize: 9, letterSpacing: 1)),
+            SizedBox(
+              width: 120,
+              child: Obx(() => Slider(
+                value: controller.oscTimeScale.value,
+                min: 0.15,
+                max: 2.0,
+                activeColor: AppColor.bondiBlue.withAlpha(100),
+                inactiveColor: Colors.white10,
+                onChanged: (v) => controller.oscTimeScale.value = v,
+              )),
             ),
-            tooltip: 'Fullscreen',
-          ),
+            Obx(() => Text(
+              '${controller.oscTimeScale.value.toStringAsFixed(2)}x',
+              style: const TextStyle(fontFamily: 'Courier', color: Colors.white30, fontSize: 9),
+            )),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.fullscreen, color: AppColor.bondiBlue, size: 18),
+              onPressed: () => Sint.toNamed(
+                AppRouteConstants.oscilloscopeFullscreen,
+                arguments: controller.painterEngine,
+              ),
+              tooltip: 'Fullscreen',
+            ),
+          ],
         ),
       ],
     );
   }
 
-  /// Frequency + Amplitude sliders below the oscilloscope.
-  /// These provide direct, intuitive control over the wave shape.
-  Widget _buildWaveSliders() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withAlpha(5),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withAlpha(10)),
-      ),
-      child: Column(
+  /// Frequency + Binaural Beat sliders above their textboxes.
+  Widget _buildFreqBeatSliders() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
         children: [
-          // ─── Frequency slider + buttons ───
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.remove, color: Colors.white54, size: 18),
-                onPressed: () => controller.decreaseFrequency(),
-                tooltip: '-1 Hz',
+          // Frequency slider
+          Expanded(
+            child: Obx(() => Slider(
+              value: controller.currentFreq.value.clamp(
+                NeomGeneratorConstants.frequencyMin.toDouble(),
+                NeomGeneratorConstants.frequencyLimit.toDouble(),
               ),
-              const Icon(Icons.waves, color: AppColor.bondiBlue, size: 16),
-              const SizedBox(width: 8),
-              Text(GeneratorTranslationConstants.frequency.tr,
-                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
-              Expanded(
-                child: Obx(() => Slider(
-                  value: controller.currentFreq.value.clamp(
-                    NeomGeneratorConstants.frequencyMin.toDouble(),
-                    NeomGeneratorConstants.frequencyLimit.toDouble(),
-                  ),
-                  min: NeomGeneratorConstants.frequencyMin.toDouble(),
-                  max: NeomGeneratorConstants.frequencyLimit.toDouble(),
-                  activeColor: AppColor.bondiBlue,
-                  inactiveColor: Colors.white12,
-                  onChanged: (val) => controller.setFrequency(val),
-                )),
-              ),
-              Obx(() => SizedBox(
-                width: 60,
-                child: Text('${controller.currentFreq.value.toStringAsFixed(1)} Hz',
-                    style: const TextStyle(fontFamily: 'Courier', color: Colors.white70, fontSize: 11),
-                    textAlign: TextAlign.right),
-              )),
-              IconButton(
-                icon: const Icon(Icons.add, color: Colors.white54, size: 18),
-                onPressed: () => controller.increaseFrequency(),
-                tooltip: '+1 Hz',
-              ),
-            ],
+              min: NeomGeneratorConstants.frequencyMin.toDouble(),
+              max: NeomGeneratorConstants.frequencyLimit.toDouble(),
+              activeColor: AppColor.bondiBlue,
+              inactiveColor: Colors.white12,
+              onChanged: (val) => controller.setFrequency(val),
+            )),
           ),
-          // ─── Amplitude/Volume slider ───
-          Row(
-            children: [
-              const SizedBox(width: 40), // Align with frequency row
-              const Icon(Icons.graphic_eq, color: Colors.amber, size: 16),
-              const SizedBox(width: 8),
-              Text(AppTranslationConstants.volume.tr,
-                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
-              Expanded(
-                child: Obx(() => Slider(
-                  value: controller.currentVol.value,
-                  min: 0.0,
-                  max: 1.0,
-                  activeColor: Colors.amber,
-                  inactiveColor: Colors.white12,
-                  onChanged: (val) => controller.setVolume(val),
-                )),
-              ),
-              Obx(() => SizedBox(
-                width: 60,
-                child: Text('${(controller.currentVol.value * 100).round()}%',
-                    style: const TextStyle(fontFamily: 'Courier', color: Colors.white70, fontSize: 11),
-                    textAlign: TextAlign.right),
+          const SizedBox(width: 8),
+          // Binaural Beat slider (reversed: right-to-left, high→low)
+          Expanded(
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Obx(() => Slider(
+                value: controller.currentBeat.value.clamp(0.0, NeomGeneratorConstants.binauralBeatMax.toDouble()),
+                min: 0.0,
+                max: NeomGeneratorConstants.binauralBeatMax.toDouble(),
+                activeColor: Colors.purpleAccent,
+                inactiveColor: Colors.white12,
+                onChanged: (val) => controller.setBinauralBeat(beat: val),
               )),
-              const SizedBox(width: 40), // Balance with buttons
-            ],
-          ),
-          // ─── Binaural beat slider ───
-          Row(
-            children: [
-              const SizedBox(width: 40),
-              const Icon(Icons.hearing, color: Colors.purpleAccent, size: 16),
-              const SizedBox(width: 8),
-              Text(GeneratorTranslationConstants.binauralBeat.tr,
-                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
-              Expanded(
-                child: Obx(() => Slider(
-                  value: controller.currentBeat.value.clamp(0.0, NeomGeneratorConstants.binauralBeatMax.toDouble()),
-                  min: 0.0,
-                  max: NeomGeneratorConstants.binauralBeatMax.toDouble(),
-                  activeColor: Colors.purpleAccent,
-                  inactiveColor: Colors.white12,
-                  onChanged: (val) => controller.setBinauralBeat(beat: val),
-                )),
-              ),
-              Obx(() => SizedBox(
-                width: 60,
-                child: Text('${controller.currentBeat.value.toStringAsFixed(1)} Hz',
-                    style: const TextStyle(fontFamily: 'Courier', color: Colors.white70, fontSize: 11),
-                    textAlign: TextAlign.right),
-              )),
-              const SizedBox(width: 40),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// Voice detection button + Chamber (play/stop) activation for web.
-  Widget _buildVoiceAndChamberRow() {
-    return Row(
+  /// Octave shift selector — sub-octaves (purple) + super-octaves (blue).
+  Widget _buildOctaveSelector() {
+    const octaves = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
+    const labels = ['/16', '/8', '/4', '/2', '1x', '2x', '4x', '8x', '16x'];
+
+    return Obx(() {
+      final isShifted = controller.currentOctave.value != 0;
+      final isDown = controller.currentOctave.value < 0;
+      final accentColor = isDown ? Colors.purpleAccent : AppColor.bondiBlue;
+
+      return Row(
       children: [
-        // ─── Detect Voice button ───
-        Expanded(
-          child: Obx(() => GestureDetector(
-            onTap: () {
-              if (controller.isRecording) {
-                controller.stopRecording();
-              } else {
-                controller.startRecording();
-              }
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-              decoration: BoxDecoration(
-                color: controller.isRecording
-                    ? Colors.red.withAlpha(30)
-                    : Colors.white.withAlpha(5),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: controller.isRecording ? Colors.red : Colors.white.withAlpha(15),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    FontAwesomeIcons.microphone,
-                    size: 14,
-                    color: controller.isRecording ? Colors.red : Colors.white54,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    controller.isRecording
-                        ? '${GeneratorTranslationConstants.detecting.tr.toUpperCase()}: ${controller.detectedFrequency.toInt()} Hz'
-                        : GeneratorTranslationConstants.detectMyVoice.tr.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: controller.isRecording ? Colors.red : Colors.white54,
-                      letterSpacing: 1,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )),
+        Icon(Icons.layers_outlined,
+          color: isShifted ? accentColor : AppColor.bondiBlue.withAlpha(120), size: 14),
+        const SizedBox(width: 6),
+        Text(
+          GeneratorTranslationConstants.octave.tr.toUpperCase(),
+          style: TextStyle(
+            color: isShifted ? accentColor.withAlpha(200) : Colors.white38,
+            fontSize: 9, letterSpacing: 1.5,
+            fontWeight: isShifted ? FontWeight.bold : FontWeight.normal,
+          ),
         ),
         const SizedBox(width: 8),
-        // ─── Chamber play/stop button ───
         Expanded(
-          child: Obx(() => GestureDetector(
-            onTap: () => controller.playStopPreview(),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-              decoration: BoxDecoration(
-                color: controller.isPlaying.value
-                    ? AppColor.bondiBlue.withAlpha(30)
-                    : Colors.white.withAlpha(5),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: controller.isPlaying.value ? AppColor.bondiBlue : Colors.white.withAlpha(15),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    controller.isPlaying.value ? Icons.stop_circle : Icons.play_circle,
-                    size: 18,
-                    color: controller.isPlaying.value ? AppColor.bondiBlue : Colors.white54,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    controller.isPlaying.value
-                        ? GeneratorTranslationConstants.stopChamber.tr.toUpperCase()
-                        : GeneratorTranslationConstants.activateChamber.tr.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: controller.isPlaying.value ? AppColor.bondiBlue : Colors.white54,
-                      letterSpacing: 1,
-                      fontWeight: FontWeight.w600,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: List.generate(octaves.length, (i) {
+                final oct = octaves[i];
+                final active = controller.currentOctave.value == oct;
+                final isDown = oct < 0;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 3),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () => controller.setOctave(oct),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: active
+                              ? (isDown ? Colors.deepPurple.withAlpha(60) : AppColor.bondiBlue.withAlpha(50))
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: active
+                                ? (isDown ? Colors.deepPurple.withAlpha(140) : AppColor.bondiBlue.withAlpha(140))
+                                : Colors.white.withAlpha(15),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Text(
+                          labels[i],
+                          style: TextStyle(
+                            fontFamily: 'Courier',
+                            fontSize: 10,
+                            color: active ? Colors.white : (isDown ? Colors.white24 : Colors.white30),
+                            fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ],
-              ),
+                );
+              }),
             ),
-          )),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '${controller.effectiveFrequency.toStringAsFixed(1)} Hz',
+          style: TextStyle(
+            fontFamily: 'Courier',
+            fontSize: isShifted ? 11 : 10,
+            fontWeight: isShifted ? FontWeight.bold : FontWeight.normal,
+            color: isShifted ? accentColor : AppColor.bondiBlue.withAlpha(160),
+          ),
         ),
       ],
     );
+    });
+  }
+
+  /// INCIENSO session status bar: neuro state, elapsed time, incienso count, coherence.
+  Widget _buildSessionStatus() {
+    return Obx(() {
+      final playing = controller.isPlaying.value;
+      final state = controller.neuroState.value;
+      final now = DateTime.now();
+      final elapsed = playing && controller.sessionStartedAt != null
+          ? now.difference(controller.sessionStartedAt!).inSeconds
+          : 0;
+      final incCount = controller.inciensoCount;
+      final coherence = controller.painterEngine.hemisphericCoherence;
+      final breathCycles = controller.inciensoTracker.totalCycles;
+
+      final minutes = elapsed ~/ 60;
+      final seconds = elapsed % 60;
+      final timeStr = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+
+      const stateColors = {
+        NeomNeuroState.sleep: Color(0xFF6C63FF),
+        NeomNeuroState.calm: Color(0xFF4FC3F7),
+        NeomNeuroState.neutral: Color(0xFF00BCD4),
+        NeomNeuroState.creativity: Color(0xFFAB47BC),
+        NeomNeuroState.focus: Color(0xFF66BB6A),
+        NeomNeuroState.integration: Color(0xFFFFB74D),
+      };
+      final stateColor = playing ? (stateColors[state] ?? AppColor.bondiBlue) : Colors.white24;
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: playing ? stateColor.withAlpha(10) : Colors.white.withAlpha(3),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: playing ? stateColor.withAlpha(40) : Colors.white.withAlpha(8)),
+        ),
+        child: Row(
+          children: [
+            // State indicator dot
+            Container(
+              width: 8, height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: playing ? stateColor : Colors.white12,
+                boxShadow: playing ? [BoxShadow(color: stateColor.withAlpha(80), blurRadius: 6)] : null,
+              ),
+            ),
+            const SizedBox(width: 10),
+            // State name
+            Text(
+              playing ? state.nameKey.tr.toUpperCase() : '—',
+              style: TextStyle(
+                color: playing ? stateColor : Colors.white24,
+                fontFamily: 'Courier',
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1,
+              ),
+            ),
+            const Spacer(),
+            // Breath cycles
+            if (playing && breathCycles > 0) ...[
+              Icon(Icons.air, size: 12, color: stateColor.withAlpha(120)),
+              const SizedBox(width: 4),
+              Text('$breathCycles',
+                  style: TextStyle(fontFamily: 'Courier', fontSize: 10, color: stateColor.withAlpha(160))),
+              const SizedBox(width: 12),
+            ],
+            // Incienso count
+            if (playing && incCount > 0) ...[
+              Icon(Icons.local_fire_department, size: 12, color: const Color(0xFFFF6D00).withAlpha(160)),
+              const SizedBox(width: 4),
+              Text('$incCount',
+                  style: TextStyle(fontFamily: 'Courier', fontSize: 10, color: const Color(0xFFFF6D00).withAlpha(160))),
+              const SizedBox(width: 12),
+            ],
+            // Coherence
+            if (playing) ...[
+              Text('${(coherence * 100).toInt()}%',
+                  style: TextStyle(fontFamily: 'Courier', fontSize: 10, color: stateColor.withAlpha(140))),
+              const SizedBox(width: 12),
+            ],
+            // Timer
+            Icon(Icons.timer_outlined, size: 14,
+                color: playing ? Colors.white54 : Colors.white12),
+            const SizedBox(width: 6),
+            Text(
+              timeStr,
+              style: TextStyle(
+                fontFamily: 'Courier',
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: playing ? Colors.white : Colors.white24,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+
+  /// Voice detection button for web.
+  Widget _buildVoiceAndChamberRow() {
+    return Obx(() => GestureDetector(
+      onTap: () {
+        if (controller.isRecording.value) {
+          controller.stopRecording();
+        } else {
+          controller.startRecording();
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        decoration: BoxDecoration(
+          color: controller.isRecording.value
+              ? Colors.red.withAlpha(30)
+              : Colors.white.withAlpha(5),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: controller.isRecording.value ? Colors.red : Colors.white.withAlpha(15),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              FontAwesomeIcons.microphone,
+              size: 14,
+              color: controller.isRecording.value ? Colors.red : Colors.white54,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              controller.isRecording.value
+                  ? '${GeneratorTranslationConstants.detecting.tr.toUpperCase()}: ${controller.detectedFrequency.value.toInt()} Hz'
+                  : GeneratorTranslationConstants.detectMyVoice.tr.toUpperCase(),
+              style: TextStyle(
+                fontSize: 12,
+                color: controller.isRecording.value ? Colors.red : Colors.white54,
+                letterSpacing: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ));
   }
 
   Widget _buildCoherence(BuildContext context) {
@@ -651,18 +888,6 @@ class NeomGeneratorWebPage extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: coherenceMeter(controller.painterEngine),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 60,
-          width: double.infinity,
-          child: CustomPaint(
-            painter: FrequencyPainter(
-              engine: controller.painterEngine,
-              color: AppColor.bondiBlue,
-            ),
-            willChange: true,
-          ),
         ),
       ],
     );
@@ -674,7 +899,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
       width: double.infinity,
       child: AnimatedBuilder(
         animation: controller.painterEngine,
-        builder: (_, __) => CustomPaint(
+        builder: (_, _) => CustomPaint(
           painter: LissajousPainter(
             engine: controller.painterEngine,
             color: AppColor.bondiBlue,
@@ -684,83 +909,282 @@ class NeomGeneratorWebPage extends StatelessWidget {
     );
   }
 
-  /// Quick-start frequency states (right panel).
-  Widget _buildStatesQuickStart() {
-    final locale = Sint.locale?.languageCode ?? 'es';
-    final states = StateCatalog.free;
-    return Column(
-      children: states.map((state) => _stateChip(state, locale)).toList(),
-    );
+}
+
+/// Om button with binaural-beat-synced pulsing glow when playing.
+class _OmButton extends StatefulWidget {
+  final NeomGeneratorController controller;
+  const _OmButton({required this.controller});
+
+  @override
+  State<_OmButton> createState() => _OmButtonState();
+}
+
+class _OmButtonState extends State<_OmButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+  final List<StreamSubscription> _subs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(vsync: this);
+    _syncPulseDuration();
+
+    _subs.add(widget.controller.currentBeat.listen((_) => _syncPulseDuration()));
+    _subs.add(widget.controller.isPlaying.listen((playing) {
+      if (playing) {
+        _pulseCtrl.repeat(reverse: true);
+      } else {
+        _pulseCtrl.stop();
+        _pulseCtrl.value = 0;
+      }
+    }));
+
+    if (widget.controller.isPlaying.value) {
+      _pulseCtrl.repeat(reverse: true);
+    }
   }
 
-  Widget _stateChip(FrequencyState state, String locale) {
-    final name = state.names[locale] ?? state.names['es'] ?? state.id;
-    final beatHz = (state.rightFrequency - state.leftFrequency).abs();
-    final minutes = state.duration.inMinutes;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: GestureDetector(
-        onTap: () => Sint.toNamed('/x/${state.id}'),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+  void _syncPulseDuration() {
+    final beat = widget.controller.currentBeat.value.clamp(0.5, 50.0);
+    final ms = (1000 / beat).round().clamp(100, 2000);
+    _pulseCtrl.duration = Duration(milliseconds: ms);
+    if (_pulseCtrl.isAnimating) {
+      _pulseCtrl.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final sub in _subs) {
+      sub.cancel();
+    }
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final playing = widget.controller.isPlaying.value;
+
+      return AnimatedBuilder(
+        animation: _pulseCtrl,
+        builder: (_, _) {
+          final pulse = playing ? _pulseCtrl.value : 0.0;
+          final glowAlpha = (pulse * 120).round();
+          final bgAlpha = playing ? (80 + pulse * 80).round() : 0;
+
+          return Container(
             decoration: BoxDecoration(
-              color: state.screenColor.withAlpha(15),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: state.screenColor.withAlpha(40)),
+              color: Color.fromARGB(bgAlpha, 75, 0, 130),
+              shape: BoxShape.circle,
+              boxShadow: playing
+                  ? [
+                      BoxShadow(
+                        color: AppColor.bondiBlue.withAlpha(glowAlpha),
+                        blurRadius: 16 + pulse * 20,
+                        spreadRadius: pulse * 6,
+                      ),
+                    ]
+                  : null,
             ),
-            child: Row(
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () async => await widget.controller.playStopPreview(),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Icon(
+                  FontAwesomeIcons.om,
+                  size: 50,
+                  color: playing
+                      ? Color.lerp(Colors.white70, AppColor.bondiBlue, pulse)
+                      : Colors.white54,
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    });
+  }
+}
+
+/// Inline-editable frequency box. Double-click toggles between
+/// display mode and a text field inside the same container.
+class _InlineEditableFreqBox extends StatefulWidget {
+  final String label;
+  final double value;
+  final String suffix;
+  final int decimals;
+  final bool active;
+  final VoidCallback onTap;
+  final Function(String) onSubmit;
+  final VoidCallback? onIncrement;
+  final VoidCallback? onDecrement;
+  final bool showIncrementButtons;
+
+  const _InlineEditableFreqBox({
+    required this.label,
+    required this.value,
+    required this.suffix,
+    required this.decimals,
+    required this.active,
+    required this.onTap,
+    required this.onSubmit,
+    this.onIncrement,
+    this.onDecrement,
+    this.showIncrementButtons = false,
+  });
+
+  @override
+  State<_InlineEditableFreqBox> createState() => _InlineEditableFreqBoxState();
+}
+
+class _InlineEditableFreqBoxState extends State<_InlineEditableFreqBox> {
+  bool _editing = false;
+  late final TextEditingController _textCtrl;
+  late final FocusNode _focusNode;
+
+  /// Format value avoiding "-0.0" display.
+  static String _formatValue(double value, int decimals) {
+    // Avoid displaying "-0.0" or "-0"
+    if (value.abs() < 0.05 && decimals <= 1) return (0.0).toStringAsFixed(decimals);
+    return value.toStringAsFixed(decimals);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _textCtrl = TextEditingController();
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus && _editing) {
+        _finishEdit();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _textCtrl.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _startEdit() {
+    setState(() {
+      _editing = true;
+      _textCtrl.text = _formatValue(widget.value, widget.decimals);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+      _textCtrl.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _textCtrl.text.length,
+      );
+    });
+  }
+
+  void _finishEdit() {
+    if (!_editing) return;
+    widget.onSubmit(_textCtrl.text);
+    setState(() => _editing = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.black.withAlpha(128),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: widget.active
+                ? AppColor.bondiBlue
+                : AppColor.bondiBlue.withAlpha(100),
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              widget.label,
+              style: const TextStyle(
+                color: Colors.white70, fontSize: 10, letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(state.icon, color: state.screenColor, size: 18),
-                const SizedBox(width: 10),
+                if (widget.showIncrementButtons)
+                  _buildIncrementBtn(Icons.remove, widget.onDecrement),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name, style: TextStyle(color: state.screenColor, fontSize: 12, fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis),
-                      Text('${beatHz.toStringAsFixed(0)} Hz · $minutes min',
-                          style: TextStyle(color: state.screenColor.withAlpha(120), fontSize: 10)),
-                    ],
+                  child: GestureDetector(
+                    onDoubleTap: _startEdit,
+                    child: _editing
+                      ? TextField(
+                          controller: _textCtrl,
+                          focusNode: _focusNode,
+                          textAlign: TextAlign.center,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          style: const TextStyle(
+                            fontFamily: 'Courier',
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                            suffixText: widget.suffix,
+                            suffixStyle: const TextStyle(
+                              color: Colors.white54, fontSize: 14,
+                            ),
+                            border: InputBorder.none,
+                          ),
+                          onSubmitted: (_) => _finishEdit(),
+                        )
+                      : Text(
+                          '${_formatValue(widget.value, widget.decimals)} ${widget.suffix}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'Courier',
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                   ),
                 ),
-                Icon(Icons.play_circle_outline, color: state.screenColor.withAlpha(100), size: 16),
+                if (widget.showIncrementButtons)
+                  _buildIncrementBtn(Icons.add, widget.onIncrement),
               ],
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _experienceChip({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
+  Widget _buildIncrementBtn(IconData icon, VoidCallback? onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: color.withAlpha(15),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withAlpha(50)),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white24),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(width: 8),
-              Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w500)),
-              const SizedBox(width: 4),
-              Icon(Icons.arrow_forward_ios, color: color.withAlpha(100), size: 10),
-            ],
-          ),
+          child: Icon(icon, size: 16, color: Colors.white70),
         ),
       ),
     );

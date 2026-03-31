@@ -33,7 +33,7 @@ class NeomModulationControlPanel extends StatelessWidget {
               )),
             ),
 
-            _paramLabel("FRECUENCIA", "${controller.isochronicFreq.value.toStringAsFixed(1)} Hz"),
+            Obx(() => _paramLabel("FRECUENCIA", "${controller.isochronicFreq.value.toStringAsFixed(1)} Hz")),
             Obx(() => Slider(
               min: 0.5,
               max: 40,
@@ -41,7 +41,7 @@ class NeomModulationControlPanel extends StatelessWidget {
               onChanged: controller.setIsochronicFrequency,
             )),
 
-            _paramLabel("DUTY", "${(controller.isochronicDuty.value * 100).round()}%"),
+            Obx(() => _paramLabel("DUTY", "${(controller.isochronicDuty.value * 100).round()}%")),
             Obx(() => Slider(
               min: 0.1,
               max: 1.0,
@@ -60,10 +60,10 @@ class NeomModulationControlPanel extends StatelessWidget {
               )),
             ),
 
-            _paramLabel(
+            Obx(() => _paramLabel(
               "TIPO",
-              controller.modulationType.value.name.toUpperCase(),
-            ),
+              controller.modulationType.value.translationKey.tr,
+            )),
 
             Obx(() => DropdownButton<NeomModulationType>(
               value: controller.modulationType.value,
@@ -74,7 +74,7 @@ class NeomModulationControlPanel extends StatelessWidget {
                 return DropdownMenuItem(
                   value: type,
                   child: Text(
-                    type.name.toUpperCase(),
+                    type.translationKey.tr,
                     style: const TextStyle(
                       fontFamily: 'Courier',
                       fontSize: 13,
@@ -88,10 +88,10 @@ class NeomModulationControlPanel extends StatelessWidget {
                   : null,
             )),
 
-            _paramLabel(
+            Obx(() => _paramLabel(
               "INTENSIDAD",
               "${(controller.modulationDepth.value * 100).round()}%",
-            ),
+            )),
 
             Obx(() => Slider(
               min: 0,

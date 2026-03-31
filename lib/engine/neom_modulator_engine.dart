@@ -1,6 +1,21 @@
 import 'dart:math';
 
-enum NeomModulationType { none, am, fm, phase, pm }
+enum NeomModulationType {
+  none,
+  am,
+  fm,
+  phase,
+  pm;
+
+  /// Translation key for humanized label.
+  String get translationKey => switch (this) {
+    none => 'modNone',
+    am => 'modAm',
+    fm => 'modFm',
+    phase => 'modPhase',
+    pm => 'modPm',
+  };
+}
 
 class NeomModulatorEngine {
   NeomModulationType type = NeomModulationType.none;

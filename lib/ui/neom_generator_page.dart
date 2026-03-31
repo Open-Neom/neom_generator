@@ -6,14 +6,11 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:neom_commons/domain/extensions/double_extensions.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
-
 import 'package:neom_commons/ui/widgets/read_more_container.dart';
 import 'package:neom_commons/utils/auth_guard.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_commons/utils/constants/translations/app_translation_constants.dart';
-import 'package:neom_core/app_config.dart';
 import 'package:neom_core/utils/constants/app_route_constants.dart';
-import 'package:neom_core/utils/neom_error_logger.dart';
 import 'package:sint/sint.dart';
 import 'package:sleek_circular_slider/sleek_circular_slider.dart';
 
@@ -26,6 +23,7 @@ import '../utils/enums/neom_numeric_target.dart';
 import 'neom_generator_controller.dart';
 import 'painters/frequency_painter.dart';
 import 'painters/lissajous_painter.dart';
+import 'painters/mic_waveform_painter.dart';
 import 'painters/neom_binaural_beat_painter.dart';
 import 'painters/oscilloscope_painter.dart';
 import 'panels/neom_breath_control_panel.dart';
@@ -33,6 +31,7 @@ import 'panels/neom_modulation_control_panel.dart';
 import 'panels/neom_neuro_state_control_panel.dart';
 import 'panels/neom_spatial_control_panel.dart';
 import 'web/neom_generator_web_page.dart';
+import 'widgets/camara_neom_tutorial.dart';
 import 'widgets/generator_widgets.dart';
 import 'widgets/session_time_meter.dart';
 
@@ -42,30 +41,57 @@ class NeomGeneratorPage extends StatelessWidget {
 
   const NeomGeneratorPage({super.key, this.showAppBar = true});
 
+  Widget _sectionTitle(String title, String tooltip) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(title, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        ),
+        Tooltip(
+          message: tooltip,
+          preferBelow: true,
+          showDuration: const Duration(seconds: 8),
+          child: const Padding(
+            padding: EdgeInsets.only(left: 8),
+            child: Icon(Icons.info_outline, size: 14, color: Colors.white24),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _navigateHome(NeomGeneratorController controller) {
+    try {
+      if (controller.isPlaying.value) {
+        controller.playStopPreview(stop: true);
+      }
+    } catch (_) {}
+    Sint.offAllNamed(AppRouteConstants.home);
+  }
+
   @override
   Widget build(BuildContext context) {
     return SintBuilder<NeomGeneratorController>(
       id: AppPageIdConstants.generator,
-      init: NeomGeneratorController(),
+      init: Sint.isRegistered<NeomGeneratorController>()
+          ? null
+          : NeomGeneratorController(),
       builder: (controller) => PopScope(
-        canPop: true,
+        canPop: false,
         onPopInvokedWithResult: (didPop, result) async {
-          if (didPop) {
-            try {
-              if(controller.isPlaying.value) {
-                await controller.playStopPreview(stop: true);
-              }
-              controller.isPlaying.value = false;
-            } catch (e, st) {
-              NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'onPopInvokedWithResult');
-            }
+          if (!didPop) {
+            _navigateHome(controller);
           }
         },
     child: kIsWeb && MediaQuery.of(context).size.width > 900
-        ? NeomGeneratorWebPage(controller: controller)
+        ? _WebPageWithTutorial(controller: controller)
         : Scaffold(
       appBar: showAppBar ? SintAppBar(title: GeneratorTranslationConstants.neomChamber.tr,
       centerTitle: true,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+        onPressed: () => _navigateHome(controller),
+      ),
       actions: controller.userServiceImpl != null ? [
           SizedBox(
             child: IconButton(
@@ -139,10 +165,10 @@ class NeomGeneratorPage extends StatelessWidget {
                           appearance: NeomSliderConstants.appearance02,
                           min: NeomGeneratorConstants.positionMin,
                           max: NeomGeneratorConstants.positionMax,
-                          initialValue: controller.posX.value,
+                          initialValue: -controller.posX.value,
                           onChange: (double val) {
                             controller.setParameterPosition(
-                                x: val,
+                                x: -val,
                                 y: controller.posY.value,
                                 z: controller.posZ.value);
                           },
@@ -406,25 +432,25 @@ class NeomGeneratorPage extends StatelessWidget {
                           onLongPressUp: () => controller.longPressed.value = false,
                         ),
                         InkWell(
-                          onTap: () => controller.isRecording ? controller.stopRecording() : controller.startRecording(),
+                          onTap: () => controller.isRecording.value ? controller.stopRecording() : controller.startRecording(),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 300),
                             padding: const EdgeInsets.all(15),
                             decoration: BoxDecoration(
-                                color: controller.isRecording ? Colors.red.withValues(alpha: 0.2) : Colors.transparent,
-                                border: Border.all(color: controller.isRecording ? Colors.red : Colors.white12),
+                                color: controller.isRecording.value ? Colors.red.withValues(alpha: 0.2) : Colors.transparent,
+                                border: Border.all(color: controller.isRecording.value ? Colors.red : Colors.white12),
                                 borderRadius: BorderRadius.circular(30)
                             ),
                             child: Row(
                               children: [
-                                Icon(FontAwesomeIcons.microphone, size: 15, color: controller.isRecording ? Colors.red : Colors.white54),
+                                Icon(FontAwesomeIcons.microphone, size: 15, color: controller.isRecording.value ? Colors.red : Colors.white54),
                                 const SizedBox(width: 8),
                                 Text(
-                                  controller.isRecording
-                                      ? "${GeneratorTranslationConstants.detecting.tr.toUpperCase()}: ${controller.detectedFrequency.toInt()} Hz"
+                                  controller.isRecording.value
+                                      ? "${GeneratorTranslationConstants.detecting.tr.toUpperCase()}: ${controller.detectedFrequency.value.toInt()} Hz"
                                       : GeneratorTranslationConstants.detectMyVoice.tr.toUpperCase(),
                                   style: TextStyle(                                      fontSize: 15,
-                                      color: controller.isRecording ? Colors.red : Colors.white54,
+                                      color: controller.isRecording.value ? Colors.red : Colors.white54,
                                       letterSpacing: 1
                                   ),
                                 ),
@@ -450,6 +476,27 @@ class NeomGeneratorPage extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // Mic waveform (visible during recording)
+                  Obx(() => controller.isRecording.value
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          child: Container(
+                            height: 40,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                            ),
+                            child: Obx(() => CustomPaint(
+                              painter: MicWaveformPainter(
+                                bars: controller.micWaveform.toList(),
+                                color: Colors.red.withValues(alpha: 0.8),
+                              ),
+                            )),
+                          ),
+                        )
+                      : const SizedBox.shrink()),
                   AppTheme.heightSpace20,
                   // Botones de visualización inmersiva
                   Padding(
@@ -682,6 +729,7 @@ class NeomGeneratorPage extends StatelessWidget {
                     ),
                   ),
                   AppTheme.heightSpace10,
+                  // Octave selector — multiplies base frequency by 2^n
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Container(
@@ -691,37 +739,92 @@ class NeomGeneratorPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(color: Colors.white10),
                       ),
-                      child: Row(
+                      child: Column(
                         children: [
-                          const Icon(Icons.volume_up, size: 18, color: Colors.white70),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: SizedBox(
-                              height: 20,
-                              child: SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  activeTrackColor: AppColor.bondiBlue,
-                                  inactiveTrackColor: Colors.white12,
-                                  thumbColor: Colors.white,
-                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                                  trackHeight: 2.0,
-                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                          Obx(() {
+                            final oct = controller.currentOctave.value;
+                            final isShifted = oct != 0;
+                            final isDown = oct < 0;
+                            final accent = isDown ? Colors.purpleAccent : AppColor.bondiBlue;
+                            return Row(
+                              children: [
+                                Icon(Icons.piano, size: 18,
+                                    color: isShifted ? accent : Colors.white70),
+                                const SizedBox(width: 10),
+                                Text(
+                                  GeneratorTranslationConstants.octave.tr.toUpperCase(),
+                                  style: TextStyle(
+                                    color: isShifted ? accent.withValues(alpha: 0.8) : Colors.white54,
+                                    fontSize: 11, letterSpacing: 1.5,
+                                    fontWeight: isShifted ? FontWeight.bold : FontWeight.normal,
+                                  ),
                                 ),
-                                child: Slider(
-                                  value: controller.currentVol.value,
-                                  min: NeomGeneratorConstants.volumeMin,
-                                  max: NeomGeneratorConstants.volumeMax,
-                                  onChanged: (val) {
-                                    controller.setVolume(val);
-                                  },
+                                const Spacer(),
+                                Text(
+                                  oct == 0 ? GeneratorTranslationConstants.octaveBase.tr
+                                      : oct > 0 ? '+$oct' : '$oct',
+                                  style: TextStyle(
+                                    color: isShifted ? accent : Colors.white,
+                                    fontFamily: 'Courier', fontSize: 13, fontWeight: FontWeight.bold,
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${controller.effectiveFrequency.toStringAsFixed(1)} Hz',
+                                  style: TextStyle(
+                                    color: isShifted ? accent : AppColor.bondiBlue.withValues(alpha: 0.7),
+                                    fontFamily: 'Courier',
+                                    fontSize: isShifted ? 12 : 11,
+                                    fontWeight: isShifted ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            );
+                          }),
+                          const SizedBox(height: 8),
+                          Obx(() {
+                            const octaves = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
+                            const labels = ['/16', '/8', '/4', '/2', '1x', '2x', '4x', '8x', '16x'];
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: List.generate(octaves.length, (i) {
+                                  final oct = octaves[i];
+                                  final isActive = controller.currentOctave.value == oct;
+                                  final isDown = oct < 0;
+                                  return GestureDetector(
+                                    onTap: () => controller.setOctave(oct),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 150),
+                                      margin: const EdgeInsets.only(right: 5),
+                                      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 10),
+                                      decoration: BoxDecoration(
+                                        color: isActive
+                                            ? (isDown ? Colors.deepPurple.withValues(alpha: 0.3) : AppColor.bondiBlue.withValues(alpha: 0.25))
+                                            : Colors.white.withValues(alpha: 0.04),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: isActive
+                                              ? (isDown ? Colors.deepPurple : AppColor.bondiBlue)
+                                              : Colors.white12,
+                                          width: 0.5,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        labels[i],
+                                        style: TextStyle(
+                                          color: isActive ? Colors.white : (isDown ? Colors.white38 : Colors.white54),
+                                          fontFamily: 'Courier',
+                                          fontSize: 12,
+                                          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
                               ),
-                            ),
-                          ),
-                          Text(
-                            "${(controller.currentVol.value * 100).round()}%",
-                            style: const TextStyle(color: Colors.white, fontFamily: 'Courier', fontSize: 12),
-                          ),
+                            );
+                          }),
                         ],
                       ),
                     ),
@@ -757,8 +860,10 @@ class NeomGeneratorPage extends StatelessWidget {
                   // AppTheme.heightSpace10,
                   // --- VISUALIZADOR DE SONIDO ---
                   ExpansionTile(
-                      title: Text(GeneratorTranslationConstants.neuroHarmonicOscilloscope.tr,
-                          style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      title: _sectionTitle(
+                        GeneratorTranslationConstants.neuroHarmonicOscilloscope.tr,
+                        GeneratorTranslationConstants.helpOscilloscope.tr,
+                      ),
                       children: [
                         Stack(
                           children: [
@@ -931,8 +1036,10 @@ class NeomGeneratorPage extends StatelessWidget {
                   ),
                   AppTheme.heightSpace10,
                   ExpansionTile(
-                      title: Text("${GeneratorTranslationConstants.modulation.tr.toUpperCase()} / ${GeneratorTranslationConstants.spatiality.tr.toUpperCase()}",
-                          style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      title: _sectionTitle(
+                        "${GeneratorTranslationConstants.modulation.tr.toUpperCase()} / ${GeneratorTranslationConstants.spatiality.tr.toUpperCase()}",
+                        '${GeneratorTranslationConstants.helpModulation.tr}\n\n${GeneratorTranslationConstants.helpSpatiality.tr}',
+                      ),
                       children: [
                         NeomModulationControlPanel(),
                         AppTheme.heightSpace10,
@@ -940,8 +1047,10 @@ class NeomGeneratorPage extends StatelessWidget {
                       ]
                   ),
                   ExpansionTile(
-                      title: Text("${GeneratorTranslationConstants.breathing.tr.toUpperCase()} / ${GeneratorTranslationConstants.neuroharmony.tr.toUpperCase()}",
-                          style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      title: _sectionTitle(
+                        "${GeneratorTranslationConstants.breathing.tr.toUpperCase()} / ${GeneratorTranslationConstants.neuroharmony.tr.toUpperCase()}",
+                        '${GeneratorTranslationConstants.helpBreathing.tr}\n\n${GeneratorTranslationConstants.helpNeuroState.tr}',
+                      ),
                       children: [
                         NeomBreathControlPanel(),
                         AppTheme.heightSpace10,
@@ -949,8 +1058,10 @@ class NeomGeneratorPage extends StatelessWidget {
                       ]
                   ),
                   ExpansionTile(
-                      title: Text(GeneratorTranslationConstants.coherenceMeter.tr.toUpperCase(),
-                          style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      title: _sectionTitle(
+                        GeneratorTranslationConstants.coherenceMeter.tr.toUpperCase(),
+                        GeneratorTranslationConstants.helpCoherence.tr,
+                      ),
                       children: [
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -998,9 +1109,9 @@ class NeomGeneratorPage extends StatelessWidget {
                   Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: controller.frequencyDescription.isEmpty ? Text(
-                        controller.detectedFrequency == 0 ? GeneratorTranslationConstants.findsYourVoiceFrequency.tr : '',
+                        controller.detectedFrequency.value == 0 ? GeneratorTranslationConstants.findsYourVoiceFrequency.tr : '',
                         style: TextStyle(
-                            fontSize: controller.isRecording ? 18 : 14,
+                            fontSize: controller.isRecording.value ? 18 : 14,
                             fontFamily: 'Courier',
                             color: Colors.white70
                         ),
@@ -1092,4 +1203,43 @@ class NeomGeneratorPage extends StatelessWidget {
     );
   }
 
+}
+
+/// Wraps [NeomGeneratorWebPage] with the first-visit tutorial overlay.
+class _WebPageWithTutorial extends StatefulWidget {
+  final NeomGeneratorController controller;
+  const _WebPageWithTutorial({required this.controller});
+
+  @override
+  State<_WebPageWithTutorial> createState() => _WebPageWithTutorialState();
+}
+
+class _WebPageWithTutorialState extends State<_WebPageWithTutorial> {
+  bool _showTutorial = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkTutorial();
+  }
+
+  Future<void> _checkTutorial() async {
+    final shouldShow = await CamaraNeomTutorial.shouldShow();
+    if (shouldShow && mounted) {
+      setState(() => _showTutorial = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        NeomGeneratorWebPage(controller: widget.controller),
+        if (_showTutorial)
+          CamaraNeomTutorial(
+            onComplete: () => setState(() => _showTutorial = false),
+          ),
+      ],
+    );
+  }
 }

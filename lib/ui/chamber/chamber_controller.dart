@@ -5,7 +5,6 @@ import 'package:neom_commons/utils/constants/translations/common_translation_con
 import 'package:neom_commons/utils/constants/translations/message_translation_constants.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/domain/model/app_profile.dart';
-import 'package:neom_core/utils/neom_error_logger.dart';
 import 'package:neom_core/domain/model/band.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber.dart';
 import 'package:neom_core/domain/repository/chamber_repository.dart';
@@ -13,6 +12,7 @@ import 'package:neom_core/domain/use_cases/chamber_service.dart';
 import 'package:neom_core/domain/use_cases/user_service.dart';
 import 'package:neom_core/utils/constants/app_route_constants.dart';
 import 'package:neom_core/utils/enums/owner_type.dart';
+import 'package:neom_core/utils/neom_error_logger.dart';
 import 'package:sint/sint.dart';
 
 import '../../data/firestore/chamber_firestore.dart';
