@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -132,7 +133,8 @@ class CircuitWavePainter extends CustomPainter {
     double accumulated = 0;
     bool first = true;
 
-    const sampleStep = 3.0; // pixels between samples
+    // Web canvas is slower — use coarser sampling to avoid jank
+    final sampleStep = kIsWeb ? 8.0 : 3.0;
 
     for (final seg in segments) {
       final steps = (seg.length / sampleStep).ceil();
@@ -172,38 +174,40 @@ class CircuitWavePainter extends CustomPainter {
       accumulated += seg.length;
     }
 
-    // Glow layer
-    final glowPaint = Paint()
-      ..color = color.withAlpha((20 * opacity).round())
-      ..strokeWidth = 6
-      ..style = PaintingStyle.stroke
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-    canvas.drawPath(path, glowPaint);
+    // Glow layer — skip blur on web (expensive canvas operation)
+    if (!kIsWeb) {
+      final glowPaint = Paint()
+        ..color = color.withAlpha((20 * opacity).round())
+        ..strokeWidth = 6
+        ..style = PaintingStyle.stroke
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      canvas.drawPath(path, glowPaint);
+    }
 
-    // Main trace
+    // Main trace — slightly thicker on web to compensate for missing glow
     final paint = Paint()
-      ..color = color.withAlpha((150 * opacity).round())
-      ..strokeWidth = 1.5
+      ..color = color.withAlpha((kIsWeb ? 180 : 150) * opacity ~/ 1)
+      ..strokeWidth = kIsWeb ? 2.0 : 1.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(path, paint);
   }
 
   void _drawNodes(Canvas canvas, List<_CircuitSegment> segments) {
+    final dotPaint = Paint()..color = primaryColor.withAlpha(80);
+    final glowPaint = kIsWeb ? null : (Paint()
+      ..color = primaryColor.withAlpha(20)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+
     for (final seg in segments) {
       if (seg.type == _SegmentType.connection) {
-        // Draw small dots at connection endpoints
-        final dotPaint = Paint()
-          ..color = primaryColor.withAlpha(80);
         canvas.drawCircle(seg.from!, 2.5, dotPaint);
         canvas.drawCircle(seg.to!, 2.5, dotPaint);
 
-        // Glow on nodes
-        final glowPaint = Paint()
-          ..color = primaryColor.withAlpha(20)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-        canvas.drawCircle(seg.from!, 5, glowPaint);
-        canvas.drawCircle(seg.to!, 5, glowPaint);
+        if (glowPaint != null) {
+          canvas.drawCircle(seg.from!, 5, glowPaint);
+          canvas.drawCircle(seg.to!, 5, glowPaint);
+        }
       }
     }
   }
@@ -343,8 +347,8 @@ class CircuitWaveOverlayState extends State<CircuitWaveOverlay>
   int _frameCount = 0;
 
   void _updateBounds() {
-    // Only recalculate every 30 frames to save CPU
     _frameCount++;
+    // Only recalculate every 30 frames to save CPU
     if (_frameCount % 30 != 0) return;
 
     final bounds = <Rect>[];
@@ -391,18 +395,22 @@ class CircuitWaveOverlayState extends State<CircuitWaveOverlay>
 
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, child) => CustomPaint(
-        foregroundPainter: _nodeBounds.length >= 2
-            ? CircuitWavePainter(
-                childBounds: _nodeBounds,
-                engine: widget.engine,
-                time: _anim.value * 2 * pi,
-                primaryColor: widget.primaryColor ?? const Color(0xFF00BCD4),
-                secondaryColor: widget.secondaryColor ?? const Color(0xFFAB47BC),
-              )
-            : null,
-        child: child,
-      ),
+      builder: (_, child) {
+        // On web, skip every other frame to target ~30fps instead of 60
+        if (kIsWeb && _frameCount % 2 != 0) return child!;
+        return CustomPaint(
+          foregroundPainter: _nodeBounds.length >= 2
+              ? CircuitWavePainter(
+                  childBounds: _nodeBounds,
+                  engine: widget.engine,
+                  time: _anim.value * 2 * pi,
+                  primaryColor: widget.primaryColor ?? const Color(0xFF00BCD4),
+                  secondaryColor: widget.secondaryColor ?? const Color(0xFFAB47BC),
+                )
+              : null,
+          child: child,
+        );
+      },
       child: widget.child,
     );
   }

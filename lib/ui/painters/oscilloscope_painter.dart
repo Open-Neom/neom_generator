@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../engine/neom_frequency_painter_engine.dart';
@@ -72,7 +73,9 @@ class OscilloscopePainter extends CustomPainter {
     final midY = size.height / 2;
     final scaleY = size.height * 0.4;
 
-    for (int i = 0; i < samples.length; i++) {
+    // On web, downsample to reduce path complexity
+    final step = kIsWeb ? 3 : 1;
+    for (int i = 0; i < samples.length; i += step) {
       final x = size.width * i / (samples.length - 1);
       final y = midY - samples[i] * scaleY;
 
@@ -83,21 +86,22 @@ class OscilloscopePainter extends CustomPainter {
       }
     }
 
-    // Glow
-    final glow = Paint()
-      ..color = signalColor.withValues(alpha: 0.15)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    // Glow — skip blur on web (expensive canvas operation)
+    if (!kIsWeb) {
+      final glow = Paint()
+        ..color = signalColor.withValues(alpha: 0.15)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      canvas.drawPath(path, glow);
+    }
 
-    // Signal
+    // Signal — slightly thicker on web to compensate for missing glow
     final signal = Paint()
-      ..color = signalColor
+      ..color = signalColor.withValues(alpha: kIsWeb ? 0.9 : 1.0)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
+      ..strokeWidth = kIsWeb ? 2.2 : 1.8
       ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(path, glow);
     canvas.drawPath(path, signal);
   }
 

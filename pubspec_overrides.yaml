@@ -1,13 +1,13 @@
 dependency_overrides:
   neom_core:
-    path: ../neom_core
+    path: ../../main/neom_core
   neom_commons:
-    path: ../neom_commons
+    path: ../../main/neom_commons
   neom_sound:
-    path: ../neom_sound
+    path: ../../hardware/neom_sound
   neom_vr:
     path: ../neom_vr
   neom_states:
     path: ../neom_states
   sint:
-    path: ../sint
+    path: ../../framework/sint

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../engine/neom_frequency_painter_engine.dart';
@@ -36,8 +37,8 @@ class PerimeterWavePainter extends CustomPainter {
     final h = size.height;
     final perimeter = 2 * (w + h);
 
-    // Number of sample points around the perimeter
-    const sampleCount = 400;
+    // Number of sample points around the perimeter — fewer on web
+    final sampleCount = kIsWeb ? 150 : 400;
 
     final freq = engine.visualPhase * 20 + 3; // wave density
     final beat = engine.binauralPhase;
@@ -91,21 +92,23 @@ class PerimeterWavePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(pathR, paintR);
 
-    // Draw L channel (front, brighter)
+    // Draw L channel (front, brighter — thicker on web to compensate for missing glow)
     final paintL = Paint()
-      ..color = primaryColor.withAlpha(200)
-      ..strokeWidth = strokeWidth
+      ..color = primaryColor.withAlpha(kIsWeb ? 220 : 200)
+      ..strokeWidth = kIsWeb ? strokeWidth * 1.5 : strokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(pathL, paintL);
 
-    // Subtle glow on L channel
-    final glowPaint = Paint()
-      ..color = primaryColor.withAlpha(30)
-      ..strokeWidth = strokeWidth * 4
-      ..style = PaintingStyle.stroke
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-    canvas.drawPath(pathL, glowPaint);
+    // Subtle glow on L channel — skip blur on web
+    if (!kIsWeb) {
+      final glowPaint = Paint()
+        ..color = primaryColor.withAlpha(30)
+        ..strokeWidth = strokeWidth * 4
+        ..style = PaintingStyle.stroke
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      canvas.drawPath(pathL, glowPaint);
+    }
   }
 
   /// Get a point on the rectangle perimeter at distance [dist] from top-left.
@@ -177,6 +180,7 @@ class PerimeterWaveWidget extends StatefulWidget {
 class _PerimeterWaveWidgetState extends State<PerimeterWaveWidget>
     with SingleTickerProviderStateMixin {
   late final AnimationController _anim;
+  int _frameCount = 0;
 
   @override
   void initState() {
@@ -185,6 +189,7 @@ class _PerimeterWaveWidgetState extends State<PerimeterWaveWidget>
       vsync: this,
       duration: const Duration(seconds: 10),
     )..repeat();
+    _anim.addListener(() => _frameCount++);
   }
 
   @override
@@ -211,17 +216,21 @@ class _PerimeterWaveWidgetState extends State<PerimeterWaveWidget>
 
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, child) => CustomPaint(
-        painter: PerimeterWavePainter(
-          engine: widget.engine,
-          time: _anim.value * 2 * pi,
-          primaryColor: widget.primaryColor ?? const Color(0xFF00BCD4),
-          secondaryColor: widget.secondaryColor ?? const Color(0xFFAB47BC),
-          amplitude: widget.amplitude,
-          strokeWidth: widget.strokeWidth,
-        ),
-        child: child,
-      ),
+      builder: (_, child) {
+        // On web, skip every other frame to target ~30fps
+        if (kIsWeb && _frameCount % 2 != 0) return child!;
+        return CustomPaint(
+          painter: PerimeterWavePainter(
+            engine: widget.engine,
+            time: _anim.value * 2 * pi,
+            primaryColor: widget.primaryColor ?? const Color(0xFF00BCD4),
+            secondaryColor: widget.secondaryColor ?? const Color(0xFFAB47BC),
+            amplitude: widget.amplitude,
+            strokeWidth: widget.strokeWidth,
+          ),
+          child: child,
+        );
+      },
       child: widget.child,
     );
   }
