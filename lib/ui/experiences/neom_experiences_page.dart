@@ -290,8 +290,7 @@ class NeomExperiencesPage extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () => InciensoDetailSheet.show(context, incienso, () {
-            // TODO: load incienso into generator and start
-            Sint.toNamed(AppRouteConstants.generator);
+            Sint.toNamed(AppRouteConstants.generator, arguments: [incienso]);
           }),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

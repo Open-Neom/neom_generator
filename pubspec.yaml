@@ -18,6 +18,8 @@ dependencies:
   neom_vr: ^2.1.0-dev
 
   sleek_circular_slider: ^2.1.0
+  fl_chart: ^0.70.2
+  pitch_detector_dart: ^0.0.7
 
   #Tonic is a Flutter-compatible Dart package that models components of music theory.
   #Used for Neom Harmony

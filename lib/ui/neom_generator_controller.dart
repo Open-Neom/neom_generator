@@ -23,6 +23,7 @@ import 'package:neom_core/domain/model/neom/neom_parameter.dart';
 import 'package:neom_core/domain/repository/chamber_repository.dart';
 import 'package:neom_core/domain/use_cases/frequency_service.dart';
 import 'package:neom_core/domain/use_cases/user_service.dart';
+import 'package:neom_core/utils/constants/app_route_constants.dart';
 import 'package:neom_core/utils/enums/app_item_state.dart';
 import 'package:neom_core/utils/enums/user_role.dart';
 import 'package:neom_core/utils/neom_error_logger.dart';
@@ -142,17 +143,39 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   DateTime? get sessionStartedAt => _sessionStartedAt;
   double _prevBreathPhase = 0.0;
 
+  /// The actively loaded incienso preset (null if free exploration).
+  Incienso? _activeIncienso;
+  Incienso? get activeIncienso => _activeIncienso;
+
+  /// Phase runner timer for multi-phase inciensos.
+  Timer? _phaseTimer;
+  int _currentPhaseIndex = 0;
+
+  /// Timeline playback timer for recorded inciensos.
+  Timer? _timelineTimer;
+  DateTime? _timelineStart;
+
   @override
   void onInit() async {
     super.onInit();
     _sineEngine.painterEngine = painterEngine;
     try {
-      final arguments = (Sint.arguments as List<dynamic>?) ?? [];
-      if(arguments.isNotEmpty) {
-        if(arguments.elementAt(0) is NeomChamberPreset) {
-          chamberPreset =  arguments.elementAt(0);
-        } else if(arguments.elementAt(0) is NeomFrequency) {
-          chamberPreset.mainFrequency = arguments.elementAt(0);
+      final rawArgs = Sint.arguments;
+
+      // Support Map arguments from levitation module
+      if (rawArgs is Map<String, dynamic>) {
+        _loadFromMapArguments(rawArgs);
+      } else {
+        final arguments = (rawArgs as List<dynamic>?) ?? [];
+        if(arguments.isNotEmpty) {
+          if(arguments.elementAt(0) is Incienso) {
+            // Incienso preset from experiences page — defer loading until after init
+            _activeIncienso = arguments.elementAt(0) as Incienso;
+          } else if(arguments.elementAt(0) is NeomChamberPreset) {
+            chamberPreset =  arguments.elementAt(0);
+          } else if(arguments.elementAt(0) is NeomFrequency) {
+            chamberPreset.mainFrequency = arguments.elementAt(0);
+          }
         }
       }
 
@@ -258,6 +281,11 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
     isLoading.value = false;
     update([AppPageIdConstants.generator]);
+
+    // Deferred incienso loading — after engine is fully initialized
+    if (_activeIncienso != null) {
+      loadIncienso(_activeIncienso!);
+    }
   }
 
   @override
@@ -274,6 +302,8 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
     _audioStreamController?.close();
 
+    _stopPhaseRunner();
+    _stopTimelinePlayback();
     inciensoTracker.dispose();
     inciensoRecorder.dispose();
 
@@ -304,6 +334,8 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       if(_waveTicker?.isActive ?? false) _waveTicker?.stop();
 
       // Stop incienso tracking
+      _stopPhaseRunner();
+      _stopTimelinePlayback();
       inciensoTracker.stop();
       _prevBreathPhase = 0.0;
     } else {
@@ -387,6 +419,73 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     update([AppPageIdConstants.generator]);
   }
 
+
+  // --- MULTI-FREQUENCY (Levitation) ---
+
+  /// Load frequencies from a Map (sent by levitation or other modules).
+  ///
+  /// Supported keys:
+  ///   'frequency' → main / sub frequency
+  ///   'frequencyL' → left channel frequency
+  ///   'frequencyR' → right channel frequency
+  ///   'mode' → 'multi' enables 3-oscillator mode
+  void _loadFromMapArguments(Map<String, dynamic> args) {
+    final freq = (args['frequency'] as num?)?.toDouble();
+    final freqL = (args['frequencyL'] as num?)?.toDouble();
+    final freqR = (args['frequencyR'] as num?)?.toDouble();
+    final mode = args['mode'] as String?;
+
+    if (mode == 'multi' && freq != null && freqL != null && freqR != null) {
+      // Multi-frequency: Sub + L + R
+      _sineEngine.multiFrequencyMode = true;
+      _sineEngine.frequencySub = freq;
+      _sineEngine.frequencyL = freqL;
+      _sineEngine.frequencyR = freqR;
+      currentFreq.value = freq;
+    } else if (freq != null) {
+      // Single frequency from levitation
+      chamberPreset.mainFrequency ??= NeomFrequency();
+      chamberPreset.mainFrequency!.frequency = freq;
+      currentFreq.value = freq;
+    }
+  }
+
+  /// Update the main frequency directly (for controller-to-controller calls).
+  ///
+  /// Used by levitation's playFrequency() when the generator is already running.
+  void updateFrequency(double freq) {
+    if (_sineEngine.multiFrequencyMode) {
+      _sineEngine.frequencySub = freq;
+    } else {
+      currentFreq.value = freq;
+      _applyEffectiveFrequency();
+    }
+  }
+
+  /// Set multi-frequency mode with 3 independent oscillators.
+  ///
+  /// [subHz]: frequency for subwoofer (mixed to both L+R channels)
+  /// [leftHz]: frequency for left speaker only
+  /// [rightHz]: frequency for right speaker only
+  void setMultiFrequency({
+    required double subHz,
+    required double leftHz,
+    required double rightHz,
+  }) {
+    _sineEngine.multiFrequencyMode = true;
+    _sineEngine.frequencySub = subHz;
+    _sineEngine.frequencyL = leftHz;
+    _sineEngine.frequencyR = rightHz;
+    currentFreq.value = subHz;
+    update([AppPageIdConstants.generator]);
+  }
+
+  /// Disable multi-frequency mode and return to standard binaural.
+  void disableMultiFrequency() {
+    _sineEngine.multiFrequencyMode = false;
+    _applyEffectiveFrequency();
+    update([AppPageIdConstants.generator]);
+  }
 
   // --- HELPERS ---
   void updateDescriptionForFrequency(double frequency) {
@@ -1065,6 +1164,212 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       await setFrequency(currentFreq.value - step);
     } else {
       setBinauralBeat(beat: currentBeat.value - step);
+    }
+  }
+
+  // ── Incienso loading ──
+
+  /// Load an [Incienso] preset into the generator, configuring all parameters
+  /// (frequencies, binaural beat, isochronic, visual, breathing) and optionally
+  /// auto-starting playback.
+  ///
+  /// For multi-phase inciensos, starts a timer-driven phase runner that
+  /// transitions between phases at the scheduled times.
+  Future<void> loadIncienso(Incienso incienso, {bool autoStart = true}) async {
+    _activeIncienso = incienso;
+
+    // ── Base frequencies ──
+    currentFreq.value = incienso.leftFrequencyHz;
+    chamberPreset.mainFrequency ??= NeomFrequency();
+    chamberPreset.mainFrequency!.frequency = incienso.leftFrequencyHz;
+
+    final beat = incienso.rightFrequencyHz - incienso.leftFrequencyHz;
+    setBinauralBeat(beat: beat);
+
+    // ── Isochronic pulse ──
+    if (incienso.pulseFrequencyHz > 0) {
+      setIsochronicFrequency(incienso.pulseFrequencyHz);
+      await setIsochronicEnabled(true);
+    } else {
+      await setIsochronicEnabled(false);
+    }
+
+    // ── Neuro state (from binaural beat) ──
+    setNeuroState(incienso.targetState);
+
+    // ── Breathing guide ──
+    setBreathMode(NeomBreathMode.box);
+
+    // ── Phase runner / timeline playback ──
+    _stopPhaseRunner();
+    _stopTimelinePlayback();
+
+    if (incienso.isRecorded) {
+      // Recorded incienso — use timeline keyframe playback
+      // (skip phase runner entirely; the timeline contains everything)
+    } else if (incienso.isMultiPhase) {
+      _currentPhaseIndex = 0;
+      _applyPhase(incienso.phases.first);
+    }
+
+    // ── Auto-start playback ──
+    if (autoStart && !isPlaying.value) {
+      await playStopPreview();
+    }
+
+    // ── Schedule phase transitions or timeline playback ──
+    if (incienso.isRecorded) {
+      _startTimelinePlayback(incienso);
+    } else if (incienso.isMultiPhase) {
+      _startPhaseRunner(incienso);
+    }
+
+    update([AppPageIdConstants.generator]);
+  }
+
+  /// Apply a single phase's frequency parameters.
+  void _applyPhase(InciensoPhase phase) {
+    // Set beat to start value — the engine will interpolate if needed.
+    // Left carrier stays fixed; right carrier adjusts for the beat.
+    setBinauralBeat(beat: phase.startBeatHz);
+  }
+
+  /// Start a periodic timer that checks and applies phase transitions.
+  /// Runs every second to detect when the next phase should begin.
+  void _startPhaseRunner(Incienso incienso) {
+    final phases = incienso.phases;
+    _currentPhaseIndex = 0;
+    final sessionStart = DateTime.now();
+
+    _phaseTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!isPlaying.value || _activeIncienso == null) {
+        timer.cancel();
+        return;
+      }
+
+      final elapsed = DateTime.now().difference(sessionStart);
+
+      // Check if we need to advance to the next phase
+      for (int i = _currentPhaseIndex + 1; i < phases.length; i++) {
+        if (elapsed >= phases[i].startAt) {
+          _currentPhaseIndex = i;
+          _applyPhase(phases[i]);
+        }
+      }
+
+      // Interpolate beat within current phase for smooth sweeps
+      final phase = phases[_currentPhaseIndex];
+      final phaseElapsed = elapsed - phase.startAt;
+      final progress = phase.duration.inMilliseconds > 0
+          ? (phaseElapsed.inMilliseconds / phase.duration.inMilliseconds)
+              .clamp(0.0, 1.0)
+          : 1.0;
+
+      final interpolatedBeat = phase.startBeatHz +
+          (phase.endBeatHz - phase.startBeatHz) * progress;
+
+      if ((currentBeat.value - interpolatedBeat).abs() > 0.05) {
+        setBinauralBeat(beat: interpolatedBeat);
+      }
+
+      // Auto-stop when suggested duration is reached
+      if (elapsed >= incienso.suggestedDuration) {
+        timer.cancel();
+        playStopPreview(stop: true);
+      }
+    });
+  }
+
+  /// Cancel the phase runner timer.
+  void _stopPhaseRunner() {
+    _phaseTimer?.cancel();
+    _phaseTimer = null;
+    _currentPhaseIndex = 0;
+  }
+
+  // ── Timeline playback for recorded inciensos ──
+
+  /// Start a 50 ms timer that walks through [incienso.timeline] keyframes,
+  /// interpolating frequencies and volume between consecutive keyframes.
+  void _startTimelinePlayback(Incienso incienso) {
+    final timeline = incienso.timeline;
+    if (timeline.isEmpty) return;
+
+    _timelineStart = DateTime.now();
+
+    _timelineTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (!isPlaying.value || _activeIncienso == null) {
+        timer.cancel();
+        return;
+      }
+
+      final elapsedMs = DateTime.now()
+          .difference(_timelineStart!)
+          .inMilliseconds
+          .toDouble();
+
+      // Past the last keyframe — auto-stop.
+      if (elapsedMs >= timeline.last.timestampMs) {
+        timer.cancel();
+        playStopPreview(stop: true);
+        return;
+      }
+
+      // Find the two keyframes bracketing the current time.
+      int lo = 0;
+      for (int i = 1; i < timeline.length; i++) {
+        if (timeline[i].timestampMs > elapsedMs) break;
+        lo = i;
+      }
+      final hi = (lo + 1).clamp(0, timeline.length - 1);
+
+      final a = timeline[lo];
+      final b = timeline[hi];
+
+      // Interpolation factor between a and b.
+      final span = b.timestampMs - a.timestampMs;
+      final t = span > 0 ? ((elapsedMs - a.timestampMs) / span).clamp(0.0, 1.0) : 1.0;
+
+      final leftHz  = a.leftHz  + (b.leftHz  - a.leftHz)  * t;
+      final rightHz = a.rightHz + (b.rightHz - a.rightHz) * t;
+      final vol     = a.volume  + (b.volume  - a.volume)  * t;
+      final beat    = (rightHz - leftHz).abs();
+
+      currentFreq.value = leftHz;
+      setBinauralBeat(beat: beat);
+      setVolume(vol);
+    });
+  }
+
+  /// Cancel timeline playback timer.
+  void _stopTimelinePlayback() {
+    _timelineTimer?.cancel();
+    _timelineTimer = null;
+    _timelineStart = null;
+  }
+
+  // ── Visual experience navigation ──
+
+  /// Navigate to the fullscreen visual experience matching the active incienso.
+  /// Falls back to photonicPulse behavior (no navigation) if no visual is set.
+  void launchVisualExperience() {
+    final visual = _activeIncienso?.defaultVisual;
+    if (visual == null) return;
+
+    final route = _visualRoute(visual);
+    if (route != null) {
+      Sint.toNamed(route, arguments: painterEngine);
+    }
+  }
+
+  String? _visualRoute(InciensoVisual visual) {
+    switch (visual) {
+      case InciensoVisual.flocking:     return AppRouteConstants.flockingFullscreen;
+      case InciensoVisual.breathing:    return AppRouteConstants.breathingFullscreen;
+      case InciensoVisual.fractals:     return AppRouteConstants.fractalFullscreen;
+      case InciensoVisual.neomatics:    return AppRouteConstants.neomaticsFullscreen;
+      case InciensoVisual.neuroMandala: return AppRouteConstants.neuromandalaFullscreen;
+      case InciensoVisual.photonicPulse: return null; // Handled inline
     }
   }
 

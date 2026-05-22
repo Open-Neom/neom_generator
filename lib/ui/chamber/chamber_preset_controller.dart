@@ -2,7 +2,7 @@ import 'package:neom_commons/app_flavour.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/data/api_services/push_notification/firebase_messaging_calls.dart';
-import 'package:neom_core/domain/model/band.dart';
+import 'package:neom_core/domain/model/collective.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
 import 'package:neom_core/domain/repository/chamber_repository.dart';
@@ -34,7 +34,7 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
 
   String profileId = "";
   String chamberId = "";
-  Band band = Band();
+  Collective collective = Collective();
   int _prevItemState = 0;
   OwnerType chamberOwner = OwnerType.profile;
 
@@ -45,7 +45,7 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
     AppConfig.logger.d("ItemlistItem Controller init");
     try {
       profileId = userServiceImpl.profile.id;
-      band = userServiceImpl.band;
+      collective = userServiceImpl.collective;
       chamberOwner = userServiceImpl.itemlistOwnerType;
 
       if(Sint.arguments != null) {
@@ -152,11 +152,11 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
           );
 
           return true;
-        } else if (chamberOwner == OwnerType.band) {
-          if (userServiceImpl.band.itemlists!.isNotEmpty) {
+        } else if (chamberOwner == OwnerType.collective) {
+          if (userServiceImpl.collective.itemlists!.isNotEmpty) {
             AppConfig.logger.d("Adding item to global itemlist from userController");
-            userServiceImpl.band.chambers![chamberId]!.chamberPresets!.add(chamberPreset);
-            chamber = userServiceImpl.band.chambers![chamberId]!;
+            userServiceImpl.collective.chambers![chamberId]!.chamberPresets!.add(chamberPreset);
+            chamber = userServiceImpl.collective.chambers![chamberId]!;
             loadPresetsFromChamber();
           }
           return true;

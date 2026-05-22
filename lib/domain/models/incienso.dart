@@ -65,11 +65,15 @@ class Incienso {
   /// Screen pulse frequency in Hz (0 = static color).
   final double pulseFrequencyHz;
 
-  /// Whether stereo headphones are required (always true for binaural).
-  final bool requiresHeadphones;
-
-  /// Whether this needs speakers (infrasound protocols).
-  final bool requiresSpeakers;
+  /// Output source compatibility map.
+  ///
+  /// Tells the user WHERE they can play this incienso and HOW effective
+  /// each output source will be. Replaces the old boolean requires* fields.
+  ///
+  /// Default (binaural protocols): headphones=optimal, speakers=partial.
+  /// Direct carrier protocols (>40 Hz): all sources effective.
+  /// Physical vibration protocols: speakers/subwoofer=optimal.
+  final Map<OutputSource, SourceEffectiveness> compatibility;
 
   /// Source: predefined state, PAR protocol, or user-created.
   final InciensoSource source;
@@ -92,6 +96,10 @@ class Incienso {
   /// Tags for discovery/search.
   final List<String> tags;
 
+  /// Scientific references supporting this incienso's frequency protocol.
+  /// Empty for non-research-based presets.
+  final List<InciensoReference> references;
+
   /// Times this incienso has been practiced (social proof).
   final int practiceCount;
 
@@ -110,8 +118,7 @@ class Incienso {
     this.defaultVisual,
     this.screenColorValue = 0xFF1A0A2E,
     this.pulseFrequencyHz = 0.0,
-    this.requiresHeadphones = true,
-    this.requiresSpeakers = false,
+    this.compatibility = defaultBinauralCompatibility,
     this.source = InciensoSource.predefined,
     this.stateId,
     this.protocolId,
@@ -119,6 +126,7 @@ class Incienso {
     this.isPro = false,
     this.iconCodePoint,
     this.tags = const [],
+    this.references = const [],
     this.practiceCount = 0,
     this.avgQualityRatio = 0.0,
   });
@@ -160,8 +168,9 @@ class Incienso {
     if (defaultVisual != null) 'defaultVisual': defaultVisual!.name,
     'screenColorValue': screenColorValue,
     'pulseFrequencyHz': pulseFrequencyHz,
-    'requiresHeadphones': requiresHeadphones,
-    'requiresSpeakers': requiresSpeakers,
+    'compatibility': compatibility.map(
+      (source, eff) => MapEntry(source.name, eff.name),
+    ),
     'source': source.name,
     if (stateId != null) 'stateId': stateId,
     if (protocolId != null) 'protocolId': protocolId,
@@ -169,6 +178,7 @@ class Incienso {
     'isPro': isPro,
     if (iconCodePoint != null) 'iconCodePoint': iconCodePoint,
     'tags': tags,
+    if (references.isNotEmpty) 'references': references.map((r) => r.toJson()).toList(),
     'practiceCount': practiceCount,
     'avgQualityRatio': avgQualityRatio,
   };
@@ -194,8 +204,7 @@ class Incienso {
         : null,
     screenColorValue: json['screenColorValue'] as int? ?? 0xFF1A0A2E,
     pulseFrequencyHz: (json['pulseFrequencyHz'] as num?)?.toDouble() ?? 0.0,
-    requiresHeadphones: json['requiresHeadphones'] as bool? ?? true,
-    requiresSpeakers: json['requiresSpeakers'] as bool? ?? false,
+    compatibility: _parseCompatibility(json),
     source: InciensoSource.values.firstWhere(
       (s) => s.name == json['source'],
       orElse: () => InciensoSource.predefined,
@@ -206,10 +215,135 @@ class Incienso {
     isPro: json['isPro'] as bool? ?? false,
     iconCodePoint: json['iconCodePoint'] as int?,
     tags: (json['tags'] as List?)?.cast<String>() ?? [],
+    references: (json['references'] as List?)
+        ?.map((r) => InciensoReference.fromJson(r as Map<String, dynamic>))
+        .toList() ?? [],
     practiceCount: json['practiceCount'] as int? ?? 0,
     avgQualityRatio: (json['avgQualityRatio'] as num?)?.toDouble() ?? 0.0,
   );
+
+  /// Parses compatibility from JSON, with backward compat for old bool fields.
+  static Map<OutputSource, SourceEffectiveness> _parseCompatibility(
+    Map<String, dynamic> json,
+  ) {
+    // New format: { "compatibility": { "headphones": "optimal", ... } }
+    if (json['compatibility'] is Map) {
+      final raw = json['compatibility'] as Map;
+      return raw.map((key, value) => MapEntry(
+        OutputSource.values.firstWhere(
+          (s) => s.name == key,
+          orElse: () => OutputSource.headphones,
+        ),
+        SourceEffectiveness.values.firstWhere(
+          (e) => e.name == value,
+          orElse: () => SourceEffectiveness.effective,
+        ),
+      ));
+    }
+
+    // Legacy format: { "requiresHeadphones": true, "requiresSpeakers": false }
+    final needsHeadphones = json['requiresHeadphones'] as bool? ?? true;
+    final needsSpeakers = json['requiresSpeakers'] as bool? ?? false;
+
+    if (needsSpeakers && !needsHeadphones) {
+      return defaultVibrationCompatibility;
+    }
+    if (needsSpeakers && needsHeadphones) {
+      return defaultDirectCarrierCompatibility;
+    }
+    return defaultBinauralCompatibility;
+  }
 }
+
+/// Output source for playing an Incienso.
+enum OutputSource {
+  /// Over-ear or in-ear stereo headphones (binaural-capable).
+  headphones,
+
+  /// Desktop, bookshelf, or monitor speakers.
+  speakers,
+
+  /// Phone built-in speaker (limited bass, usually mono).
+  smartphone,
+
+  /// Dedicated subwoofer (physical vibration, deep bass).
+  subwoofer,
+
+  /// Bone conduction headphones (vibration to skull, open-ear).
+  boneConduction,
+
+  /// Sleep headband or pillow speaker (for sleep protocols).
+  sleepBand,
+}
+
+/// How effective a given output source is for an Incienso.
+enum SourceEffectiveness {
+  /// Best possible results with this source.
+  optimal,
+
+  /// Good results — recommended alternative.
+  effective,
+
+  /// Works but with reduced effectiveness.
+  partial,
+
+  /// Won't achieve the intended therapeutic effect.
+  notRecommended,
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Preset compatibility maps (const, reusable across catalog)
+// ─────────────────────────────────────────────────────────────
+
+/// Binaural protocols (beat = |R−L|): headphones are optimal because
+/// they preserve stereo separation. Speakers lose the binaural effect
+/// but isochronic/carrier components still work.
+const defaultBinauralCompatibility = <OutputSource, SourceEffectiveness>{
+  OutputSource.headphones: SourceEffectiveness.optimal,
+  OutputSource.boneConduction: SourceEffectiveness.effective,
+  OutputSource.speakers: SourceEffectiveness.partial,
+  OutputSource.smartphone: SourceEffectiveness.partial,
+};
+
+/// Direct carrier protocols (e.g. 90 Hz, 100 Hz): the target frequency
+/// is audible directly — no binaural separation needed. Any output works.
+const defaultDirectCarrierCompatibility = <OutputSource, SourceEffectiveness>{
+  OutputSource.headphones: SourceEffectiveness.optimal,
+  OutputSource.speakers: SourceEffectiveness.optimal,
+  OutputSource.boneConduction: SourceEffectiveness.effective,
+  OutputSource.smartphone: SourceEffectiveness.effective,
+  OutputSource.subwoofer: SourceEffectiveness.effective,
+};
+
+/// Physical vibration protocols (bone density, respiratory): require
+/// actual mechanical vibration through body contact. Subwoofer/speakers
+/// are optimal; headphones provide neural entrainment only.
+const defaultVibrationCompatibility = <OutputSource, SourceEffectiveness>{
+  OutputSource.subwoofer: SourceEffectiveness.optimal,
+  OutputSource.speakers: SourceEffectiveness.optimal,
+  OutputSource.boneConduction: SourceEffectiveness.effective,
+  OutputSource.headphones: SourceEffectiveness.partial,
+  OutputSource.smartphone: SourceEffectiveness.partial,
+};
+
+/// Sleep protocols: headband/pillow speakers are optimal for comfort;
+/// standard headphones work but may be uncomfortable for sleeping.
+const defaultSleepCompatibility = <OutputSource, SourceEffectiveness>{
+  OutputSource.sleepBand: SourceEffectiveness.optimal,
+  OutputSource.headphones: SourceEffectiveness.effective,
+  OutputSource.boneConduction: SourceEffectiveness.effective,
+  OutputSource.speakers: SourceEffectiveness.partial,
+  OutputSource.smartphone: SourceEffectiveness.partial,
+};
+
+/// Audiovisual protocols (40 Hz gamma + photic): headphones for binaural
+/// + screen for photic pulse. Speakers lose binaural but photic still works.
+const defaultAudiovisualCompatibility = <OutputSource, SourceEffectiveness>{
+  OutputSource.headphones: SourceEffectiveness.optimal,
+  OutputSource.boneConduction: SourceEffectiveness.effective,
+  OutputSource.speakers: SourceEffectiveness.effective,
+  OutputSource.smartphone: SourceEffectiveness.partial,
+};
 
 /// A frequency transition phase within an Incienso.
 class InciensoPhase {
@@ -354,4 +488,210 @@ enum InciensoVisual {
 
   /// Generative sacred geometry.
   neuroMandala,
+}
+
+/// Type of scientific study behind a reference.
+enum StudyType {
+  /// Systematic review pooling multiple RCTs.
+  metaAnalysis,
+
+  /// Double-blind randomized controlled trial.
+  rctDoubleBlind,
+
+  /// Randomized controlled trial (single-blind or open-label).
+  rct,
+
+  /// Non-randomized controlled study.
+  controlledStudy,
+
+  /// Pilot or feasibility study.
+  pilotStudy,
+
+  /// In vitro (cell/tissue cultures in laboratory).
+  inVitro,
+
+  /// Animal model (in vivo preclinical).
+  preclinical,
+
+  /// Case report or case series.
+  caseReport,
+}
+
+/// Strength of the scientific evidence.
+enum EvidenceLevel {
+  /// Meta-analysis of RCTs or Phase II+ clinical trials.
+  high,
+
+  /// Single DB-RCT or multiple independent RCTs.
+  moderateHigh,
+
+  /// Multiple controlled studies with consistent results.
+  moderate,
+
+  /// Controlled studies with small samples or limitations.
+  lowModerate,
+
+  /// Pilot, preclinical, or in vitro only.
+  low,
+}
+
+/// Safety/risk profile for end users.
+enum SafetyProfile {
+  /// No known risks — passive listening at normal volume.
+  noRisk,
+
+  /// Minimal risk — specific contraindications exist (e.g. epilepsy for photic).
+  minimal,
+
+  /// Low risk — some populations should avoid (pregnancy, pacemakers, etc.).
+  low,
+
+  /// Medical supervision recommended.
+  moderate,
+}
+
+/// A scientific reference supporting an Incienso's frequency protocol.
+///
+/// Stores structured metadata so the UI can render clickable citations,
+/// evidence quality badges, and safety indicators. Users can verify
+/// the research independently via DOI/PMC links.
+class InciensoReference {
+  /// Short citation label, e.g. "Choi et al. (2022)".
+  final String citation;
+
+  /// Full paper title.
+  final String title;
+
+  /// Journal or conference name.
+  final String journal;
+
+  /// Publication year.
+  final int year;
+
+  /// DOI identifier (without URL prefix), e.g. "10.1016/j.bbrc.2022.03.088".
+  final String? doi;
+
+  /// PubMed Central ID, e.g. "PMC9316100".
+  final String? pmcId;
+
+  /// Direct URL to the paper (fallback if neither DOI nor PMC).
+  final String? url;
+
+  /// One-line summary of why this paper is relevant.
+  final String finding;
+
+  /// Type of study design.
+  final StudyType studyType;
+
+  /// Overall strength of evidence.
+  final EvidenceLevel evidenceLevel;
+
+  /// Safety/risk profile for the end user.
+  final SafetyProfile safetyProfile;
+
+  /// Number of participants (null for in vitro / preclinical).
+  final int? sampleSize;
+
+  /// Free-text safety note shown to the user, e.g. "Avoid with photosensitive epilepsy".
+  final String? safetyNote;
+
+  const InciensoReference({
+    required this.citation,
+    required this.title,
+    this.journal = '',
+    required this.year,
+    this.doi,
+    this.pmcId,
+    this.url,
+    required this.finding,
+    this.studyType = StudyType.controlledStudy,
+    this.evidenceLevel = EvidenceLevel.moderate,
+    this.safetyProfile = SafetyProfile.noRisk,
+    this.sampleSize,
+    this.safetyNote,
+  });
+
+  /// Resolves the best available link for this reference.
+  String get link {
+    if (doi != null) return 'https://doi.org/$doi';
+    if (pmcId != null) return 'https://www.ncbi.nlm.nih.gov/pmc/articles/$pmcId/';
+    return url ?? '';
+  }
+
+  /// Human-readable label for the study type.
+  String get studyTypeLabel {
+    switch (studyType) {
+      case StudyType.metaAnalysis: return 'Meta-analysis';
+      case StudyType.rctDoubleBlind: return 'Double-blind RCT';
+      case StudyType.rct: return 'Randomized Controlled Trial';
+      case StudyType.controlledStudy: return 'Controlled Study';
+      case StudyType.pilotStudy: return 'Pilot Study';
+      case StudyType.inVitro: return 'In Vitro (Laboratory)';
+      case StudyType.preclinical: return 'Preclinical (Animal Model)';
+      case StudyType.caseReport: return 'Case Report';
+    }
+  }
+
+  /// Human-readable label for the evidence level.
+  String get evidenceLevelLabel {
+    switch (evidenceLevel) {
+      case EvidenceLevel.high: return 'High';
+      case EvidenceLevel.moderateHigh: return 'Moderate-High';
+      case EvidenceLevel.moderate: return 'Moderate';
+      case EvidenceLevel.lowModerate: return 'Low-Moderate';
+      case EvidenceLevel.low: return 'Low';
+    }
+  }
+
+  /// Human-readable label for safety.
+  String get safetyLabel {
+    switch (safetyProfile) {
+      case SafetyProfile.noRisk: return 'No known risk';
+      case SafetyProfile.minimal: return 'Minimal risk';
+      case SafetyProfile.low: return 'Low risk';
+      case SafetyProfile.moderate: return 'Medical supervision recommended';
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+    'citation': citation,
+    'title': title,
+    if (journal.isNotEmpty) 'journal': journal,
+    'year': year,
+    if (doi != null) 'doi': doi,
+    if (pmcId != null) 'pmcId': pmcId,
+    if (url != null) 'url': url,
+    'finding': finding,
+    'studyType': studyType.name,
+    'evidenceLevel': evidenceLevel.name,
+    'safetyProfile': safetyProfile.name,
+    if (sampleSize != null) 'sampleSize': sampleSize,
+    if (safetyNote != null) 'safetyNote': safetyNote,
+  };
+
+  factory InciensoReference.fromJson(Map<String, dynamic> json) =>
+      InciensoReference(
+        citation: json['citation'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        journal: json['journal'] as String? ?? '',
+        year: json['year'] as int? ?? 0,
+        doi: json['doi'] as String?,
+        pmcId: json['pmcId'] as String?,
+        url: json['url'] as String?,
+        finding: json['finding'] as String? ?? '',
+        studyType: StudyType.values.firstWhere(
+          (e) => e.name == json['studyType'],
+          orElse: () => StudyType.controlledStudy,
+        ),
+        evidenceLevel: EvidenceLevel.values.firstWhere(
+          (e) => e.name == json['evidenceLevel'],
+          orElse: () => EvidenceLevel.moderate,
+        ),
+        safetyProfile: SafetyProfile.values.firstWhere(
+          (e) => e.name == json['safetyProfile'],
+          orElse: () => SafetyProfile.noRisk,
+        ),
+        sampleSize: json['sampleSize'] as int?,
+        safetyNote: json['safetyNote'] as String?,
+      );
 }

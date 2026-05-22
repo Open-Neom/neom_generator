@@ -5,7 +5,7 @@ import 'package:neom_commons/utils/constants/translations/common_translation_con
 import 'package:neom_commons/utils/constants/translations/message_translation_constants.dart';
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/domain/model/app_profile.dart';
-import 'package:neom_core/domain/model/band.dart';
+import 'package:neom_core/domain/model/collective.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber.dart';
 import 'package:neom_core/domain/repository/chamber_repository.dart';
 import 'package:neom_core/domain/use_cases/chamber_service.dart';
@@ -32,7 +32,7 @@ class ChamberController extends SintController implements ChamberService {
   final RxList<NeomChamber> addedChambers = <NeomChamber>[].obs;
 
   AppProfile profile = AppProfile();
-  Band? band;
+  Collective? collective;
   String ownerId = '';
   String ownerName = '';
   OwnerType ownerType = OwnerType.profile;
@@ -67,16 +67,16 @@ class ChamberController extends SintController implements ChamberService {
       ownerName = profile.name;
 
       if(Sint.arguments != null) {
-        if(Sint.arguments.isNotEmpty && Sint.arguments[0] is Band) {
-          band = Sint.arguments[0];
-          userServiceImpl.band = band!;
+        if(Sint.arguments.isNotEmpty && Sint.arguments[0] is Collective) {
+          collective = Sint.arguments[0];
+          userServiceImpl.collective = collective!;
         }
 
-        if(band != null) {
-          ownerId = band!.id;
-          ownerName = band!.name;
-          ownerType = OwnerType.band;
-          userServiceImpl.itemlistOwnerType = OwnerType.band;
+        if(collective != null) {
+          ownerId = collective!.id;
+          ownerName = collective!.name;
+          ownerType = OwnerType.collective;
+          userServiceImpl.itemlistOwnerType = OwnerType.collective;
         }
       }
 
@@ -96,8 +96,8 @@ class ChamberController extends SintController implements ChamberService {
     AppConfig.logger.t('Chambers being loaded from ${ownerType.name}');
     if(ownerType == OwnerType.profile) {
       chambers.value = profile.chambers ?? {};
-    } else if(ownerType == OwnerType.band){
-      chambers.value = band?.chambers ?? {};
+    } else if(ownerType == OwnerType.collective){
+      chambers.value = collective?.chambers ?? {};
     }
 
     if(chambers.isEmpty) {

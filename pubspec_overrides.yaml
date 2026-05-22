@@ -6,7 +6,7 @@ dependency_overrides:
   neom_sound:
     path: ../../hardware/neom_sound
   neom_vr:
-    path: ../neom_vr
+    path: ../../vr/neom_vr
   neom_states:
     path: ../neom_states
   sint:
