@@ -11,3 +11,7 @@ dependency_overrides:
     path: ../neom_states
   sint:
     path: ../../framework/sint
+  vrlizate:
+    path: /Users/serzen/codebase_vr/vrlizate
+  sint_vr:
+    path: ../../vr/sint_vr
