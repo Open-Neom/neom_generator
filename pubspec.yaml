@@ -13,7 +13,7 @@ dependencies:
 
   neom_core: ^2.0.0
   neom_commons: ^2.0.0
-  neom_sound: ^1.0.0
+  neom_sound: ^1.1.0
   neom_states: ^1.0.0
   neom_vr: ^1.2.0
 

@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neom_generator/domain/models/harmonic/harmonic_capture.dart';
 import 'package:neom_generator/domain/models/harmonic/harmonic_footprint.dart';
