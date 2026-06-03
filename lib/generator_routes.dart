@@ -7,6 +7,7 @@ import 'ui/chamber/chamber_presets_page.dart' deferred as chamberPresets;
 import 'ui/experiences/neom_experiences_page.dart' deferred as experiences;
 import 'ui/neom_generator_page.dart' deferred as generator;
 import 'ui/oscilloscope/neom_oscilloscope_fullscreen_page.dart' deferred as oscilloscope;
+import 'ui/incienso/incienso_explore_page.dart' deferred as InciensoExplore;
 
 class GeneratorRoutes {
 
@@ -29,6 +30,11 @@ class GeneratorRoutes {
     SintPage(
         name: AppRouteConstants.chamberExperiences,
         page: () => DeferredLoader(experiences.loadLibrary, () => experiences.NeomExperiencesPage()),
+        transition: Transition.rightToLeft,
+    ),
+    SintPage(
+        name: '/incienso-explore',
+        page: () => DeferredLoader(InciensoExplore.loadLibrary, () => InciensoExplore.InciensoExplorePage()),
         transition: Transition.rightToLeft,
     ),
     SintPage(

@@ -76,6 +76,34 @@ class FractalConfig {
 /// Uses Flutter fragment shaders (GPU-accelerated via Impeller/CanvasKit).
 /// Falls back to CPU-rendered [CustomPainter] on platforms where
 /// fragment shaders are not available (e.g. web HTML renderer).
+/// Cache container for CPU fallback iteration counts.
+/// Used to avoid recalculating the Mandelbrot set for static views.
+class CpuFractalCache {
+  List<double>? iters;
+  double? centerX;
+  double? centerY;
+  double? zoom;
+  int? width;
+  int? height;
+  NeomFractalType? type;
+
+  /// Clear the cache to force recalculation.
+  void clear() {
+    iters = null;
+    centerX = null;
+    centerY = null;
+    zoom = null;
+    width = null;
+    height = null;
+    type = null;
+  }
+}
+
+/// Central fractal visualization engine for mobile and web.
+///
+/// Uses Flutter fragment shaders (GPU-accelerated via Impeller/CanvasKit).
+/// Falls back to CPU-rendered [CustomPainter] on platforms where
+/// fragment shaders are not available (e.g. web HTML renderer).
 class NeomFractalEngine extends ChangeNotifier {
   FractalConfig _config = _configs[NeomNeuroState.neutral]!;
   NeomNeuroState _currentState = NeomNeuroState.neutral;
@@ -95,6 +123,9 @@ class NeomFractalEngine extends ChangeNotifier {
   double _userOffsetY = 0.0;
   double _userZoomFactor = 1.0;
 
+  // CPU Fallback cache
+  final CpuFractalCache cpuCache = CpuFractalCache();
+
   // Shader programs (loaded once, cached per unique asset)
   final Map<String, ui.FragmentProgram> _programCache = {};
   final Map<NeomFractalType, ui.FragmentShader?> _shaders = {};
@@ -111,12 +142,13 @@ class NeomFractalEngine extends ChangeNotifier {
   double get breath => _breath;
   double get neuro => _neuro;
   bool get shadersLoaded => _shadersLoaded;
-  bool get useFallback => _shadersFailed || !_shadersLoaded;
+  bool get useFallback => _shadersFailed;
 
   ui.FragmentShader? get currentShader => _shaders[_config.type];
 
   /// Load fragment shader programs from assets.
-  /// Each unique .frag file is loaded once and shared across fractal types.
+  /// First loads the active shader to achieve instant startup,
+  /// then loads the remaining shaders in the background in parallel.
   Future<void> loadShaders() async {
     if (_shadersLoaded) return;
 
@@ -129,25 +161,65 @@ class NeomFractalEngine extends ChangeNotifier {
       NeomFractalType.multibrot: 'packages/neom_generator/shaders/multibrot.frag',
     };
 
-    int loaded = 0;
-    for (final entry in shaderAssets.entries) {
+    // 1. Eagerly load the active shader first for instant rendering
+    final activeType = _config.type;
+    final activeAsset = shaderAssets[activeType];
+
+    if (activeAsset != null) {
       try {
-        // Reuse program if same asset was already loaded
-        ui.FragmentProgram? program = _programCache[entry.value];
+        ui.FragmentProgram? program = _programCache[activeAsset];
         if (program == null) {
-          program = await ui.FragmentProgram.fromAsset(entry.value);
-          _programCache[entry.value] = program;
+          program = await ui.FragmentProgram.fromAsset(activeAsset);
+          _programCache[activeAsset] = program;
         }
-        _shaders[entry.key] = program.fragmentShader();
-        loaded++;
+        _shaders[activeType] = program.fragmentShader();
+
+        // Mandelbrot deep and mandelbrot reuse the same shader asset, map both to avoid loading twice
+        if (activeType == NeomFractalType.mandelbrot) {
+          _shaders[NeomFractalType.mandelbrotDeep] = program.fragmentShader();
+        } else if (activeType == NeomFractalType.mandelbrotDeep) {
+          _shaders[NeomFractalType.mandelbrot] = program.fragmentShader();
+        }
+
+        _shadersLoaded = true;
+        notifyListeners();
       } catch (e) {
-        debugPrint('NeomFractalEngine: Failed to load ${entry.value}: $e');
+        debugPrint('NeomFractalEngine: Failed to load initial shader $activeAsset: $e');
       }
     }
 
-    _shadersLoaded = loaded > 0;
-    _shadersFailed = loaded == 0;
-    notifyListeners();
+    // 2. Load the remaining shaders asynchronously in the background in parallel
+    Future.microtask(() async {
+      int loadedCount = _shadersLoaded ? 1 : 0;
+      final remainingTypes = shaderAssets.keys.where((type) => !_shaders.containsKey(type)).toList();
+
+      if (remainingTypes.isNotEmpty) {
+        final List<Future<void>> backgroundFutures = remainingTypes.map((type) async {
+          final asset = shaderAssets[type]!;
+          try {
+            ui.FragmentProgram? program = _programCache[asset];
+            if (program == null) {
+              program = await ui.FragmentProgram.fromAsset(asset);
+              _programCache[asset] = program;
+            }
+            _shaders[type] = program.fragmentShader();
+            loadedCount++;
+          } catch (e) {
+            debugPrint('NeomFractalEngine: Failed to load background shader $asset: $e');
+          }
+        }).toList();
+
+        await Future.wait(backgroundFutures);
+      }
+
+      if (loadedCount > 0) {
+        _shadersLoaded = true;
+        _shadersFailed = false;
+      } else if (!_shadersLoaded) {
+        _shadersFailed = true;
+      }
+      notifyListeners();
+    });
   }
 
   /// Set fractal based on neuro-state.
@@ -162,6 +234,7 @@ class NeomFractalEngine extends ChangeNotifier {
     _userOffsetY = 0.0;
     _userZoomFactor = 1.0;
 
+    cpuCache.clear();
     notifyListeners();
   }
 
@@ -206,12 +279,14 @@ class NeomFractalEngine extends ChangeNotifier {
   void pan(double dx, double dy) {
     _userOffsetX -= dx / (zoom * 500);
     _userOffsetY -= dy / (zoom * 500);
+    cpuCache.clear();
     notifyListeners();
   }
 
   void zoomBy(double factor) {
     _userZoomFactor *= factor;
     _userZoomFactor = _userZoomFactor.clamp(0.001, 1e6);
+    cpuCache.clear();
     notifyListeners();
   }
 
@@ -222,6 +297,7 @@ class NeomFractalEngine extends ChangeNotifier {
     _centerX = _config.defaultCenterX;
     _centerY = _config.defaultCenterY;
     _zoom = _config.defaultZoom;
+    cpuCache.clear();
     notifyListeners();
   }
 

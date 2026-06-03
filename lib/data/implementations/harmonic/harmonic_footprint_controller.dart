@@ -58,7 +58,9 @@ class HarmonicFootprintController extends SintController
 
   Future<void> _initRecorder() async {
     try {
-      await Permission.microphone.request();
+      if (!kIsWeb) {
+        await Permission.microphone.request();
+      }
       await _recorder.openRecorder();
     } catch (e) {
       debugPrint('[HarmonicFootprint] Recorder init error: $e');

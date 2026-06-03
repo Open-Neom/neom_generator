@@ -85,6 +85,61 @@ class NeomExperiencesPage extends StatelessWidget {
                 color: const Color(0xFFFF6D00),
               ),
               const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => Sint.toNamed('/incienso-explore'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF6D00).withAlpha(20),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFF6D00).withAlpha(80), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF6D00).withAlpha(10),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.explore_rounded, color: Color(0xFFFF6D00), size: 24),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  locale == 'es' ? 'EXPLORAR COMUNIDAD' : 'EXPLORE COMMUNITY',
+                                  style: const TextStyle(
+                                    color: Color(0xFFFF6D00),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  locale == 'es'
+                                      ? 'Practica sesiones grabadas y compartidas por otros usuarios'
+                                      : 'Practice sessions recorded and shared by other users',
+                                  style: TextStyle(color: const Color(0xFFFF6D00).withAlpha(180), fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded, color: Color(0xFFFF6D00), size: 16),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
               ...InciensoCatalog.free.map((i) => _inciensoCard(context, i, locale)),
               if (InciensoCatalog.pro.isNotEmpty) ...[
                 Padding(

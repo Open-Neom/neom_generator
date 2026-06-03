@@ -17,6 +17,11 @@ class NeomFractalPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (!engine.shadersLoaded && !engine.useFallback) {
+      _paintLoadingGradient(canvas, size);
+      return;
+    }
+
     if (engine.useFallback || engine.currentShader == null) {
       _paintFallback(canvas, size);
       return;
@@ -45,21 +50,51 @@ class NeomFractalPainter extends CustomPainter {
     final minDim = min(size.width, size.height);
     final maxIter = engine.config.platformIterations;
 
+    final cache = engine.cpuCache;
+    final bool cacheValid = cache.iters != null &&
+        cache.iters!.length == w * h &&
+        cache.centerX == engine.centerX &&
+        cache.centerY == engine.centerY &&
+        cache.zoom == engine.zoom &&
+        cache.width == w &&
+        cache.height == h &&
+        cache.type == engine.config.type;
+
+    late final List<double> iters;
+
+    if (cacheValid) {
+      iters = cache.iters!;
+    } else {
+      iters = List<double>.filled(w * h, 0.0);
+      for (int py = 0; py < h; py++) {
+        for (int px = 0; px < w; px++) {
+          final sx = px * scale.toDouble();
+          final sy = py * scale.toDouble();
+
+          final uvx = (sx - size.width * 0.5) / minDim;
+          final uvy = (sy - size.height * 0.5) / minDim;
+
+          final cx = uvx / engine.zoom + engine.centerX;
+          final cy = uvy / engine.zoom + engine.centerY;
+
+          iters[py * w + px] = engine.computeMandelbrotAt(cx, cy);
+        }
+      }
+      cache.iters = iters;
+      cache.centerX = engine.centerX;
+      cache.centerY = engine.centerY;
+      cache.zoom = engine.zoom;
+      cache.width = w;
+      cache.height = h;
+      cache.type = engine.config.type;
+    }
+
     final recorder = ui.PictureRecorder();
     final offCanvas = Canvas(recorder);
 
     for (int py = 0; py < h; py++) {
       for (int px = 0; px < w; px++) {
-        final sx = px * scale.toDouble();
-        final sy = py * scale.toDouble();
-
-        final uvx = (sx - size.width * 0.5) / minDim;
-        final uvy = (sy - size.height * 0.5) / minDim;
-
-        final cx = uvx / engine.zoom + engine.centerX;
-        final cy = uvy / engine.zoom + engine.centerY;
-
-        final iter = engine.computeMandelbrotAt(cx, cy);
+        final iter = iters[py * w + px];
 
         Color color;
         if (iter < 0) {

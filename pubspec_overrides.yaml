@@ -12,6 +12,6 @@ dependency_overrides:
   sint:
     path: ../../framework/sint
   vrlizate:
-    path: /Users/serzen/codebase_vr/vrlizate
+    path: ../../vr/vrlizate
   sint_vr:
     path: ../../vr/sint_vr

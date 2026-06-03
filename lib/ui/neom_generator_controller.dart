@@ -33,6 +33,7 @@ import 'package:pitch_detector_dart/pitch_detector_result.dart';
 import 'package:sint/sint.dart';
 
 import '../data/firestore/chamber_firestore.dart';
+import '../data/firestore/incienso_firestore.dart';
 import '../data/implementations/incienso_recorder.dart';
 import '../data/implementations/incienso_tracker.dart';
 import '../domain/models/incienso.dart';
@@ -139,6 +140,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   // ── Incienso tracking & recording ──
   final InciensoTracker inciensoTracker = InciensoTracker();
   final InciensoRecorder inciensoRecorder = InciensoRecorder();
+  final InciensoFirestore _inciensoFirestore = InciensoFirestore();
   DateTime? _sessionStartedAt;
   DateTime? get sessionStartedAt => _sessionStartedAt;
   double _prevBreathPhase = 0.0;
@@ -712,7 +714,9 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   }
 
   Future<void> initializeRecorder() async {
-    await Permission.microphone.request();
+    if (!kIsWeb) {
+      await Permission.microphone.request();
+    }
     await _recorder.openRecorder();
   }
 
@@ -760,16 +764,43 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     if (elapsedMs < 400) return; // Need 400ms of data
 
     final bytesPerSec = _webByteAccum * 1000.0 / elapsedMs;
-    final expectedMono = _webSampleRate * 2;   // 2 bytes per int16 sample
-    final expectedStereo = _webSampleRate * 4;  // 4 bytes per stereo frame
+    
+    // We compare expected rates to see if mono or stereo is a better fit.
+    // Standard rates: 48000, 44100.
+    final expectedMono48 = 48000.0 * 2;
+    final expectedStereo48 = 48000.0 * 4;
+    final expectedMono44 = 44100.0 * 2;
+    final expectedStereo44 = 44100.0 * 4;
 
-    final diffMono = (bytesPerSec - expectedMono).abs();
-    final diffStereo = (bytesPerSec - expectedStereo).abs();
+    final diffMono48 = (bytesPerSec - expectedMono48).abs();
+    final diffStereo48 = (bytesPerSec - expectedStereo48).abs();
+    final diffMono44 = (bytesPerSec - expectedMono44).abs();
+    final diffStereo44 = (bytesPerSec - expectedStereo44).abs();
 
-    _webIsStereo = diffStereo < diffMono;
+    final minMono = min(diffMono48, diffMono44);
+    final minStereo = min(diffStereo48, diffStereo44);
+
+    _webIsStereo = minStereo < minMono;
     _webIsStereoDetermined = true;
+
+    // Calculate EXACT sample rate from byte rate
+    final double rawSampleRate = _webIsStereo ? bytesPerSec / 4 : bytesPerSec / 2;
+    
+    // Quantize to nearest standard sample rate to filter out slight timer/timing jitter
+    if ((rawSampleRate - 48000).abs() < 2500) {
+      _webSampleRate = 48000.0;
+    } else if ((rawSampleRate - 44100).abs() < 2500) {
+      _webSampleRate = 44100.0;
+    } else if ((rawSampleRate - 32000).abs() < 2000) {
+      _webSampleRate = 32000.0;
+    } else if ((rawSampleRate - 16000).abs() < 2000) {
+      _webSampleRate = 16000.0;
+    } else {
+      _webSampleRate = rawSampleRate; // Fallback to raw calculated rate
+    }
+
     AppConfig.logger.d('Web audio format: ${_webIsStereo ? "STEREO" : "MONO"} '
-        '(${bytesPerSec.round()} B/s, expected mono=${expectedMono.round()}, stereo=${expectedStereo.round()})');
+        '(${bytesPerSec.round()} B/s, exact sampleRate calculated from stream: ${_webSampleRate.round()} Hz)');
   }
 
   /// Extract RMS amplitude from PCM int16 chunk and push to waveform.
@@ -806,6 +837,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       _webIsStereo = false;
       _webByteAccum = 0;
       _webByteStart = null;
+      _accumulatedData.clear(); // Clear leftover PCM bytes
 
       if (_audioStreamController == null) {
         initializeStreamController();
@@ -841,6 +873,10 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   }
 
   Future<double> getPitchFromAudioData(Uint8List audioData) async {
+    if (kIsWeb && !_webIsStereoDetermined) {
+      return 0.0; // Skip pitch detection during calibration to avoid garbage readings
+    }
+
     // Web browsers may deliver stereo (2-ch interleaved int16) even when mono
     // is requested. Down-mix to mono so the pitch detector sees the correct
     // period — otherwise every other sample belongs to a different channel,
@@ -1276,6 +1312,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       if (elapsed >= incienso.suggestedDuration) {
         timer.cancel();
         playStopPreview(stop: true);
+        _inciensoFirestore.incrementPracticeCount(incienso.id);
       }
     });
   }
@@ -1312,6 +1349,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       if (elapsedMs >= timeline.last.timestampMs) {
         timer.cancel();
         playStopPreview(stop: true);
+        _inciensoFirestore.incrementPracticeCount(incienso.id);
         return;
       }
 
@@ -1436,6 +1474,24 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       name: name,
       creatorId: profile?.id,
     );
+  }
+
+  /// Stop recording, build an [Incienso] and upload it to Firestore so others can practice it.
+  /// Returns null if session was too short (< 30s or < 5 keyframes).
+  Future<Incienso?> publishRecordedIncienso(String name, {String? description, List<String> tags = const []}) async {
+    final incienso = inciensoRecorder.stopAndBuild(
+      name: name,
+      description: description,
+      creatorId: profile?.id,
+      tags: tags,
+    );
+
+    if (incienso != null) {
+      final docId = await _inciensoFirestore.insert(incienso);
+      AppConfig.logger.d("Published Incienso to Firestore with ID: $docId");
+    }
+
+    return incienso;
   }
 
 }

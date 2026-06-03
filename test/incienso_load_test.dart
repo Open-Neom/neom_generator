@@ -690,15 +690,15 @@ void main() {
 
   group('Catalog integrity', () {
     test('InciensoCatalog.all contains expected count', () {
-      expect(InciensoCatalog.all.length, 37);
+      expect(InciensoCatalog.all.length, 38);
     });
 
     test('InciensoCatalog.free.length = 12', () {
       expect(InciensoCatalog.free.length, 12);
     });
 
-    test('InciensoCatalog.pro.length = 25', () {
-      expect(InciensoCatalog.pro.length, 25);
+    test('InciensoCatalog.pro.length = 26', () {
+      expect(InciensoCatalog.pro.length, 26);
     });
 
     test('all = free + pro (no missing entries)', () {
@@ -713,8 +713,8 @@ void main() {
           .where((i) => i.references.isNotEmpty)
           .toList();
 
-      // There are exactly 12 inciensos with references in the catalog
-      expect(withRefs.length, 12);
+      // There are exactly 13 inciensos with references in the catalog
+      expect(withRefs.length, 13);
 
       for (final inc in withRefs) {
         expect(inc.references.length, greaterThanOrEqualTo(1),

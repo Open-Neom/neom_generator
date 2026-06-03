@@ -1463,6 +1463,42 @@ class InciensoCatalog {
     iconCodePoint: 0xe51c, // Icons.visibility
   );
 
+  static const shamanicAyahuascaResonance = Incienso(
+    id: 'incienso-shamanic-ayahuasca',
+    names: {
+      'es': 'Resonancia Chamánica Ayahuasca',
+      'en': 'Ayahuasca Shamanic Resonance',
+    },
+    descriptions: {
+      'es': 'Emulación neuro-acústica del estado psicodélico mediante acoplamiento cruzado Theta-Gamma (5Hz/40Hz) y portadora resonante de 110Hz con fines experimentales.',
+      'en': 'Neuro-acoustic emulation of the psychedelic state using cross-frequency Theta-Gamma coupling (5Hz/40Hz) and a resonant 110Hz carrier for experimental purposes.',
+    },
+    leftFrequencyHz: 110.0,
+    rightFrequencyHz: 115.0,
+    suggestedDuration: Duration(minutes: 20),
+    defaultVisual: InciensoVisual.fractals,
+    screenColorValue: 0xFF001A0A,
+    pulseFrequencyHz: 40.0,
+    compatibility: defaultAudiovisualCompatibility,
+    tags: ['ayahuasca', 'shamanic', 'theta-gamma', 'deep-meditation', 'experimental'],
+    isPro: true,
+    iconCodePoint: 0xf06bb,
+    references: [
+      InciensoReference(
+        citation: 'Timmermann et al. (2019)',
+        title: 'Neural correlates of the DMT experience assessed with EEG',
+        journal: 'Scientific Reports',
+        year: 2019,
+        doi: '10.1038/s41598-019-51974-4',
+        finding: 'DMT significantly reduces alpha oscillations while increasing theta and gamma power associated with visual imagery.',
+        studyType: StudyType.controlledStudy,
+        evidenceLevel: EvidenceLevel.lowModerate,
+        safetyProfile: SafetyProfile.minimal,
+        safetyNote: 'Avoid with photosensitive epilepsy.',
+      ),
+    ],
+  );
+
   // ═══════════════════════════════════════════════════════════
   //  CATALOG LISTS
   // ═══════════════════════════════════════════════════════════
@@ -1518,6 +1554,7 @@ class InciensoCatalog {
     // Esoteric
     solfeggio528,
     lucidDream,
+    shamanicAyahuascaResonance,
   ];
 
   /// All predefined inciensos.
