@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased - System updates
+- Actualizaciones de estabilidad y compatibilidad.
+
 All notable changes to neom_generator will be documented in this file.
 
 ## [2.0.0] - 2025-02-09
