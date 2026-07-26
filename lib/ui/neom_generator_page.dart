@@ -214,7 +214,7 @@ class NeomGeneratorPage extends StatelessWidget {
                                                   onPressed: ()  async {
                                                     await controller.playStopPreview();
                                                   },
-                                                  icon: const Icon(FontAwesomeIcons.om, size: 60)
+                                                  icon: const FaIcon(FontAwesomeIcons.om, size: 60)
                                               ),
                                             ),
                                           ),
@@ -443,7 +443,7 @@ class NeomGeneratorPage extends StatelessWidget {
                             ),
                             child: Row(
                               children: [
-                                Icon(FontAwesomeIcons.microphone, size: 15, color: controller.isRecording.value ? Colors.red : Colors.white54),
+                                FaIcon(FontAwesomeIcons.microphone, size: 15, color: controller.isRecording.value ? Colors.red : Colors.white54),
                                 const SizedBox(width: 8),
                                 Text(
                                   controller.isRecording.value
@@ -663,7 +663,7 @@ class NeomGeneratorPage extends StatelessWidget {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(FontAwesomeIcons.vrCardboard, color: Colors.indigo.shade300, size: 20),
+                                  FaIcon(FontAwesomeIcons.vrCardboard, color: Colors.indigo.shade300, size: 20),
                                   const SizedBox(width: 8),
                                   Flexible(
                                     child: Text(
@@ -1174,7 +1174,7 @@ class NeomGeneratorPage extends StatelessWidget {
       //     heroTag: "",
       //     backgroundColor: Colors.white12,
       //     mini: true,
-      //     child: Icon(FontAwesomeIcons.vrCardboard, size: 12,color: Colors.white,),
+      //     child: FaIcon(FontAwesomeIcons.vrCardboard, size: 12,color: Colors.white,),
       //     onPressed: ()=>{
       //       // Sint.to(() => PanoramaView())
       //     },
@@ -1183,7 +1183,7 @@ class NeomGeneratorPage extends StatelessWidget {
       //     heroTag: " ",
       //     backgroundColor: Colors.white12,
       //     mini: true,
-      //     child: Icon(FontAwesomeIcons.globe, size: 12,color: Colors.white,),
+      //     child: FaIcon(FontAwesomeIcons.globe, size: 12,color: Colors.white,),
       //     onPressed: ()=> {
       //       // Sint.to(() => VideoSection())
       //     },
@@ -1192,7 +1192,7 @@ class NeomGeneratorPage extends StatelessWidget {
       //       heroTag: " _",
       //       backgroundColor: Colors.white12,
       //       mini: true,
-      //       child: Icon(FontAwesomeIcons.chrome, size: 12,color: Colors.white,),
+      //       child: FaIcon(FontAwesomeIcons.chrome, size: 12,color: Colors.white,),
       //       onPressed: ()=> {
       //         generatorController.neom360viewerController.launchChromeVRView(context, url: 'https://larkintuckerllc.github.io/hello-react-360/')
       //       },
