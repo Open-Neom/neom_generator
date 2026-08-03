@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/models/incienso.dart';
 import '../../utils/constants/generator_translation_constants.dart';
+import '../../utils/incienso_icons.dart';
 
 /// Bottom sheet showing Incienso details: description, parameters, and start button.
 class InciensoDetailSheet extends StatelessWidget {
@@ -75,7 +76,7 @@ class InciensoDetailSheet extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          IconData(incienso.iconCodePoint!, fontFamily: 'MaterialIcons'),
+                          InciensoIcons.resolve(incienso.iconCodePoint),
                           color: accentColor,
                           size: 24,
                         ),

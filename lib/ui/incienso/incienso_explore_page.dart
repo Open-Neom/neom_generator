@@ -8,6 +8,7 @@ import 'package:sint/sint.dart';
 
 import '../../data/firestore/incienso_firestore.dart';
 import '../../domain/models/incienso.dart';
+import '../../utils/incienso_icons.dart';
 import '../incienso/incienso_detail_sheet.dart';
 
 class InciensoExplorePage extends StatefulWidget {
@@ -211,9 +212,10 @@ class _InciensoExplorePageState extends State<InciensoExplorePage> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        incienso.iconCodePoint != null
-                            ? IconData(incienso.iconCodePoint!, fontFamily: 'MaterialIcons')
-                            : Icons.local_fire_department_rounded,
+                        InciensoIcons.resolve(
+                          incienso.iconCodePoint,
+                          orElse: Icons.local_fire_department_rounded,
+                        ),
                         color: color,
                         size: 22,
                       ),

@@ -12,6 +12,7 @@ import 'package:sint/sint.dart';
 import '../../data/incienso_catalog.dart';
 import '../../domain/models/incienso.dart';
 import '../../utils/constants/generator_translation_constants.dart';
+import '../../utils/incienso_icons.dart';
 import '../incienso/incienso_detail_sheet.dart';
 
 class NeomExperiencesPage extends StatelessWidget {
@@ -363,9 +364,7 @@ class NeomExperiencesPage extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    incienso.iconCodePoint != null
-                        ? IconData(incienso.iconCodePoint!, fontFamily: 'MaterialIcons')
-                        : Icons.local_fire_department,
+                    InciensoIcons.resolve(incienso.iconCodePoint),
                     color: color,
                     size: 22,
                   ),

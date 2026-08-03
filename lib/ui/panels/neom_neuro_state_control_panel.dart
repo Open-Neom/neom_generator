@@ -5,6 +5,7 @@ import 'package:sint/sint.dart';
 
 import '../../data/incienso_catalog.dart';
 import '../../utils/constants/generator_translation_constants.dart';
+import '../../utils/incienso_icons.dart';
 import '../incienso/incienso_detail_sheet.dart';
 import '../neom_generator_controller.dart';
 
@@ -148,9 +149,7 @@ class _NeomNeuroStateControlPanelState extends State<NeomNeuroStateControlPanel>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              incienso.iconCodePoint != null
-                                  ? IconData(incienso.iconCodePoint!, fontFamily: 'MaterialIcons')
-                                  : Icons.local_fire_department,
+                              InciensoIcons.resolve(incienso.iconCodePoint),
                               size: 12, color: color,
                             ),
                             const SizedBox(width: 5),
