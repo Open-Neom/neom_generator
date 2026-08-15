@@ -34,12 +34,12 @@ void main() {
   vec2 c = uv / uZoom + uCenter;
 
   vec2 z = vec2(0.0);
-  float i;
+  float i = 0.0;
   float maxIter = uIterMax;
   float power = uPower;
 
-  for (i = 0.0; i < 256.0; i += 1.0) {
-    if (i >= maxIter) break;
+  for (float k = 0.0; k < 256.0; k += 1.0) {
+    if (k >= maxIter) break;
     float r = length(z);
     if (r > 4.0) break;
 
@@ -48,6 +48,7 @@ void main() {
     float tn = theta * power;
 
     z = vec2(rn * cos(tn), rn * sin(tn)) + c;
+    i = k;
   }
 
   if (i >= maxIter) {

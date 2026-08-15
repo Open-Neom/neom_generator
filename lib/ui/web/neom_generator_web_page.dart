@@ -860,7 +860,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              FontAwesomeIcons.microphone,
+              Icons.mic,
               size: 14,
               color: controller.isRecording.value ? Colors.red : Colors.white54,
             ),
@@ -996,7 +996,7 @@ class _OmButtonState extends State<_OmButton>
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Icon(
-                  FontAwesomeIcons.om,
+                  Icons.self_improvement,
                   size: 50,
                   color: playing
                       ? Color.lerp(Colors.white70, AppColor.bondiBlue, pulse)

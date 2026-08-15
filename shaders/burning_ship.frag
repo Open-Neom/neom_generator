@@ -29,14 +29,15 @@ void main() {
   vec2 c = uv / uZoom + uCenter;
 
   vec2 z = vec2(0.0);
-  float i;
+  float i = 0.0;
   float maxIter = uIterMax;
 
-  for (i = 0.0; i < 256.0; i += 1.0) {
-    if (i >= maxIter) break;
+  for (float k = 0.0; k < 256.0; k += 1.0) {
+    if (k >= maxIter) break;
     if (dot(z, z) > 4.0) break;
     z = abs(z);
     z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+    i = k;
   }
 
   if (i >= maxIter) {

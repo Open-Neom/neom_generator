@@ -34,13 +34,13 @@ void main() {
   vec2 root2 = vec2(-0.5, 0.866025);
   vec2 root3 = vec2(-0.5, -0.866025);
 
-  float i;
+  float i = 0.0;
   float maxIter = uIterMax;
   int rootIndex = 0;
   float tolerance = 1e-4;
 
-  for (i = 0.0; i < 128.0; i += 1.0) {
-    if (i >= maxIter) break;
+  for (float k = 0.0; k < 128.0; k += 1.0) {
+    if (k >= maxIter) break;
 
     vec2 z2 = cmul(z, z);
     vec2 z3 = cmul(z2, z);
@@ -49,6 +49,7 @@ void main() {
 
     if (dot(fpz, fpz) < 1e-10) break;
     z = z - cdiv(fz, fpz);
+    i = k;
 
     if (distance(z, root1) < tolerance) { rootIndex = 1; break; }
     if (distance(z, root2) < tolerance) { rootIndex = 2; break; }
