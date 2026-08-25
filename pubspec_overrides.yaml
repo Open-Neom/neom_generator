@@ -5,13 +5,7 @@ dependency_overrides:
     path: ../../main/neom_commons
   neom_sound:
     path: ../../hardware/neom_sound
-  neom_vr:
-    path: ../../vr/neom_vr
   neom_states:
     path: ../neom_states
   sint:
     path: ../../framework/sint
-  vrlizate:
-    path: ../../vr/vrlizate
-  sint_vr:
-    path: ../../vr/sint_vr
