@@ -144,7 +144,10 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
     _binauralPhase += dt * beatHz * 2 * pi * 0.25; // lento, perceptual
     _binauralPhase %= (2 * pi);
 
-    notifyListeners();
+    // Deliberately silent: this runs once per audio sample (44 100 times a
+    // second), while the scope is already repainted by the Ticker in
+    // NeomGeneratorController at frame rate. Notifying here queued ~735
+    // rebuilds for every frame that could actually be drawn.
   }
 
   double get binauralPhase => _binauralPhase;
@@ -159,9 +162,18 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
 
   List<double> get samples => _samples;
 
+  /// Increments on every sample written.
+  ///
+  /// The buffer is reused in place, so `samples` is always the same List
+  /// instance and comparing it in `shouldRepaint` can never detect a change.
+  /// Comparing this instead does.
+  int get sampleRevision => _sampleRevision;
+  int _sampleRevision = 0;
+
   void pushSample(double value) {
     _samples[_writeIndex] = value.clamp(-1.0, 1.0);
     _writeIndex = (_writeIndex + 1) % bufferSize;
+    _sampleRevision++;
   }
 
   double _phaseL = 0.0;

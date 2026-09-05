@@ -58,6 +58,7 @@ class _NeomOscilloscopeFullscreenPageState extends State<NeomOscilloscopeFullscr
                 child: CustomPaint(
                   painter: NeomOscilloscopeFullscreenPainter(
                     samples: controller.displaySamples,
+                    sampleRevision: controller.displayRevision,
                     signalColor: controller.isPaused.value
                         ? AppColor.bondiBlue.withValues(alpha: 0.6)
                         : AppColor.bondiBlue,

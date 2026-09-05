@@ -34,6 +34,7 @@ import 'web/neom_generator_web_page.dart';
 import 'widgets/camara_neom_tutorial.dart';
 import 'widgets/generator_widgets.dart';
 import 'widgets/session_time_meter.dart';
+import 'widgets/incienso_review_modal.dart';
 
 class NeomGeneratorPage extends StatelessWidget {
 
@@ -212,7 +213,11 @@ class NeomGeneratorPage extends StatelessWidget {
                                             child: InkWell(
                                               child: IconButton(
                                                   onPressed: ()  async {
+                                                    final wasPlaying = controller.isPlaying.value;
                                                     await controller.playStopPreview();
+                                                    if (wasPlaying && context.mounted) {
+                                                      await _askForReview(context, controller);
+                                                    }
                                                   },
                                                   icon: const FaIcon(FontAwesomeIcons.om, size: 60)
                                               ),
@@ -1242,4 +1247,17 @@ class _WebPageWithTutorialState extends State<_WebPageWithTutorial> {
       ],
     );
   }
+}
+
+/// Offers the post-session review once the practice ends.
+///
+/// The session is already saved by then; this only records how it felt, and
+/// the user can dismiss it. Skipped when nothing was tracked.
+Future<void> _askForReview(
+    BuildContext context, NeomGeneratorController controller) async {
+  final summary = controller.pendingSessionSummary();
+  if (summary == null) return;
+
+  final review = await InciensoReviewModal.show(context, sessionSummary: summary);
+  if (review != null) await controller.saveSessionReview(review);
 }

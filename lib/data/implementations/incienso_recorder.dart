@@ -17,16 +17,17 @@ import '../../domain/models/incienso.dart';
 /// final recorder = InciensoRecorder();
 /// recorder.startRecording();
 ///
-/// // On every frame/tick (~1 Hz):
-/// recorder.captureKeyframe(
+/// // On every frame/tick: keep the recorder's view of the session current.
+/// // It samples these on its own timer at ~1 Hz.
+/// recorder.updateValues(
 ///   leftHz: 200, rightHz: 210,
 ///   coherence: 0.85, volume: 0.7,
 ///   neuroState: NeomNeuroState.calm,
 ///   breathPhase: 0.6,
 /// );
 ///
-/// // When user manually changes something:
-/// recorder.captureKeyframe(..., isUserAction: true);
+/// // When the user changes something, capture it immediately.
+/// recorder.captureUserAction(leftHz: 220);
 ///
 /// // On stop:
 /// final incienso = recorder.stopAndBuild(name: 'Mi meditación nocturna');
@@ -139,6 +140,21 @@ class InciensoRecorder extends ChangeNotifier {
   /// Stop recording and build the [Incienso] preset.
   ///
   /// Returns null if no keyframes were captured or recording was too short.
+  /// Minimum material for a session worth keeping.
+  static const int minKeyframes = 5;
+  static const Duration minDuration = Duration(seconds: 30);
+
+  /// Whether [stopAndBuild] would return a session rather than null.
+  ///
+  /// Lets a caller offer to save without having to stop the recording first
+  /// to find out.
+  bool get hasEnoughToBuild {
+    if (_keyframes.length < minKeyframes) return false;
+    final startedAt = _startedAt;
+    if (startedAt == null) return false;
+    return DateTime.now().difference(startedAt) >= minDuration;
+  }
+
   Incienso? stopAndBuild({
     required String name,
     String? description,
@@ -149,11 +165,11 @@ class InciensoRecorder extends ChangeNotifier {
     _sampleTimer?.cancel();
     _sampleTimer = null;
 
-    if (_keyframes.length < 5) return null; // Too short to be useful
+    if (_keyframes.length < minKeyframes) return null; // Too short to be useful
     if (_startedAt == null) return null;
 
     final duration = DateTime.now().difference(_startedAt!);
-    if (duration.inSeconds < 30) return null; // Minimum 30 seconds
+    if (duration < minDuration) return null;
 
     // Derive initial frequencies from first keyframe
     final first = _keyframes.first;

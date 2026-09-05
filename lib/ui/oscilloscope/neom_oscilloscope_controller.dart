@@ -152,6 +152,13 @@ class NeomOscilloscopeController extends SintController {
     return painterEngine.samples;
   }
 
+  /// Revision of what [displaySamples] returns.
+  ///
+  /// Held constant while paused so the frozen trace does not redraw, and
+  /// tracking the engine while live so every new sample does.
+  int get displayRevision =>
+      (isPaused.value && frozenSamples.isNotEmpty) ? -1 : painterEngine.sampleRevision;
+
   void exitFullscreen() {
     Sint.back();
   }

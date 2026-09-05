@@ -162,10 +162,10 @@ class InciensoCatalog {
     id: 'incienso-adhd',
     names: {'es': 'Concentración TDAH', 'en': 'ADHD Focus', 'fr': 'Concentration TDAH', 'de': 'ADHS Fokus'},
     descriptions: {
-      'es': 'Basado en protocolos de neurofeedback clínico. Ayuda a mantener la atención cuando tu mente tiende a dispersarse.',
-      'en': 'Based on clinical neurofeedback protocols. Helps maintain attention when your mind tends to wander.',
-      'fr': 'Basé sur des protocoles de neurofeedback clinique. Aide à maintenir l\'attention.',
-      'de': 'Basiert auf klinischen Neurofeedback-Protokollen. Hilft die Aufmerksamkeit zu halten.',
+      'es': 'Ritmo sostenido para acompañar el trabajo cuando la mente se dispersa. Inspirado en las bandas que usa el neurofeedback, aunque aquí el sonido no responde a tu actividad cerebral.',
+      'en': 'A steady rhythm to work alongside when the mind wanders. Inspired by the bands neurofeedback uses, though here the sound does not respond to your brain activity.',
+      'fr': 'Un rythme soutenu pour accompagner le travail quand l\'esprit vagabonde. Inspiré des bandes du neurofeedback, mais ici le son ne réagit pas à votre activité cérébrale.',
+      'de': 'Ein gleichmäßiger Rhythmus zum Mitarbeiten, wenn die Gedanken abschweifen. Inspiriert von den Bändern des Neurofeedbacks, doch hier reagiert der Klang nicht auf deine Hirnaktivität.',
     },
     leftFrequencyHz: 300,
     rightFrequencyHz: 314,
@@ -331,10 +331,10 @@ class InciensoCatalog {
     id: 'incienso-anxiety-relief',
     names: {'es': 'Alivio de Ansiedad', 'en': 'Anxiety Relief', 'fr': 'Soulagement Anxiété', 'de': 'Angstlinderung'},
     descriptions: {
-      'es': 'Alivio rápido cuando la ansiedad aprieta. En 10 minutos las ondas theta y la respiración 4-7-8 te calman.',
-      'en': 'Quick relief when anxiety strikes. In 10 minutes theta waves and 4-7-8 breathing calm you down.',
-      'fr': 'Soulagement rapide quand l\'anxiété frappe. En 10 min les ondes theta et la respiration 4-7-8 vous calment.',
-      'de': 'Schnelle Linderung bei Angst. In 10 Minuten beruhigen Theta-Wellen und 4-7-8-Atmung.',
+      'es': 'Diez minutos de ondas theta con respiración guiada 4-7-8, para cuando necesitas bajar el ritmo.',
+      'en': 'Ten minutes of theta waves with guided 4-7-8 breathing, for when you need to slow down.',
+      'fr': 'Dix minutes d\'ondes theta avec respiration guidée 4-7-8, pour quand vous devez ralentir.',
+      'de': 'Zehn Minuten Theta-Wellen mit geführter 4-7-8-Atmung, wenn du herunterfahren musst.',
     },
     leftFrequencyHz: 200,
     rightFrequencyHz: 206.5,
@@ -369,10 +369,10 @@ class InciensoCatalog {
     id: 'incienso-ptsd-grounding',
     names: {'es': 'Anclaje TEPT', 'en': 'PTSD Grounding', 'fr': 'Ancrage TSPT', 'de': 'PTBS Erdung'},
     descriptions: {
-      'es': 'Diseñado para personas con trauma. Sin pulsos ni sonidos bruscos — solo frecuencias suaves y respiración predecible.',
-      'en': 'Designed for people with trauma. No pulses or sudden sounds — just gentle frequencies and predictable breathing.',
-      'fr': 'Conçu pour les personnes traumatisées. Pas de pulsations ni sons brusques — juste des fréquences douces.',
-      'de': 'Für Menschen mit Trauma. Keine Pulse oder plötzlichen Geräusche — nur sanfte Frequenzen und vorhersehbare Atmung.',
+      'es': 'Sin pulsos, sin sonidos bruscos, sin sorpresas: frecuencias suaves y respiración predecible de principio a fin. Pensado para cuando necesitas que nada te sobresalte.',
+      'en': 'No pulses, no sudden sounds, no surprises: gentle frequencies and predictable breathing throughout. For when you need nothing to startle you.',
+      'fr': 'Pas de pulsations, pas de sons brusques, pas de surprises : fréquences douces et respiration prévisible du début à la fin. Pour quand rien ne doit vous surprendre.',
+      'de': 'Keine Pulse, keine plötzlichen Geräusche, keine Überraschungen: sanfte Frequenzen und vorhersehbare Atmung durchgehend. Für Momente, in denen dich nichts erschrecken soll.',
     },
     leftFrequencyHz: 180,
     rightFrequencyHz: 184,
@@ -393,10 +393,10 @@ class InciensoCatalog {
     id: 'incienso-pain',
     names: {'es': 'Control del Dolor', 'en': 'Pain Management', 'fr': 'Gestion Douleur', 'de': 'Schmerzmanagement'},
     descriptions: {
-      'es': 'Las ondas delta promueven la liberación de endorfinas naturales. Complemento para el manejo del dolor crónico.',
-      'en': 'Delta waves promote natural endorphin release. Complement for chronic pain management.',
-      'fr': 'Les ondes delta favorisent la libération d\'endorphines naturelles. Complément contre la douleur chronique.',
-      'de': 'Delta-Wellen fördern die natürliche Endorphinfreisetzung. Ergänzung zur chronischen Schmerzbehandlung.',
+      'es': 'Ondas delta lentas y volumen bajo, para acompañar momentos de molestia sostenida. No sustituye ningún tratamiento.',
+      'en': 'Slow delta waves at low volume, to sit with sustained discomfort. Not a substitute for any treatment.',
+      'fr': 'Ondes delta lentes à faible volume, pour accompagner une gêne persistante. Ne remplace aucun traitement.',
+      'de': 'Langsame Delta-Wellen bei leiser Lautstärke, als Begleitung bei anhaltendem Unwohlsein. Kein Ersatz für eine Behandlung.',
     },
     leftFrequencyHz: 210,
     rightFrequencyHz: 213.5,
@@ -451,6 +451,7 @@ class InciensoCatalog {
   /// acoustic vibration is the mechanism, not binaural perception.
   static const trichotherapy = Incienso(
     id: 'incienso-trichotherapy',
+    evidence: InciensoEvidence.preliminary,
     names: {
       'es': 'Tricoterapia Acústica',
       'en': 'Acoustic Trichotherapy',
@@ -458,22 +459,27 @@ class InciensoCatalog {
       'de': 'Akustische Trichotherapie',
     },
     descriptions: {
-      'es': 'Estimulación folicular por vibración acústica. Frecuencias de 50-70 Hz '
-            'documentadas en investigación para activar células de papila dérmica, '
-            'promover proliferación de stem cells y contrarrestar señales de DHT. '
-            'El binaural de 10-20 Hz induce vasodilatación local vía entrainment alfa/beta.',
-      'en': 'Follicular stimulation via acoustic vibration. Frequencies of 50-70 Hz '
-            'documented in research to activate dermal papilla cells, promote stem cell '
-            'proliferation, and counteract DHT signals. '
-            'The 10-20 Hz binaural beat induces local vasodilation via alpha/beta entrainment.',
-      'fr': 'Stimulation folliculaire par vibration acoustique. Fréquences de 50-70 Hz '
-            'documentées pour activer les cellules de la papille dermique et contrer les '
-            'signaux de DHT. '
-            'Le binaural de 10-20 Hz induit une vasodilatation locale via entra\u00EEnement alpha/beta.',
-      'de': 'Follikelstimulation durch akustische Vibration. Frequenzen von 50-70 Hz in '
-            'der Forschung dokumentiert zur Aktivierung der Dermalpapillenzellen und '
-            'Gegensteuerung von DHT-Signalen. '
-            'Der 10-20 Hz Binaural-Beat induziert lokale Vasodilatation via Alpha/Beta-Entrainment.',
+      'es': 'Vibración acústica de 50-70 Hz con binaural de 10-20 Hz. La '
+            'investigación citada activó células de papila dérmica mediante '
+            'vibración mecánica y campos electromagnéticos aplicados '
+            'directamente en cultivo; no se ha demostrado que el sonido por '
+            'auriculares alcance el folículo de la misma forma. Protocolo '
+            'exploratorio.',
+      'en': 'Acoustic vibration at 50-70 Hz with a 10-20 Hz binaural beat. The '
+            'cited research activated dermal papilla cells using mechanical '
+            'vibration and electromagnetic fields applied directly in culture; '
+            'sound through headphones has not been shown to reach the follicle '
+            'the same way. Exploratory protocol.',
+      'fr': 'Vibration acoustique de 50-70 Hz avec binaural de 10-20 Hz. Les '
+            'travaux cités ont activé les cellules de la papille dermique par '
+            'vibration mécanique et champs électromagnétiques appliqués '
+            'directement en culture; le son par écouteurs n\'a pas été montré '
+            'comme atteignant le follicule. Protocole exploratoire.',
+      'de': 'Akustische Vibration mit 50-70 Hz und 10-20 Hz Binaural-Beat. Die '
+            'zitierte Forschung aktivierte Dermalpapillenzellen durch mechanische '
+            'Vibration und elektromagnetische Felder direkt in Zellkultur; dass '
+            'Klang über Kopfhörer den Follikel ebenso erreicht, ist nicht '
+            'belegt. Exploratives Protokoll.',
     },
     references: [
       InciensoReference(
@@ -622,6 +628,7 @@ class InciensoCatalog {
   /// than either modality alone (Martorell 2019, Nature).
   static const gammaNeuro = Incienso(
     id: 'incienso-gamma-neuro',
+    evidence: InciensoEvidence.clinical,
     names: {
       'es': 'Neuroprotección Gamma',
       'en': 'Gamma Neuroprotection',
@@ -703,6 +710,7 @@ class InciensoCatalog {
   /// No requiere photic (podría aumentar ansiedad en crisis).
   static const acuteAnxiety = Incienso(
     id: 'incienso-acute-anxiety',
+    evidence: InciensoEvidence.clinical,
     names: {
       'es': 'Ansiedad Aguda',
       'en': 'Acute Anxiety Relief',
@@ -776,6 +784,7 @@ class InciensoCatalog {
   /// que los protocolos de sueño para evitar somnolencia durante el día.
   static const chronicPain = Incienso(
     id: 'incienso-chronic-pain',
+    evidence: InciensoEvidence.clinical,
     names: {
       'es': 'Dolor Crónico',
       'en': 'Chronic Pain',
@@ -847,6 +856,7 @@ class InciensoCatalog {
   /// Speaker opcional para componente vibratorio adicional.
   static const parkinsonMotor = Incienso(
     id: 'incienso-parkinson',
+    evidence: InciensoEvidence.preliminary,
     names: {
       'es': 'Parkinson Motor',
       'en': 'Parkinson\'s Motor',
@@ -917,6 +927,7 @@ class InciensoCatalog {
   /// Sin photic pulse (contraproducente para dormir).
   static const deepSleepN3 = Incienso(
     id: 'incienso-deep-sleep-n3',
+    evidence: InciensoEvidence.preliminary,
     names: {
       'es': 'Sueño Profundo N3',
       'en': 'Deep Sleep N3',
@@ -989,6 +1000,7 @@ class InciensoCatalog {
   /// Delivery: Binaural 10 Hz — headphones.
   static const cardiovascular = Incienso(
     id: 'incienso-cardiovascular',
+    evidence: InciensoEvidence.preliminary,
     names: {
       'es': 'Salud Cardiovascular',
       'en': 'Cardiovascular Health',
@@ -1063,6 +1075,7 @@ class InciensoCatalog {
   /// NO necesita subwoofer — headphones transmiten 90 Hz sin problema.
   static const antiInflammatory = Incienso(
     id: 'incienso-anti-inflammatory',
+    evidence: InciensoEvidence.preliminary,
     names: {
       'es': 'Anti-Inflamatorio',
       'en': 'Anti-Inflammatory',
@@ -1119,6 +1132,7 @@ class InciensoCatalog {
   /// Headphones suficientes por el componente neural.
   static const fibromyalgia = Incienso(
     id: 'incienso-fibromyalgia',
+    evidence: InciensoEvidence.preliminary,
     names: {
       'es': 'Fibromialgia',
       'en': 'Fibromyalgia',
@@ -1188,6 +1202,7 @@ class InciensoCatalog {
   /// Delivery: Binaural 3-6 Hz — headphones.
   static const hormonalOptimization = Incienso(
     id: 'incienso-hormonal',
+    evidence: InciensoEvidence.preliminary,
     names: {
       'es': 'Optimización Hormonal',
       'en': 'Hormonal Optimization',
@@ -1248,6 +1263,7 @@ class InciensoCatalog {
   /// Delivery: Binaural 40 Hz + photic — headphones.
   static const cognitivePerformance = Incienso(
     id: 'incienso-cognitive',
+    evidence: InciensoEvidence.preliminary,
     names: {
       'es': 'Rendimiento Cognitivo',
       'en': 'Cognitive Performance',
@@ -1319,6 +1335,7 @@ class InciensoCatalog {
   /// No es binaural (misma freq ambos canales) — vibración directa.
   static const woundHealing = Incienso(
     id: 'incienso-wound-healing',
+    evidence: InciensoEvidence.preliminary,
     names: {
       'es': 'Cicatrización',
       'en': 'Wound Healing',

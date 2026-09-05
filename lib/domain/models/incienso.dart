@@ -8,6 +8,30 @@ import 'package:neom_core/domain/model/neom/neom_neuro_state.dart';
 ///
 /// Predefined Inciensos come from [FrequencyState] (13 states) and
 /// [ParProtocolCatalog] (9 protocols). Users can also create custom ones.
+/// How well supported a protocol's claimed mechanism is.
+///
+/// Declared per protocol rather than inferred from whether references exist:
+/// a protocol can cite papers that establish an effect in cell culture while
+/// its own delivery method — audio through headphones — has never been tested.
+/// Saying so is more useful to the listener than a citation count.
+enum InciensoEvidence {
+  /// Peer-reviewed trials support the effect AS THIS PROTOCOL DELIVERS IT.
+  clinical,
+
+  /// Peer-reviewed work supports the underlying mechanism, but not yet this
+  /// delivery method, this population, or this duration.
+  preliminary,
+
+  /// Built on practice and user reports. No claim of a clinical effect.
+  experiential;
+
+  String get nameKey => switch (this) {
+        InciensoEvidence.clinical => 'evidenceClinical',
+        InciensoEvidence.preliminary => 'evidencePreliminary',
+        InciensoEvidence.experiential => 'evidenceExperiential',
+      };
+}
+
 class Incienso {
   /// Unique identifier.
   final String id;
@@ -50,6 +74,39 @@ class Incienso {
   /// Whether this incienso was recorded from a live session (vs manually configured).
   bool get isRecorded => timeline.isNotEmpty;
 
+  /// The same session with its sharing decision applied.
+  ///
+  /// Visibility is chosen when saving, after the recording is already built,
+  /// so it is set here rather than threaded through the recorder. Every other
+  /// field is carried over: dropping any would quietly change the experience
+  /// the recording captured.
+  Incienso copyWithVisibility({required bool isPublic}) => Incienso(
+        id: id,
+        names: names,
+        descriptions: descriptions,
+        leftFrequencyHz: leftFrequencyHz,
+        rightFrequencyHz: rightFrequencyHz,
+        suggestedDuration: suggestedDuration,
+        phases: phases,
+        timeline: timeline,
+        defaultVisual: defaultVisual,
+        screenColorValue: screenColorValue,
+        pulseFrequencyHz: pulseFrequencyHz,
+        compatibility: compatibility,
+        source: source,
+        stateId: stateId,
+        protocolId: protocolId,
+        creatorId: creatorId,
+        isPro: isPro,
+        iconCodePoint: iconCodePoint,
+        tags: tags,
+        references: references,
+        practiceCount: practiceCount,
+        isPublic: isPublic,
+        evidence: evidence,
+        avgQualityRatio: avgQualityRatio,
+      );
+
   /// Total duration derived from timeline (if recorded) or suggestedDuration.
   Duration get effectiveDuration => isRecorded && timeline.isNotEmpty
       ? Duration(milliseconds: (timeline.last.timestampMs).round())
@@ -86,6 +143,16 @@ class Incienso {
 
   /// Creator user ID (for custom inciensos).
   final String? creatorId;
+
+  /// How well supported this protocol is. Defaults to [InciensoEvidence.experiential]
+  /// so a new protocol never claims more than it has earned.
+  final InciensoEvidence evidence;
+
+  /// Whether the community may find and practise this session.
+  ///
+  /// Defaults to false: a recorded session captures how someone's own practice
+  /// unfolded, so it stays private until they choose to share it.
+  final bool isPublic;
 
   /// Whether this is a premium incienso.
   final bool isPro;
@@ -128,6 +195,8 @@ class Incienso {
     this.tags = const [],
     this.references = const [],
     this.practiceCount = 0,
+    this.isPublic = false,
+    this.evidence = InciensoEvidence.experiential,
     this.avgQualityRatio = 0.0,
   });
 
@@ -180,6 +249,8 @@ class Incienso {
     'tags': tags,
     if (references.isNotEmpty) 'references': references.map((r) => r.toJson()).toList(),
     'practiceCount': practiceCount,
+    'isPublic': isPublic,
+    'evidence': evidence.name,
     'avgQualityRatio': avgQualityRatio,
   };
 
@@ -219,6 +290,11 @@ class Incienso {
         ?.map((r) => InciensoReference.fromJson(r as Map<String, dynamic>))
         .toList() ?? [],
     practiceCount: json['practiceCount'] as int? ?? 0,
+    isPublic: json['isPublic'] as bool? ?? false,
+    evidence: InciensoEvidence.values.firstWhere(
+      (e) => e.name == json['evidence'],
+      orElse: () => InciensoEvidence.experiential,
+    ),
     avgQualityRatio: (json['avgQualityRatio'] as num?)?.toDouble() ?? 0.0,
   );
 

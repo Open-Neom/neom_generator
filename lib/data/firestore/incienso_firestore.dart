@@ -6,6 +6,7 @@ import 'package:neom_core/data/firestore/constants/app_firestore_collection_cons
 import 'package:neom_core/utils/neom_error_logger.dart';
 
 import '../../domain/models/incienso.dart';
+import '../../domain/models/incienso_review.dart';
 
 class InciensoFirestore {
   final CollectionReference _inciensoReference =
@@ -66,10 +67,11 @@ class InciensoFirestore {
     final List<Incienso> list = [];
 
     try {
-      // Fetch only those created by users or shared (source != predefined / protocol)
-      // or simply fetch all that have creatorId != null and are public.
-      // For general purposes, we fetch everything in 'inciensos' collection sorted by popularity.
+      // Only what its creator chose to share. This used to read the whole
+      // collection, which would have exposed every recorded session the moment
+      // publishing was wired up.
       final querySnapshot = await _inciensoReference
+          .where('isPublic', isEqualTo: true)
           .orderBy('practiceCount', descending: true)
           .limit(limit)
           .get();
@@ -94,6 +96,68 @@ class InciensoFirestore {
     }
 
     return list;
+  }
+
+  /// Stores how a session felt, under the incienso it was practised with.
+  ///
+  /// Kept as a subcollection so a preset carries its own feedback: the explore
+  /// list can show how others experienced it without a second query per card.
+  Future<String> insertReview(InciensoReview review) async {
+    final inciensoId = review.inciensoId;
+    if (inciensoId == null || inciensoId.isEmpty) return '';
+
+    try {
+      final doc = await _inciensoReference
+          .doc(inciensoId)
+          .collection(AppFirestoreCollectionConstants.reviews)
+          .add(review.toJson());
+      AppConfig.logger.d("Incienso review stored: ${doc.id}");
+      return doc.id;
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st,
+          module: 'neom_generator', operation: 'InciensoFirestore.insertReview');
+    }
+    return '';
+  }
+
+  /// Every session recorded by [creatorId], shared or not, newest first.
+  Future<List<Incienso>> fetchByCreator(String creatorId, {int limit = 50}) async {
+    if (creatorId.isEmpty) return [];
+    final List<Incienso> list = [];
+
+    try {
+      final querySnapshot = await _inciensoReference
+          .where('creatorId', isEqualTo: creatorId)
+          .limit(limit)
+          .get();
+
+      for (final doc in querySnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data == null) continue;
+        if (data['id'] == null || (data['id'] as String).isEmpty) {
+          data['id'] = doc.id;
+        }
+        list.add(Incienso.fromJson(data));
+      }
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st,
+          module: 'neom_generator', operation: 'InciensoFirestore.fetchByCreator');
+    }
+
+    return list;
+  }
+
+  /// Shares or unshares a session. Only its creator may change this.
+  Future<bool> setPublic(String inciensoId, bool isPublic) async {
+    if (inciensoId.isEmpty) return false;
+    try {
+      await _inciensoReference.doc(inciensoId).update({'isPublic': isPublic});
+      return true;
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st,
+          module: 'neom_generator', operation: 'InciensoFirestore.setPublic');
+      return false;
+    }
   }
 
   /// Atomically increment the practice count of an Incienso preset.

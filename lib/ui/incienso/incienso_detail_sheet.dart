@@ -157,6 +157,9 @@ class InciensoDetailSheet extends StatelessWidget {
                   accentColor: accentColor,
                 ),
 
+                const SizedBox(height: 16),
+                _EvidenceBadge(evidence: incienso.evidence),
+
                 // References (expandable)
                 if (incienso.references.isNotEmpty) ...[
                   const SizedBox(height: 16),
@@ -591,5 +594,45 @@ class _CompatibilityRow extends StatelessWidget {
       case SourceEffectiveness.partial: return const Color(0xFFFFB74D);
       case SourceEffectiveness.notRecommended: return const Color(0xFFE57373);
     }
+  }
+}
+
+/// States plainly how well supported a protocol is.
+///
+/// Shown for every protocol, not only those with citations: "experiential" is
+/// as much information as "clinically supported", and leaving it blank would
+/// let a reader assume more than the protocol claims.
+class _EvidenceBadge extends StatelessWidget {
+  const _EvidenceBadge({required this.evidence});
+
+  final InciensoEvidence evidence;
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, icon) = switch (evidence) {
+      InciensoEvidence.clinical => (const Color(0xFF4ADE80), Icons.verified_outlined),
+      InciensoEvidence.preliminary => (const Color(0xFFFBBF24), Icons.science_outlined),
+      InciensoEvidence.experiential => (const Color(0xFF94A3B8), Icons.self_improvement_outlined),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            evidence.nameKey.tr,
+            style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
   }
 }

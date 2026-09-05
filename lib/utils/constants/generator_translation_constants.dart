@@ -25,6 +25,10 @@ class GeneratorTranslationConstants {
   static const String hemisfericCoherence = 'hemisfericCoherence';
   static const String coherenceDisclaimer = 'coherenceDisclaimer';
   static const String sessionTime = 'sessionTime';
+  static const String recordedSession = 'recordedSession';
+  static const String evidenceClinical = 'evidenceClinical';
+  static const String evidencePreliminary = 'evidencePreliminary';
+  static const String evidenceExperiential = 'evidenceExperiential';
   static const String neuroFlocking = 'neuroFlocking';
   static const String neuroVR360 = 'neuroVR360';
   static const String neuroVR360Stereo = 'neuroVR360Stereo';

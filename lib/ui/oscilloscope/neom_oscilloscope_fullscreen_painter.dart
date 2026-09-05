@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 
 class NeomOscilloscopeFullscreenPainter extends CustomPainter {
   final List<double> samples;
+
+  /// Changes whenever a sample is written.
+  ///
+  /// [samples] is a reused buffer, so its identity never changes and comparing
+  /// it in [shouldRepaint] always reported "unchanged" — the live scope only
+  /// redrew when a control moved.
+  final int sampleRevision;
   final Color signalColor;
   final Color gridColor;
   final double thickness;
@@ -13,6 +20,7 @@ class NeomOscilloscopeFullscreenPainter extends CustomPainter {
 
   NeomOscilloscopeFullscreenPainter({
     required this.samples,
+    required this.sampleRevision,
     required this.signalColor,
     required this.gridColor,
     this.thickness = 1.8,
@@ -187,7 +195,8 @@ class NeomOscilloscopeFullscreenPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant NeomOscilloscopeFullscreenPainter oldDelegate) {
-    return samples != oldDelegate.samples ||
+    return sampleRevision != oldDelegate.sampleRevision ||
+        samples != oldDelegate.samples ||
         thickness != oldDelegate.thickness ||
         waveScale != oldDelegate.waveScale ||
         timeScale != oldDelegate.timeScale ||

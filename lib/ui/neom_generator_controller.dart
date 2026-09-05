@@ -51,6 +51,8 @@ import '../utils/enums/neom_frequency_target.dart';
 import '../utils/enums/neom_numeric_target.dart';
 import '../utils/enums/neom_spatial_mode.dart';
 import '../utils/enums/neom_visual_mode.dart';
+import 'widgets/incienso_review_modal.dart';
+import '../../domain/models/incienso_review.dart';
 
 class NeomGeneratorController extends SintController implements NeomGeneratorService {
 
@@ -340,6 +342,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       _stopTimelinePlayback();
       inciensoTracker.stop();
       _prevBreathPhase = 0.0;
+      unawaited(_autoSaveRecordedSession());
     } else {
       _syncParams();
       await _sineEngine.start();
@@ -1476,20 +1479,103 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     );
   }
 
-  /// Stop recording, build an [Incienso] and upload it to Firestore so others can practice it.
-  /// Returns null if session was too short (< 30s or < 5 keyframes).
-  Future<Incienso?> publishRecordedIncienso(String name, {String? description, List<String> tags = const []}) async {
-    final incienso = inciensoRecorder.stopAndBuild(
+  /// Summary of the session that just ended, or null when there was nothing
+  /// worth reviewing.
+  ///
+  /// The review modal needs a BuildContext, so the page asks for this after
+  /// stopping rather than the controller pushing UI.
+  InciensoSessionSummary? pendingSessionSummary() {
+    if (inciensoTracker.inciensoCount <= 0) return null;
+    return InciensoSessionSummary.fromSession(buildInciensoSession(
+      inciensoId: _activeIncienso?.id ?? '',
+      source: _activeIncienso?.source ?? InciensoSource.userCreated,
+    ));
+  }
+
+  /// Stores how the session felt. Silent on failure — a review is optional and
+  /// must not interrupt the practice flow.
+  Future<void> saveSessionReview(InciensoReview review) async {
+    try {
+      await _inciensoFirestore.insertReview(review);
+    } catch (e, st) {
+      NeomErrorLogger.recordError(e, st,
+          module: 'neom_generator', operation: 'saveSessionReview');
+    }
+  }
+
+  /// Keeps a private copy of the session the user just practised.
+  ///
+  /// Runs on every stop, so it stays silent unless there is something worth
+  /// keeping: sessions under [InciensoRecorder.minDuration] or with too few
+  /// keyframes are dropped by the recorder itself.
+  ///
+  /// Saved as private — the recording is the user's own practice. Sharing it
+  /// with the community is a separate, explicit decision
+  /// (`InciensoFirestore.setPublic`).
+  ///
+  /// Skipped while following someone else's recording: that session already
+  /// exists, and re-saving it would fill the catalogue with copies attributed
+  /// to whoever played it.
+  Future<void> _autoSaveRecordedSession() async {
+    if (_activeIncienso?.isRecorded ?? false) {
+      inciensoRecorder.cancel();
+      return;
+    }
+    if (!canSaveRecordedSession) {
+      inciensoRecorder.cancel();
+      return;
+    }
+
+    try {
+      await publishRecordedIncienso(_autoSessionName());
+    } catch (e, st) {
+      // A failed save must not break stopping playback.
+      NeomErrorLogger.recordError(e, st,
+          module: 'neom_generator', operation: '_autoSaveRecordedSession');
+    } finally {
+      // stopAndBuild leaves the keyframes in place, and stopping is reachable
+      // more than once — without this, a second stop would save the same
+      // session again.
+      inciensoRecorder.cancel();
+    }
+  }
+
+  /// "Sesión grabada · 14/03 20:35" — enough to tell two apart in a list.
+  String _autoSessionName() {
+    final now = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${GeneratorTranslationConstants.recordedSession.tr} · '
+        '${two(now.day)}/${two(now.month)} ${two(now.hour)}:${two(now.minute)}';
+  }
+
+  /// Whether the session recorded so far is long enough to be saved.
+  ///
+  /// Mirrors the guard inside [InciensoRecorder.stopAndBuild] (30s and five
+  /// keyframes), so the UI can offer saving only when it would succeed.
+  bool get canSaveRecordedSession => inciensoRecorder.hasEnoughToBuild;
+
+  /// Stores the recorded session so it can be practised again.
+  ///
+  /// [isPublic] decides whether the community can find it. It defaults to
+  /// false: a recording captures how someone's own practice unfolded, and that
+  /// stays theirs until they choose to share it.
+  ///
+  /// Returns null when the session was too short to be worth keeping.
+  Future<Incienso?> publishRecordedIncienso(String name,
+      {String? description,
+      List<String> tags = const [],
+      bool isPublic = false}) async {
+    final recorded = inciensoRecorder.stopAndBuild(
       name: name,
       description: description,
       creatorId: profile?.id,
       tags: tags,
     );
+    if (recorded == null) return null;
 
-    if (incienso != null) {
-      final docId = await _inciensoFirestore.insert(incienso);
-      AppConfig.logger.d("Published Incienso to Firestore with ID: $docId");
-    }
+    final incienso = recorded.copyWithVisibility(isPublic: isPublic);
+    final docId = await _inciensoFirestore.insert(incienso);
+    AppConfig.logger.d("Saved Incienso $docId (public: $isPublic)");
 
     return incienso;
   }

@@ -185,8 +185,16 @@ class NeomSineEngine {
         pcm[i * 2] = outL.clamp(-32768, 32767);
         pcm[i * 2 + 1] = outR.clamp(-32768, 32767);
 
-        // Visual feedback uses sub as dominant
-        final double visualSample = sin((_phaseL + _phaseR + _phaseSub) / 3.0);
+        // What the ears get, normalised to [-1, 1] for the scope.
+        //
+        // This used to draw sin((phaseL + phaseR + phaseSub) / 3): a single
+        // sine at the mean frequency. sin(a)+sin(b) beats — its envelope
+        // pulses at |fR - fL| — while sin((a+b)/2) is flat, so the binaural
+        // beat, the whole point of the session, was invisible. Averaging the
+        // phases also dropped amplitude: every volume looked identical.
+        final double visualSample =
+            (((lSample + rSample) * 0.5 + subSample) / 32767.0)
+                .clamp(-1.0, 1.0);
         painterEngine?.pushSample(visualSample);
         painterEngine?.updatePhases(phaseL: _phaseL, phaseR: _phaseR);
         painterEngine?.tickBinaural(
@@ -257,7 +265,10 @@ class NeomSineEngine {
         final int sampleL = (sin(_phaseL) * ampL).toInt();
         final int sampleR = (sin(_phaseR) * ampR).toInt();
 
-        final double visualSample = sin((_phaseL + _phaseR) * 0.5);
+        // Same reasoning as above: the mix beats, the mean phase does not.
+        final double visualSample =
+            ((sin(_phaseL) * ampL + sin(_phaseR) * ampR) * 0.5 / 32767.0)
+                .clamp(-1.0, 1.0);
 
         painterEngine?.pushSample(visualSample);
         painterEngine?.updatePhases(
