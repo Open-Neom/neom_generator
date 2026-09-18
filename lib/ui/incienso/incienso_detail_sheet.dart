@@ -19,7 +19,11 @@ class InciensoDetailSheet extends StatelessWidget {
     required this.onStart,
   });
 
-  static void show(BuildContext context, Incienso incienso, VoidCallback onStart) {
+  static void show(
+    BuildContext context,
+    Incienso incienso,
+    VoidCallback onStart,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -101,13 +105,23 @@ class InciensoDetailSheet extends StatelessWidget {
                               if (incienso.isPro) ...[
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.amber.withAlpha(30),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: const Text('PRO',
-                                    style: TextStyle(color: Colors.amber, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 1)),
+                                  child: const Text(
+                                    'PRO',
+                                    style: TextStyle(
+                                      color: Colors.amber,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ],
@@ -115,7 +129,11 @@ class InciensoDetailSheet extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             '${state.name.toUpperCase()} · ${beat.toStringAsFixed(1)} Hz · $duration min',
-                            style: TextStyle(color: accentColor.withAlpha(150), fontSize: 12, fontFamily: 'Courier'),
+                            style: TextStyle(
+                              color: accentColor.withAlpha(150),
+                              fontSize: 12,
+                              fontFamily: 'Courier',
+                            ),
                           ),
                         ],
                       ),
@@ -128,7 +146,11 @@ class InciensoDetailSheet extends StatelessWidget {
                 // Description
                 Text(
                   description,
-                  style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
                 ),
 
                 const SizedBox(height: 20),
@@ -138,15 +160,37 @@ class InciensoDetailSheet extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _chip('${incienso.leftFrequencyHz.toStringAsFixed(0)} Hz L', Icons.hearing, accentColor),
-                    _chip('${incienso.rightFrequencyHz.toStringAsFixed(0)} Hz R', Icons.hearing, accentColor),
-                    _chip('${beat.toStringAsFixed(1)} Hz beat', Icons.waves, accentColor),
+                    _chip(
+                      '${incienso.leftFrequencyHz.toStringAsFixed(0)} Hz L',
+                      Icons.hearing,
+                      accentColor,
+                    ),
+                    _chip(
+                      '${incienso.rightFrequencyHz.toStringAsFixed(0)} Hz R',
+                      Icons.hearing,
+                      accentColor,
+                    ),
+                    _chip(
+                      '${beat.toStringAsFixed(1)} Hz beat',
+                      Icons.waves,
+                      accentColor,
+                    ),
                     _chip('$duration min', Icons.timer, accentColor),
                     if (incienso.defaultVisual != null)
-                      _chip(incienso.defaultVisual!.name, Icons.visibility, accentColor),
+                      _chip(
+                        incienso.defaultVisual!.name,
+                        Icons.visibility,
+                        accentColor,
+                      ),
                     if (incienso.isMultiPhase)
-                      _chip('${incienso.phases.length} fases', Icons.timeline, accentColor),
-                    ...incienso.tags.map((t) => _chip(t, Icons.tag, accentColor)),
+                      _chip(
+                        '${incienso.phases.length} fases',
+                        Icons.timeline,
+                        accentColor,
+                      ),
+                    ...incienso.tags.map(
+                      (t) => _chip(t, Icons.tag, accentColor),
+                    ),
                   ],
                 ),
 
@@ -179,10 +223,14 @@ class InciensoDetailSheet extends StatelessWidget {
                       Navigator.of(context).pop();
                       onStart();
                     },
-                    icon: const Icon(Icons.play_arrow_rounded, size: 22),
+                    icon: const Icon(Icons.tune, size: 22),
                     label: Text(
-                      GeneratorTranslationConstants.activateChamber.tr.toUpperCase(),
-                      style: const TextStyle(letterSpacing: 1.2, fontWeight: FontWeight.w600),
+                      GeneratorTranslationConstants.selectSession.tr
+                          .toUpperCase(),
+                      style: const TextStyle(
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: accentColor.withAlpha(40),
@@ -216,7 +264,14 @@ class InciensoDetailSheet extends StatelessWidget {
         children: [
           Icon(icon, size: 12, color: color.withAlpha(150)),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(color: color.withAlpha(200), fontSize: 11, fontFamily: 'Courier')),
+          Text(
+            label,
+            style: TextStyle(
+              color: color.withAlpha(200),
+              fontSize: 11,
+              fontFamily: 'Courier',
+            ),
+          ),
         ],
       ),
     );
@@ -224,12 +279,18 @@ class InciensoDetailSheet extends StatelessWidget {
 
   Color _stateColor(NeomNeuroState state) {
     switch (state) {
-      case NeomNeuroState.sleep: return const Color(0xFF6C63FF);
-      case NeomNeuroState.calm: return const Color(0xFF4FC3F7);
-      case NeomNeuroState.neutral: return AppColor.bondiBlue;
-      case NeomNeuroState.creativity: return const Color(0xFFAB47BC);
-      case NeomNeuroState.focus: return const Color(0xFF66BB6A);
-      case NeomNeuroState.integration: return const Color(0xFFFFB74D);
+      case NeomNeuroState.sleep:
+        return const Color(0xFF6C63FF);
+      case NeomNeuroState.calm:
+        return const Color(0xFF4FC3F7);
+      case NeomNeuroState.neutral:
+        return AppColor.bondiBlue;
+      case NeomNeuroState.creativity:
+        return const Color(0xFFAB47BC);
+      case NeomNeuroState.focus:
+        return const Color(0xFF66BB6A);
+      case NeomNeuroState.integration:
+        return const Color(0xFFFFB74D);
     }
   }
 }
@@ -268,7 +329,11 @@ class _ReferencesSectionState extends State<_ReferencesSection> {
             ),
             child: Row(
               children: [
-                Icon(Icons.science_outlined, size: 14, color: widget.accentColor.withAlpha(150)),
+                Icon(
+                  Icons.science_outlined,
+                  size: 14,
+                  color: widget.accentColor.withAlpha(150),
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Referencias (${widget.references.length})',
@@ -292,12 +357,16 @@ class _ReferencesSectionState extends State<_ReferencesSection> {
         // Expandable list
         AnimatedCrossFade(
           duration: const Duration(milliseconds: 250),
-          crossFadeState: _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          crossFadeState: _expanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
           firstChild: const SizedBox.shrink(),
           secondChild: Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Column(
-              children: widget.references.map((ref) => _referenceCard(ref)).toList(),
+              children: widget.references
+                  .map((ref) => _referenceCard(ref))
+                  .toList(),
             ),
           ),
         ),
@@ -336,7 +405,11 @@ class _ReferencesSectionState extends State<_ReferencesSection> {
                     ),
                   ),
                   if (hasLink)
-                    Icon(Icons.open_in_new, size: 12, color: widget.accentColor.withAlpha(100)),
+                    Icon(
+                      Icons.open_in_new,
+                      size: 12,
+                      color: widget.accentColor.withAlpha(100),
+                    ),
                 ],
               ),
               const SizedBox(height: 3),
@@ -344,7 +417,11 @@ class _ReferencesSectionState extends State<_ReferencesSection> {
               // Title
               Text(
                 ref.title,
-                style: const TextStyle(color: Colors.white60, fontSize: 11, height: 1.3),
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 11,
+                  height: 1.3,
+                ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -377,15 +454,22 @@ class _ReferencesSectionState extends State<_ReferencesSection> {
                 spacing: 4,
                 runSpacing: 4,
                 children: [
-                  _evidenceBadge(ref.studyTypeLabel, _studyTypeColor(ref.studyType)),
-                  _evidenceBadge(ref.evidenceLevelLabel, _evidenceLevelColor(ref.evidenceLevel)),
-                  _evidenceBadge(ref.safetyLabel, _safetyColor(ref.safetyProfile)),
+                  _evidenceBadge(
+                    ref.studyTypeLabel,
+                    _studyTypeColor(ref.studyType),
+                  ),
+                  _evidenceBadge(
+                    ref.evidenceLevelLabel,
+                    _evidenceLevelColor(ref.evidenceLevel),
+                  ),
+                  _evidenceBadge(
+                    ref.safetyLabel,
+                    _safetyColor(ref.safetyProfile),
+                  ),
                   if (ref.sampleSize != null)
                     _evidenceBadge('n=${ref.sampleSize}', Colors.white54),
-                  if (ref.doi != null)
-                    _badge('DOI', widget.accentColor),
-                  if (ref.pmcId != null)
-                    _badge(ref.pmcId!, widget.accentColor),
+                  if (ref.doi != null) _badge('DOI', widget.accentColor),
+                  if (ref.pmcId != null) _badge(ref.pmcId!, widget.accentColor),
                 ],
               ),
 
@@ -395,8 +479,11 @@ class _ReferencesSectionState extends State<_ReferencesSection> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.verified_user_outlined, size: 10,
-                      color: _safetyColor(ref.safetyProfile).withAlpha(150)),
+                    Icon(
+                      Icons.verified_user_outlined,
+                      size: 10,
+                      color: _safetyColor(ref.safetyProfile).withAlpha(150),
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
@@ -428,7 +515,11 @@ class _ReferencesSectionState extends State<_ReferencesSection> {
       ),
       child: Text(
         label,
-        style: TextStyle(color: color.withAlpha(120), fontSize: 9, fontFamily: 'Courier'),
+        style: TextStyle(
+          color: color.withAlpha(120),
+          fontSize: 9,
+          fontFamily: 'Courier',
+        ),
       ),
     );
   }
@@ -443,40 +534,61 @@ class _ReferencesSectionState extends State<_ReferencesSection> {
       ),
       child: Text(
         label,
-        style: TextStyle(color: color.withAlpha(200), fontSize: 8, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          color: color.withAlpha(200),
+          fontSize: 8,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
 
   Color _studyTypeColor(StudyType type) {
     switch (type) {
-      case StudyType.metaAnalysis: return const Color(0xFF4CAF50);
-      case StudyType.rctDoubleBlind: return const Color(0xFF66BB6A);
-      case StudyType.rct: return const Color(0xFF81C784);
-      case StudyType.controlledStudy: return const Color(0xFF4FC3F7);
-      case StudyType.pilotStudy: return const Color(0xFFFFB74D);
-      case StudyType.inVitro: return const Color(0xFFBA68C8);
-      case StudyType.preclinical: return const Color(0xFFAB47BC);
-      case StudyType.caseReport: return const Color(0xFFE0E0E0);
+      case StudyType.metaAnalysis:
+        return const Color(0xFF4CAF50);
+      case StudyType.rctDoubleBlind:
+        return const Color(0xFF66BB6A);
+      case StudyType.rct:
+        return const Color(0xFF81C784);
+      case StudyType.controlledStudy:
+        return const Color(0xFF4FC3F7);
+      case StudyType.pilotStudy:
+        return const Color(0xFFFFB74D);
+      case StudyType.inVitro:
+        return const Color(0xFFBA68C8);
+      case StudyType.preclinical:
+        return const Color(0xFFAB47BC);
+      case StudyType.caseReport:
+        return const Color(0xFFE0E0E0);
     }
   }
 
   Color _evidenceLevelColor(EvidenceLevel level) {
     switch (level) {
-      case EvidenceLevel.high: return const Color(0xFF4CAF50);
-      case EvidenceLevel.moderateHigh: return const Color(0xFF8BC34A);
-      case EvidenceLevel.moderate: return const Color(0xFFFFEB3B);
-      case EvidenceLevel.lowModerate: return const Color(0xFFFFB74D);
-      case EvidenceLevel.low: return const Color(0xFFFF8A65);
+      case EvidenceLevel.high:
+        return const Color(0xFF4CAF50);
+      case EvidenceLevel.moderateHigh:
+        return const Color(0xFF8BC34A);
+      case EvidenceLevel.moderate:
+        return const Color(0xFFFFEB3B);
+      case EvidenceLevel.lowModerate:
+        return const Color(0xFFFFB74D);
+      case EvidenceLevel.low:
+        return const Color(0xFFFF8A65);
     }
   }
 
   Color _safetyColor(SafetyProfile safety) {
     switch (safety) {
-      case SafetyProfile.noRisk: return const Color(0xFF4CAF50);
-      case SafetyProfile.minimal: return const Color(0xFF8BC34A);
-      case SafetyProfile.low: return const Color(0xFFFFEB3B);
-      case SafetyProfile.moderate: return const Color(0xFFFF8A65);
+      case SafetyProfile.noRisk:
+        return const Color(0xFF4CAF50);
+      case SafetyProfile.minimal:
+        return const Color(0xFF8BC34A);
+      case SafetyProfile.low:
+        return const Color(0xFFFFEB3B);
+      case SafetyProfile.moderate:
+        return const Color(0xFFFF8A65);
     }
   }
 
@@ -506,7 +618,11 @@ class _CompatibilityRow extends StatelessWidget {
 
     return Row(
       children: [
-        Icon(Icons.speaker_group_outlined, size: 12, color: accentColor.withAlpha(100)),
+        Icon(
+          Icons.speaker_group_outlined,
+          size: 12,
+          color: accentColor.withAlpha(100),
+        ),
         const SizedBox(width: 6),
         Expanded(
           child: Wrap(
@@ -535,7 +651,11 @@ class _CompatibilityRow extends StatelessWidget {
           const SizedBox(width: 3),
           Text(
             _sourceLabel(source),
-            style: TextStyle(color: color.withAlpha(200), fontSize: 9, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: color.withAlpha(200),
+              fontSize: 9,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(width: 3),
           _effectivenessDot(effectiveness, color),
@@ -553,46 +673,65 @@ class _CompatibilityRow extends StatelessWidget {
     };
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: List.generate(3, (i) => Container(
-        width: 3,
-        height: 6 + i * 2.0,
-        margin: const EdgeInsets.only(left: 1),
-        decoration: BoxDecoration(
-          color: i < bars ? color.withAlpha(180) : color.withAlpha(30),
-          borderRadius: BorderRadius.circular(1),
+      children: List.generate(
+        3,
+        (i) => Container(
+          width: 3,
+          height: 6 + i * 2.0,
+          margin: const EdgeInsets.only(left: 1),
+          decoration: BoxDecoration(
+            color: i < bars ? color.withAlpha(180) : color.withAlpha(30),
+            borderRadius: BorderRadius.circular(1),
+          ),
         ),
-      )),
+      ),
     );
   }
 
   IconData _sourceIcon(OutputSource source) {
     switch (source) {
-      case OutputSource.headphones: return Icons.headphones;
-      case OutputSource.speakers: return Icons.speaker;
-      case OutputSource.smartphone: return Icons.smartphone;
-      case OutputSource.subwoofer: return Icons.surround_sound;
-      case OutputSource.boneConduction: return Icons.hearing;
-      case OutputSource.sleepBand: return Icons.bedtime;
+      case OutputSource.headphones:
+        return Icons.headphones;
+      case OutputSource.speakers:
+        return Icons.speaker;
+      case OutputSource.smartphone:
+        return Icons.smartphone;
+      case OutputSource.subwoofer:
+        return Icons.surround_sound;
+      case OutputSource.boneConduction:
+        return Icons.hearing;
+      case OutputSource.sleepBand:
+        return Icons.bedtime;
     }
   }
 
   String _sourceLabel(OutputSource source) {
     switch (source) {
-      case OutputSource.headphones: return 'Headphones';
-      case OutputSource.speakers: return 'Speakers';
-      case OutputSource.smartphone: return 'Phone';
-      case OutputSource.subwoofer: return 'Subwoofer';
-      case OutputSource.boneConduction: return 'Bone';
-      case OutputSource.sleepBand: return 'Sleep';
+      case OutputSource.headphones:
+        return 'Headphones';
+      case OutputSource.speakers:
+        return 'Speakers';
+      case OutputSource.smartphone:
+        return 'Phone';
+      case OutputSource.subwoofer:
+        return 'Subwoofer';
+      case OutputSource.boneConduction:
+        return 'Bone';
+      case OutputSource.sleepBand:
+        return 'Sleep';
     }
   }
 
   Color _effectivenessColor(SourceEffectiveness eff) {
     switch (eff) {
-      case SourceEffectiveness.optimal: return const Color(0xFF4CAF50);
-      case SourceEffectiveness.effective: return const Color(0xFF8BC34A);
-      case SourceEffectiveness.partial: return const Color(0xFFFFB74D);
-      case SourceEffectiveness.notRecommended: return const Color(0xFFE57373);
+      case SourceEffectiveness.optimal:
+        return const Color(0xFF4CAF50);
+      case SourceEffectiveness.effective:
+        return const Color(0xFF8BC34A);
+      case SourceEffectiveness.partial:
+        return const Color(0xFFFFB74D);
+      case SourceEffectiveness.notRecommended:
+        return const Color(0xFFE57373);
     }
   }
 }
@@ -610,9 +749,18 @@ class _EvidenceBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (color, icon) = switch (evidence) {
-      InciensoEvidence.clinical => (const Color(0xFF4ADE80), Icons.verified_outlined),
-      InciensoEvidence.preliminary => (const Color(0xFFFBBF24), Icons.science_outlined),
-      InciensoEvidence.experiential => (const Color(0xFF94A3B8), Icons.self_improvement_outlined),
+      InciensoEvidence.clinical => (
+        const Color(0xFF4ADE80),
+        Icons.verified_outlined,
+      ),
+      InciensoEvidence.preliminary => (
+        const Color(0xFFFBBF24),
+        Icons.science_outlined,
+      ),
+      InciensoEvidence.experiential => (
+        const Color(0xFF94A3B8),
+        Icons.self_improvement_outlined,
+      ),
     };
 
     return Container(
@@ -629,7 +777,11 @@ class _EvidenceBadge extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             evidence.nameKey.tr,
-            style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

@@ -4,17 +4,21 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../engine/neom_frequency_painter_engine.dart';
+import '../widgets/visual_animation.dart';
 
 /// Paints a sine wave flowing around the perimeter of a rectangle.
 ///
 /// The wave travels: top → right → bottom → left (clockwise),
 /// creating a living frame effect. Two waves are drawn:
-/// - Left channel (primary color) — outward displacement
-/// - Right channel (secondary color) — inward displacement
+/// - Left channel (primary color) — brighter trace
+/// - Right channel (secondary color) — quieter trace with the binaural phase
 /// The beat between them creates visible interference patterns.
+/// Both traces stay within a narrow border band, clear of the controls.
 class PerimeterWavePainter extends CustomPainter {
   final NeomFrequencyPainterEngine engine;
-  final double time;
+  final double _time;
+  final VisualAnimationClock? clock;
+  double get time => clock == null ? _time : clock!.value * 2 * pi;
   final Color primaryColor;
   final Color secondaryColor;
   final double strokeWidth;
@@ -23,66 +27,83 @@ class PerimeterWavePainter extends CustomPainter {
 
   PerimeterWavePainter({
     required this.engine,
-    required this.time,
+    double time = 0,
+    this.clock,
     this.primaryColor = const Color(0xFF00BCD4),
     this.secondaryColor = const Color(0xFFAB47BC),
     this.strokeWidth = 2.0,
     this.amplitude = 12.0,
     this.inset = 0.0,
-  });
+  }) : _time = time,
+       super(repaint: clock);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final perimeter = 2 * (w + h);
+    if (size.isEmpty || !size.isFinite) return;
+    if (!inset.isFinite || !amplitude.isFinite || !strokeWidth.isFinite) return;
+    final rect = (Offset.zero & size).deflate(max(0.0, inset));
+    if (rect.isEmpty) return;
+    final perimeter = 2 * (rect.width + rect.height);
 
     // Number of sample points around the perimeter — fewer on web
-    final sampleCount = kIsWeb ? 150 : 400;
+    final sampleCount = (perimeter / 8).ceil().clamp(64, 240);
 
-    final freq = engine.visualPhase * 20 + 3; // wave density
+    final freq = (3.0 + engine.waveStretch * 2.0).clamp(1.0, sampleCount / 8);
     final beat = engine.binauralPhase;
-    final amp = amplitude * (0.5 + engine.glowIntensity * 0.5);
+    final amp = amplitude.clamp(0.0, 5.0) * (0.5 + engine.glowIntensity * 0.5);
 
     // Build paths for L and R channels
     final pathL = Path();
     final pathR = Path();
 
-    for (int i = 0; i <= sampleCount; i++) {
-      final t = i / sampleCount; // 0..1 around perimeter
-      final dist = t * perimeter;
-
-      // Position on the rectangle perimeter
-      final pos = _perimeterPoint(dist, w, h);
-      // Normal direction (perpendicular to edge, pointing outward)
-      final normal = _perimeterNormal(dist, w, h);
-
-      // Left channel wave — flows with time
-      final phaseL = t * freq * 2 * pi + time * 4;
-      final displacementL = sin(phaseL) * amp;
-
-      // Right channel wave — slightly different frequency (binaural)
-      final phaseR = t * freq * 2 * pi + time * 4 + beat;
-      final displacementR = sin(phaseR) * amp * 0.8;
-
-      // Offset points along normal
-      final pL = Offset(
-        pos.dx + normal.dx * displacementL,
-        pos.dy + normal.dy * displacementL,
-      );
-      final pR = Offset(
-        pos.dx - normal.dx * displacementR, // inward
-        pos.dy - normal.dy * displacementR,
-      );
-
-      if (i == 0) {
-        pathL.moveTo(pL.dx, pL.dy);
-        pathR.moveTo(pR.dx, pR.dy);
-      } else {
-        pathL.lineTo(pL.dx, pL.dy);
-        pathR.lineTo(pR.dx, pR.dy);
+    final corners = [
+      rect.topLeft,
+      rect.topRight,
+      rect.bottomRight,
+      rect.bottomLeft,
+      rect.topLeft,
+    ];
+    double accumulated = 0;
+    for (var edge = 0; edge < 4; edge++) {
+      final from = corners[edge];
+      final to = corners[edge + 1];
+      final delta = to - from;
+      final length = delta.distance;
+      final normal = Offset(-delta.dy, delta.dx) / length;
+      final steps = max(1, (length / perimeter * sampleCount).ceil());
+      for (var i = 0; i <= steps; i++) {
+        final localT = i / steps;
+        final t = (accumulated + localT * length) / perimeter;
+        final pos = Offset.lerp(from, to, localT)!;
+        // Sampling each edge includes every corner exactly. Tapering there
+        // avoids diagonal cuts and a phase discontinuity at the loop seam.
+        final taper = min(1.0, min(localT, 1 - localT) * length / 12);
+        final phase = t * freq * 2 * pi + time * 4;
+        final pL = pos + normal * ((sin(phase) + 1) * 0.5 * amp * taper);
+        final pR =
+            pos + normal * ((sin(phase + beat) + 1) * 0.5 * amp * 0.8 * taper);
+        if (edge == 0 && i == 0) {
+          pathL.moveTo(pL.dx, pL.dy);
+          pathR.moveTo(pR.dx, pR.dy);
+        } else {
+          pathL.lineTo(pL.dx, pL.dy);
+          pathR.lineTo(pR.dx, pR.dy);
+        }
       }
+      accumulated += length;
     }
+    pathL.close();
+    pathR.close();
+
+    final borderRegion = Path()..addRect(Offset.zero & size);
+    final interior = rect.deflate(6);
+    if (!interior.isEmpty) {
+      borderRegion
+        ..fillType = PathFillType.evenOdd
+        ..addRect(interior);
+    }
+    canvas.save();
+    canvas.clipPath(borderRegion);
 
     // Draw R channel (behind, slightly transparent)
     final paintR = Paint()
@@ -109,43 +130,20 @@ class PerimeterWavePainter extends CustomPainter {
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
       canvas.drawPath(pathL, glowPaint);
     }
-  }
-
-  /// Get a point on the rectangle perimeter at distance [dist] from top-left.
-  /// Travels: top edge → right edge → bottom edge → left edge (clockwise).
-  Offset _perimeterPoint(double dist, double w, double h) {
-    final d = dist + inset;
-    if (d <= w) {
-      // Top edge: left to right
-      return Offset(d, 0);
-    } else if (d <= w + h) {
-      // Right edge: top to bottom
-      return Offset(w, d - w);
-    } else if (d <= 2 * w + h) {
-      // Bottom edge: right to left
-      return Offset(w - (d - w - h), h);
-    } else {
-      // Left edge: bottom to top
-      return Offset(0, h - (d - 2 * w - h));
-    }
-  }
-
-  /// Normal vector (pointing outward from the rectangle) at distance [dist].
-  Offset _perimeterNormal(double dist, double w, double h) {
-    final d = dist + inset;
-    if (d <= w) {
-      return const Offset(0, -1); // Top: up
-    } else if (d <= w + h) {
-      return const Offset(1, 0); // Right: right
-    } else if (d <= 2 * w + h) {
-      return const Offset(0, 1); // Bottom: down
-    } else {
-      return const Offset(-1, 0); // Left: left
-    }
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant PerimeterWavePainter old) => true;
+  bool shouldRepaint(covariant PerimeterWavePainter old) =>
+      clock == null ||
+      engine != old.engine ||
+      clock != old.clock ||
+      _time != old._time ||
+      primaryColor != old.primaryColor ||
+      secondaryColor != old.secondaryColor ||
+      amplitude != old.amplitude ||
+      strokeWidth != old.strokeWidth ||
+      inset != old.inset;
 }
 
 /// Widget that wraps the perimeter wave painter with animation.
@@ -159,6 +157,7 @@ class PerimeterWaveWidget extends StatefulWidget {
   final double amplitude;
   final double strokeWidth;
   final Widget? child;
+
   /// When false, shows a subtle static border instead of animated waves.
   final bool isActive;
 
@@ -177,61 +176,52 @@ class PerimeterWaveWidget extends StatefulWidget {
   State<PerimeterWaveWidget> createState() => _PerimeterWaveWidgetState();
 }
 
-class _PerimeterWaveWidgetState extends State<PerimeterWaveWidget>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _anim;
-  int _frameCount = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _anim = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 10),
-    )..repeat();
-    _anim.addListener(() => _frameCount++);
-  }
-
-  @override
-  void dispose() {
-    _anim.dispose();
-    super.dispose();
-  }
-
+class _PerimeterWaveWidgetState extends State<PerimeterWaveWidget> {
   @override
   Widget build(BuildContext context) {
-    // Inactive: show subtle static border, no animation
-    if (!widget.isActive) {
-      return Container(
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: (widget.primaryColor ?? const Color(0xFF00BCD4)).withAlpha(25),
-            width: 0.5,
+    return VisualAnimation(
+      active: widget.isActive,
+      builder: (_, clock, child) => Stack(
+        fit: StackFit.passthrough,
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: widget.isActive
+                      ? PerimeterWavePainter(
+                          engine: widget.engine,
+                          clock: clock,
+                          primaryColor:
+                              widget.primaryColor ?? const Color(0xFF00BCD4),
+                          secondaryColor:
+                              widget.secondaryColor ?? const Color(0xFFAB47BC),
+                          amplitude: widget.amplitude,
+                          strokeWidth: widget.strokeWidth,
+                        )
+                      : null,
+                ),
+              ),
+            ),
           ),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: widget.child,
-      );
-    }
-
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, child) {
-        // On web, skip every other frame to target ~30fps
-        if (kIsWeb && _frameCount % 2 != 0) return child!;
-        return CustomPaint(
-          painter: PerimeterWavePainter(
-            engine: widget.engine,
-            time: _anim.value * 2 * pi,
-            primaryColor: widget.primaryColor ?? const Color(0xFF00BCD4),
-            secondaryColor: widget.secondaryColor ?? const Color(0xFFAB47BC),
-            amplitude: widget.amplitude,
-            strokeWidth: widget.strokeWidth,
+          // The child keeps the same ancestors when playing/stopping. Paints
+          // cannot interrupt an in-progress tap, slider drag, or text focus.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: widget.isActive
+                    ? Colors.transparent
+                    : (widget.primaryColor ?? const Color(0xFF00BCD4))
+                          .withAlpha(25),
+                width: 0.5,
+              ),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: child,
           ),
-          child: child,
-        );
-      },
-      child: widget.child,
+        ],
+      ),
+      child: RepaintBoundary(child: widget.child ?? const SizedBox.shrink()),
     );
   }
 }

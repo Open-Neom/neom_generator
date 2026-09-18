@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:neom_core/data/implementations/neom_stopwatch.dart';
+import 'package:sint/sint.dart';
 
 import '../../utils/constants/generator_translation_constants.dart';
+import 'visual_animation.dart';
 
-class SessionChamberTimeMeter extends StatefulWidget {
+class SessionChamberTimeMeter extends StatelessWidget {
   final String referenceId;
   final bool showTitle;
 
@@ -15,50 +16,20 @@ class SessionChamberTimeMeter extends StatefulWidget {
   });
 
   @override
-  State<SessionChamberTimeMeter> createState() => _SessionChamberTimeMeterState();
-}
-
-class _SessionChamberTimeMeterState extends State<SessionChamberTimeMeter>
-    with SingleTickerProviderStateMixin {
-
-  late final Ticker _ticker;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _ticker = createTicker((_) {
-      setState(() {});
-    })..start();
-  }
-
-  @override
-  void dispose() {
-    _ticker.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final elapsedMs = NeomStopwatch().elapsed(ref: widget.referenceId) * 1000;
-
-    final minutes = (elapsedMs ~/ 60000).toString().padLeft(2, '0');
-    final seconds = ((elapsedMs ~/ 1000) % 60).toString().padLeft(2, '0');
-    final centiseconds = ((elapsedMs ~/ 16.666) % 60).floor().toString().padLeft(2, '0');
-    //final millis  = ((elapsedMs % 1000) ~/ 10).toString().padLeft(2, '0');
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if(widget.showTitle) const Text(
-          GeneratorTranslationConstants.sessionTime,
-          style: TextStyle(
-            color: Colors.white54,
-            fontSize: 10,
-            letterSpacing: 1.5,
+        if (showTitle)
+          Text(
+            GeneratorTranslationConstants.sessionTime.tr,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 10,
+              letterSpacing: 1.5,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
-        ),
         const SizedBox(height: 6),
         Container(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
@@ -67,13 +38,27 @@ class _SessionChamberTimeMeterState extends State<SessionChamberTimeMeter>
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.white10),
           ),
-          child: Text(
-            "$minutes:$seconds:$centiseconds",
-            style: const TextStyle(
-              fontFamily: 'Courier',
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          child: VisualAnimation(
+            respectReducedMotion: false,
+            frameInterval: const Duration(seconds: 1),
+            builder: (context, clock, child) => AnimatedBuilder(
+              animation: clock,
+              builder: (context, child) {
+                // The session clock is independent of visual refresh/lifecycle.
+                // It exposes seconds, so there are no synthetic centiseconds.
+                final elapsed = NeomStopwatch().elapsed(ref: referenceId);
+                final minutes = (elapsed ~/ 60).toString().padLeft(2, '0');
+                final seconds = (elapsed % 60).toString().padLeft(2, '0');
+                return Text(
+                  '$minutes:$seconds',
+                  style: const TextStyle(
+                    fontFamily: 'Courier',
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                );
+              },
             ),
           ),
         ),

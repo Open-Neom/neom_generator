@@ -3,12 +3,13 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../engine/neom_frequency_painter_engine.dart';
+import '../widgets/visual_animation.dart';
+import 'lissajous_painter.dart';
 
 /// 3D Lissajous figure with perspective projection.
 ///
-/// X = sin(phaseL) — left ear frequency
-/// Y = sin(phaseR) — right ear frequency
-/// Z = breath phase — breathing cycle (0.0–1.0 mapped to sin)
+/// X/Y trace the actual left/right oscillator frequency ratio and relative
+/// phase at a readable visual speed. Z is the actual breathing envelope.
 ///
 /// The figure auto-rotates slowly around the Y axis, creating a
 /// hypnotic 3D effect. Trail of previous points fades out.
@@ -16,6 +17,8 @@ class Lissajous3DPainter extends CustomPainter {
   final NeomFrequencyPainterEngine engine;
   final double rotationAngle;
   final Color baseColor;
+  final VisualAnimationClock? _clock;
+  final _LissajousVisualState? _visualState;
 
   /// Trail buffer — stores recent (x, y, z) points for fade effect.
   // ignore: library_private_types_in_public_api
@@ -29,10 +32,29 @@ class Lissajous3DPainter extends CustomPainter {
     required this.rotationAngle,
     required this.trail,
     this.baseColor = const Color(0xFF00BCD4),
-  });
+  }) : _clock = null,
+       _visualState = null;
+
+  Lissajous3DPainter._animated({
+    required this.engine,
+    required VisualAnimationClock clock,
+    required _LissajousVisualState visualState,
+    required this.baseColor,
+  }) : rotationAngle = 0,
+       trail = visualState.trail,
+       _clock = clock,
+       _visualState = visualState,
+       super(repaint: clock);
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Advance only visual state, once per clock notification. The engine/audio
+    // remains independent, and extra paints do not add duplicate trail points.
+    final clock = _clock;
+    final visualState = _visualState;
+    if (clock != null && visualState != null) {
+      visualState.advance(engine, clock.elapsed);
+    }
     if (trail.isEmpty) return;
 
     final cx = size.width / 2;
@@ -40,13 +62,17 @@ class Lissajous3DPainter extends CustomPainter {
     final scale = size.shortestSide * 0.35;
 
     // Auto-rotation around Y axis
-    final cosR = cos(rotationAngle);
-    final sinR = sin(rotationAngle);
+    final rotation = visualState?.rotation ?? rotationAngle;
+    final cosR = cos(rotation);
+    final sinR = sin(rotation);
 
     // Draw trail with fade
     for (int i = 1; i < trail.length; i++) {
       final p0 = trail[i - 1];
       final p1 = trail[i];
+      // An open sweep restarts at its beginning; connecting its endpoints
+      // would introduce a straight segment unrelated to either oscillator.
+      if (p1.breakBefore) continue;
 
       // Rotate around Y axis
       final rx0 = p0.x * cosR - p0.z * sinR;
@@ -112,8 +138,15 @@ class Lissajous3DPainter extends CustomPainter {
     _drawAxes(canvas, size, cx, cy, scale, cosR, sinR);
   }
 
-  void _drawAxes(Canvas canvas, Size size, double cx, double cy,
-      double scale, double cosR, double sinR) {
+  void _drawAxes(
+    Canvas canvas,
+    Size size,
+    double cx,
+    double cy,
+    double scale,
+    double cosR,
+    double sinR,
+  ) {
     final axisPaint = Paint()
       ..color = Colors.white10
       ..strokeWidth = 0.5
@@ -140,13 +173,115 @@ class Lissajous3DPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant Lissajous3DPainter old) => true;
+  bool shouldRepaint(covariant Lissajous3DPainter old) =>
+      _clock == null ||
+      old._clock != _clock ||
+      old.engine != engine ||
+      old.baseColor != baseColor ||
+      old._visualState != _visualState ||
+      old.rotationAngle != rotationAngle;
 }
 
 /// Simple 3D point.
 class _Point3D {
   final double x, y, z;
-  const _Point3D(this.x, this.y, this.z);
+  final Duration elapsed;
+  final bool breakBefore;
+
+  /// Position in the observation window, independent of its current Hz/phase.
+  /// Null denotes a legacy point supplied directly by an oscillator producer.
+  final double? sweepFraction;
+  const _Point3D(
+    this.x,
+    this.y,
+    this.z, [
+    this.elapsed = Duration.zero,
+    this.breakBefore = false,
+    this.sweepFraction,
+  ]);
+}
+
+/// Mutable drawing cache shared across painter replacements, never audio state.
+class _LissajousVisualState {
+  final List<_Point3D> trail = [];
+  Duration? _lastElapsed;
+  double _traceSeconds = 0;
+  double? _lastSweepFraction;
+  double rotation = 0;
+
+  void advance(NeomFrequencyPainterEngine engine, Duration elapsed) {
+    if (_lastElapsed == elapsed) return;
+    final previous = _lastElapsed ?? elapsed;
+    final dt = max(0.0, (elapsed - previous).inMicroseconds / 1000000.0);
+    _lastElapsed = elapsed;
+
+    final session = engine.audioSession;
+    final geometry = LissajousGeometry.fromFrequencies(
+      leftHz: session.leftHz,
+      rightHz: session.rightHz,
+      phaseDifference: session.beatPhase,
+    );
+
+    double x, y, z;
+    var breakBefore = false;
+    double? sweepFraction;
+    if (geometry != null) {
+      if (!session.isPlaying && trail.isNotEmpty) return;
+      if (session.isPlaying) {
+        _traceSeconds += dt;
+        // Camera rotation is visual presentation, never audio/EEG telemetry.
+        rotation = (rotation + 0.48 * dt) % (2 * pi);
+      }
+      final parameter = geometry.traceParameter(_traceSeconds);
+      sweepFraction = parameter / geometry.sweepRadians;
+      breakBefore =
+          _lastSweepFraction != null && sweepFraction < _lastSweepFraction!;
+      _lastSweepFraction = sweepFraction;
+      // Legacy oscillator points do not identify a location on this curve.
+      trail.removeWhere((point) => point.sweepFraction == null);
+      final point = geometry.pointAt(parameter);
+      x = point.dx;
+      y = point.dy;
+      z = session.breathingEnabled && session.breathValue.isFinite
+          ? session.breathValue.clamp(0.0, 1.0) * 2 - 1
+          : 0;
+    } else {
+      // Legacy producers can supply phases without session telemetry. Repeated
+      // samples stay repeated: silence or equal phases never create fake beats.
+      x = engine.lissajousX;
+      y = engine.lissajousY;
+      z = 0;
+      if (!x.isFinite || !y.isFinite) return;
+    }
+
+    trail.add(_Point3D(x, y, z, elapsed, breakBefore, sweepFraction));
+    // 300 points at the old nominal 60 Hz were about five seconds. Keep the
+    // same duration when the visual scheduler uses a lower frame rate.
+    final cutoff = elapsed - const Duration(seconds: 5);
+    trail.removeWhere((point) => point.elapsed < cutoff);
+    if (trail.length > Lissajous3DPainter.maxTrail) {
+      trail.removeRange(0, trail.length - Lissajous3DPainter.maxTrail);
+    }
+    if (geometry != null) {
+      // All points belong to ONE instantaneous L/R geometry. Retaining each
+      // point's old beat phase connects different curves into vertical bars.
+      // Reproject the stored sweep positions, retaining real breath history,
+      // timestamps and sweep breaks. This also handles changing frequency sets.
+      final sweep = geometry.sweepRadians;
+      for (var i = 0; i < trail.length; i++) {
+        final previousPoint = trail[i];
+        final point = geometry.pointAt(previousPoint.sweepFraction! * sweep);
+        trail[i] = _Point3D(
+          point.dx,
+          point.dy,
+          previousPoint.z,
+          previousPoint.elapsed,
+          previousPoint.breakBefore,
+          previousPoint.sweepFraction,
+        );
+      }
+    }
+  }
 }
 
 /// Widget that wraps the 3D Lissajous painter with animation.
@@ -154,98 +289,36 @@ class Lissajous3DWidget extends StatefulWidget {
   final NeomFrequencyPainterEngine engine;
   final Color? baseColor;
 
-  const Lissajous3DWidget({
-    super.key,
-    required this.engine,
-    this.baseColor,
-  });
+  const Lissajous3DWidget({super.key, required this.engine, this.baseColor});
 
   @override
   State<Lissajous3DWidget> createState() => _Lissajous3DWidgetState();
 }
 
-class _Lissajous3DWidgetState extends State<Lissajous3DWidget>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _anim;
-  final List<_Point3D> _trail = [];
-  double _rotation = 0.0;
+class _Lissajous3DWidgetState extends State<Lissajous3DWidget> {
+  _LissajousVisualState _visualState = _LissajousVisualState();
 
   @override
-  void initState() {
-    super.initState();
-    _anim = AnimationController(
-      vsync: this,
-      duration: const Duration(hours: 1),
-    )..repeat();
-    _anim.addListener(_tick);
-  }
-
-  double _idlePhaseL = 0.0;
-  double _idlePhaseR = 0.0;
-
-  void _tick() {
-    double x, y, z;
-
-    // Check if engine has active audio (phases changing)
-    final engineX = widget.engine.lissajousX;
-    final engineY = widget.engine.lissajousY;
-    final isIdle = (engineX == 0.0 && engineY == 0.0) ||
-        (_trail.length > 5 &&
-            _trail.last.x == engineX &&
-            _trail.last.y == engineY);
-
-    if (isIdle) {
-      // Generate preview animation when engine is not playing
-      // Uses the engine's current frequency/beat settings for the shape
-      // Use binaural beat ratio for the idle animation shape
-      // binauralPhase changes over time even when idle if tickBinaural was called
-      final beatPhase = widget.engine.binauralPhase;
-      final freqRatio = 1.0 + (beatPhase > 0 ? 0.02 : 0.015);
-
-      _idlePhaseL += 0.03;
-      _idlePhaseR += 0.03 * freqRatio;
-      if (_idlePhaseL > 2 * pi) _idlePhaseL -= 2 * pi;
-      if (_idlePhaseR > 2 * pi) _idlePhaseR -= 2 * pi;
-
-      x = sin(_idlePhaseL);
-      y = sin(_idlePhaseR);
-      z = sin(_rotation * 0.5) * 0.3; // gentle Z oscillation
-    } else {
-      x = engineX;
-      y = engineY;
-      final breath = widget.engine.breathPulse;
-      z = sin(breath * 2 * pi);
+  void didUpdateWidget(covariant Lissajous3DWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.engine != widget.engine) {
+      _visualState = _LissajousVisualState();
     }
-
-    _trail.add(_Point3D(x, y, z));
-    if (_trail.length > Lissajous3DPainter.maxTrail) {
-      _trail.removeAt(0);
-    }
-
-    // Slow auto-rotation: ~6 seconds per full rotation
-    _rotation += 0.008;
-    if (_rotation > 2 * pi) _rotation -= 2 * pi;
-  }
-
-  @override
-  void dispose() {
-    _anim.removeListener(_tick);
-    _anim.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, _) => CustomPaint(
-        painter: Lissajous3DPainter(
-          engine: widget.engine,
-          rotationAngle: _rotation,
-          trail: _trail,
-          baseColor: widget.baseColor ?? const Color(0xFF00BCD4),
+    return VisualAnimation(
+      builder: (context, clock, child) => RepaintBoundary(
+        child: CustomPaint(
+          painter: Lissajous3DPainter._animated(
+            engine: widget.engine,
+            clock: clock,
+            visualState: _visualState,
+            baseColor: widget.baseColor ?? const Color(0xFF00BCD4),
+          ),
+          size: Size.infinite,
         ),
-        size: Size.infinite,
       ),
     );
   }

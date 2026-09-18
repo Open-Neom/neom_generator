@@ -15,6 +15,7 @@ import 'package:neom_core/app_properties.dart';
 import 'package:neom_core/data/firestore/profile_firestore.dart';
 import 'package:neom_core/data/implementations/neom_stopwatch.dart';
 import 'package:neom_core/domain/model/app_profile.dart';
+import 'package:neom_core/domain/model/incienso_practice_draft.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
 import 'package:neom_core/domain/model/neom/neom_frequency.dart';
@@ -22,6 +23,7 @@ import 'package:neom_core/domain/model/neom/neom_neuro_state.dart';
 import 'package:neom_core/domain/model/neom/neom_parameter.dart';
 import 'package:neom_core/domain/repository/chamber_repository.dart';
 import 'package:neom_core/domain/use_cases/frequency_service.dart';
+import 'package:neom_core/domain/use_cases/neom_audio_visual_signal.dart';
 import 'package:neom_core/domain/use_cases/user_service.dart';
 import 'package:neom_core/utils/constants/app_route_constants.dart';
 import 'package:neom_core/utils/enums/app_item_state.dart';
@@ -34,17 +36,26 @@ import 'package:sint/sint.dart';
 
 import '../data/firestore/chamber_firestore.dart';
 import '../data/firestore/incienso_firestore.dart';
+import '../data/implementations/chamber_practice_store.dart';
+import '../data/implementations/incienso_draft_store.dart';
+import '../data/implementations/incienso_playback.dart';
+import '../data/implementations/incienso_portable_file.dart';
 import '../data/implementations/incienso_recorder.dart';
 import '../data/implementations/incienso_tracker.dart';
+import '../data/incienso_catalog.dart';
 import '../domain/models/incienso.dart';
+import '../domain/models/incienso_audio_state.dart';
+import '../domain/models/incienso_review.dart';
 import '../domain/models/incienso_session.dart';
 import '../domain/use_cases/neom_generator_service.dart';
+import '../engine/audio/neom_voice_capture.dart';
+import '../engine/audio/neom_voice_pitch_measurement.dart' show decodeMonoPcm16;
+import '../engine/incienso_synthesis_state.dart';
 import '../engine/neom_breath_engine.dart';
 import '../engine/neom_frequency_painter_engine.dart';
 import '../engine/neom_modulator_engine.dart';
 import '../engine/neom_sine_engine.dart';
-import '../engine/web_audio_context_stub.dart'
-    if (dart.library.js_interop) '../engine/web_audio_context_impl.dart';
+import '../engine/visual_frame_timing.dart';
 import '../utils/constants/generator_translation_constants.dart';
 import '../utils/constants/neom_generator_constants.dart';
 import '../utils/enums/neom_frequency_target.dart';
@@ -52,34 +63,88 @@ import '../utils/enums/neom_numeric_target.dart';
 import '../utils/enums/neom_spatial_mode.dart';
 import '../utils/enums/neom_visual_mode.dart';
 import 'widgets/incienso_review_modal.dart';
-import '../../domain/models/incienso_review.dart';
 
-class NeomGeneratorController extends SintController implements NeomGeneratorService {
+class _PracticeLibrary {
+  final List<String> favorites = [];
+  final List<String> recent = [];
+  final Map<String, Incienso> sessions = {};
+
+  _PracticeLibrary();
+
+  factory _PracticeLibrary.fromJson(Map<String, dynamic> value) {
+    final library = _PracticeLibrary();
+    library.favorites.addAll(
+      (value['favorites'] as List? ?? []).whereType<String>().take(50),
+    );
+    library.recent.addAll(
+      (value['recent'] as List? ?? []).whereType<String>().take(20),
+    );
+    for (final raw in (value['sessions'] as List? ?? []).take(70)) {
+      try {
+        final session = Incienso.fromJson(
+          Map<String, dynamic>.from(raw as Map),
+        );
+        library.sessions[session.id] = session;
+      } catch (_) {
+        /* One stale cache entry must not hide all shortcuts. */
+      }
+    }
+    return library;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'favorites': List<String>.of(favorites),
+    'recent': List<String>.of(recent),
+    'sessions': sessions.values.map((s) => s.toJson()).toList(),
+  };
+}
+
+class NeomGeneratorController extends SintController
+    with WidgetsBindingObserver
+    implements NeomGeneratorService {
+  NeomGeneratorController({
+    NeomSineEngine? sineEngine,
+    ChamberRepository? chamberRepository,
+    InciensoFirestore? inciensoFirestore,
+    InciensoDraftStore? draftStore,
+    InciensoRecorder? inciensoRecorder,
+    NeomVoiceCapture? voiceCapture,
+    ChamberPracticeStore? practiceStore,
+    InciensoPortableFile? portableFile,
+    NeomSineEngine? channelCheckEngine,
+  }) : _sineEngine = sineEngine ?? NeomSineEngine(),
+       chamberRepository = chamberRepository ?? ChamberFirestore(),
+       _inciensoFirestore = inciensoFirestore ?? InciensoFirestore(),
+       _draftStore = draftStore ?? InciensoDraftStore(),
+       inciensoRecorder = inciensoRecorder ?? InciensoRecorder(),
+       _voiceCapture = voiceCapture ?? createNeomVoiceCapture(),
+       _practiceStore = practiceStore ?? ChamberPracticeStore(),
+       _portableFile = portableFile ?? InciensoPortableFile(),
+       _channelCheckEngine = channelCheckEngine,
+       _usesVoiceAdapter = kIsWeb || voiceCapture != null;
 
   UserService? userServiceImpl;
   FrequencyService? frequencyServiceImpl;
-  final ChamberRepository chamberRepository = ChamberFirestore();
+  final ChamberRepository chamberRepository;
 
-  final NeomSineEngine _sineEngine = NeomSineEngine();
+  final NeomSineEngine _sineEngine;
   final NeomFrequencyPainterEngine painterEngine = NeomFrequencyPainterEngine();
 
   final RxBool isIsochronicEnabled = false.obs;
-  final RxDouble isochronicFreq = 4.0.obs;   // Hz
+  final RxDouble isochronicFreq = 4.0.obs; // Hz
   final RxDouble isochronicDuty = 0.5.obs;
 
   final RxBool isModulationEnabled = false.obs;
 
-  final Rx<NeomModulationType> modulationType =
-      NeomModulationType.none.obs;
+  final Rx<NeomModulationType> modulationType = NeomModulationType.none.obs;
 
-  final RxDouble modulationFreq = 0.5.obs;  // Hz
+  final RxDouble modulationFreq = 0.5.obs; // Hz
   final RxDouble modulationDepth = 0.3.obs;
-
 
   // // Constante de calibración (Hz base de la onda senoidal en SoLoud)
   // static const double kBaseSoLoudFreq = 440.00;
 
-// --- VARIABLES REACTIVAS DE ESTADO ---  final RxDouble currentFreq = 432.0.obs;
+  // --- VARIABLES REACTIVAS DE ESTADO ---  final RxDouble currentFreq = 432.0.obs;
   final RxDouble currentFreq = NeomGeneratorConstants.defaultFrequency.obs;
   final RxDouble currentVol = 0.5.obs;
   final RxDouble currentBeat = 0.0.obs; // La diferencia para el binaural
@@ -96,12 +161,28 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
   // Animación del Visualizador
   Ticker? _waveTicker;
+  final VisualFrameTiming _visualFrameTiming = VisualFrameTiming();
+  bool _visualsResumed = false;
   final RxDouble wavePhase = 0.0.obs; // Controla el movimiento de la onda
 
   AppProfile? profile;
   NeomChamberPreset chamberPreset = NeomChamberPreset();
 
   RxBool isPlaying = false.obs;
+  final RxBool playbackRequested = false.obs;
+  final RxBool isPlaybackTransitioning = false.obs;
+  final RxString playbackError = ''.obs;
+  final RxString recordingSaveError = ''.obs;
+  int _playbackRequest = 0;
+  int _loadRequest = 0;
+  bool _sessionPrepared = false;
+  int _lastTrackedFrame = 0;
+  int _lastBreathCycles = 0;
+  InciensoPlayback? _playback;
+  InciensoAudioState? _loadedInitialState;
+  final List<Incienso> _pendingRecordings = [];
+  final InciensoDraftStore _draftStore;
+  bool _savingRecordings = false;
   RxBool isLoading = true.obs;
 
   /// Oscilloscope time scale (1.0 = full buffer, 0.15 = zoomed in).
@@ -122,6 +203,15 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
   // Grabadora
   final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
+  final NeomVoiceCapture _voiceCapture;
+  final bool _usesVoiceAdapter;
+  Timer? _voiceTimer;
+  int _voiceRequest = 0;
+  bool _recorderOpened = false;
+  bool _voiceStarting = false;
+  bool _voiceStopping = false;
+  bool _voicePlaybackReady = false;
+  int _voicePlaybackRequest = 0;
   RxBool isRecording = false.obs;
   RxDouble detectedFrequency = 0.0.obs;
   StreamController<Uint8List>? _audioStreamController;
@@ -131,69 +221,414 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   bool _isDisposed = false;
   bool isAdmin = false;
 
-  // ── Web sample rate (from AudioContext — exact) ──
-  bool _webSampleRateDetected = false;
-  double _webSampleRate = 48000.0;
-  bool _webIsStereoDetermined = false;
-  bool _webIsStereo = false;
-  int _webByteAccum = 0;
-  DateTime? _webByteStart;
+  // Both capture paths deliver mono PCM16; web reports its actual context rate.
+  double _captureSampleRate = NeomGeneratorConstants.sampleRate.toDouble();
 
   // ── Incienso tracking & recording ──
   final InciensoTracker inciensoTracker = InciensoTracker();
-  final InciensoRecorder inciensoRecorder = InciensoRecorder();
-  final InciensoFirestore _inciensoFirestore = InciensoFirestore();
+  final InciensoRecorder inciensoRecorder;
+  final InciensoFirestore _inciensoFirestore;
   DateTime? _sessionStartedAt;
+  String? _sessionCreatorId;
   DateTime? get sessionStartedAt => _sessionStartedAt;
-  double _prevBreathPhase = 0.0;
+  Duration get sessionElapsed => Duration(
+    microseconds:
+        ((_hasSessionClock ? _sineEngine.playedFrames : 0) *
+                1000000 /
+                NeomGeneratorConstants.sampleRate)
+            .round(),
+  );
 
   /// The actively loaded incienso preset (null if free exploration).
   Incienso? _activeIncienso;
   Incienso? get activeIncienso => _activeIncienso;
 
-  /// Phase runner timer for multi-phase inciensos.
-  Timer? _phaseTimer;
-  int _currentPhaseIndex = 0;
+  final RxInt freeSessionMinutes = 0.obs;
+  final RxBool focusMode = false.obs;
+  final RxBool softTransitions = true.obs;
+  final RxList<String> favoriteSessionIds = <String>[].obs;
+  final RxBool channelCheckRunning = false.obs;
+  final RxBool canReflectSession = false.obs;
+  final RxString reflectionBeforeFeeling = ''.obs;
+  final ChamberPracticeStore _practiceStore;
+  final InciensoPortableFile _portableFile;
+  final Map<String, Future<_PracticeLibrary>> _practiceLibraries = {};
+  Future<void> _practiceSaveTail = Future<void>.value();
+  NeomSineEngine? _channelCheckEngine;
+  int _channelCheckRequest = 0;
+  InciensoAudioState? _sessionInitialState;
+  InciensoPracticeDraft? _completedPractice;
+  String? _reflectionOwner;
+  String _sessionBeforeFeeling = '';
+  bool _hasSessionClock = false;
 
-  /// Timeline playback timer for recorded inciensos.
-  Timer? _timelineTimer;
-  DateTime? _timelineStart;
+  String get _practiceScope =>
+      '${AppProperties.getAppName()}:${userServiceImpl?.profile.id ?? ''}';
+
+  Duration? get sessionRemaining {
+    final total = _hasSessionClock
+        ? _sineEngine.frameLimit
+        : (_activeIncienso != null
+              ? (_activeIncienso!.effectiveDuration.inMicroseconds *
+                        44100 /
+                        1000000)
+                    .round()
+              : (freeSessionMinutes.value > 0
+                    ? freeSessionMinutes.value * 60 * 44100
+                    : null));
+    if (total == null) return null;
+    final frames = max(
+      0,
+      total - (_hasSessionClock ? _sineEngine.playedFrames : 0),
+    );
+    return Duration(microseconds: (frames * 1000000 / 44100).round());
+  }
+
+  void setFreeSessionMinutes(int minutes) {
+    if (playbackRequested.value || channelCheckRunning.value) return;
+    if ([0, 5, 10, 20, 30, 60].contains(minutes)) {
+      freeSessionMinutes.value = minutes;
+      _hasSessionClock = false;
+    }
+  }
+
+  void setFocusMode(bool enabled) => focusMode.value = enabled;
+  void setSoftTransitions(bool enabled) {
+    if (!playbackRequested.value) softTransitions.value = enabled;
+  }
+
+  Future<void> startFreeSession() async {
+    final request = ++_loadRequest;
+    await _playStopPreview(stop: true);
+    if (_isDisposed || request != _loadRequest) return;
+    _activeIncienso = null;
+    _playback = null;
+    _loadedInitialState = null;
+    _hasSessionClock = false;
+    _sessionInitialState = _captureAudioState();
+    update([AppPageIdConstants.generator]);
+  }
+
+  Future<void> resetSessionSettings() async {
+    final request = ++_loadRequest;
+    await _playStopPreview(stop: true);
+    if (_isDisposed || request != _loadRequest) return;
+    final baseline = _loadedInitialState ?? _sessionInitialState;
+    _applyRecordedState(
+      baseline ??
+          InciensoAudioState(
+            parameters: const {'carrierHz': 432, 'volume': .5},
+          ),
+    );
+    _hasSessionClock = false;
+    update([AppPageIdConstants.generator]);
+  }
+
+  Future<_PracticeLibrary> _practiceLibrary(
+    String scope,
+  ) => _practiceLibraries.putIfAbsent(scope, () async {
+    try {
+      final library = _PracticeLibrary.fromJson(
+        await _practiceStore.load(scope),
+      );
+      if (!_isDisposed && scope == _practiceScope) {
+        favoriteSessionIds.assignAll(library.favorites);
+      }
+      return library;
+    } catch (e, st) {
+      _practiceStorageError(e, st);
+      return _PracticeLibrary(); // Memory still works if device storage fails.
+    }
+  });
+
+  void _practiceStorageError(Object error, StackTrace stack) {
+    if (!_isDisposed) {
+      recordingSaveError.value =
+          GeneratorTranslationConstants.recordingSaveFailed.tr;
+    }
+    NeomErrorLogger.recordError(
+      error,
+      stack,
+      module: 'neom_generator',
+      operation: 'practiceLibrary',
+    );
+  }
+
+  Future<void> _savePracticeLibrary(String scope, _PracticeLibrary library) {
+    final snapshot = library.toJson();
+    final save = _practiceSaveTail.then(
+      (_) => _practiceStore.save(scope, snapshot),
+    );
+    _practiceSaveTail = save.catchError(
+      (Object e, StackTrace st) => _practiceStorageError(e, st),
+    );
+    return _practiceSaveTail;
+  }
+
+  Future<void> _rememberIncienso(Incienso session, String scope) async {
+    final library = await _practiceLibrary(scope);
+    library.sessions[session.id] = session;
+    library.recent.remove(session.id);
+    library.recent.insert(0, session.id);
+    if (library.recent.length > 20) {
+      library.recent.removeRange(20, library.recent.length);
+    }
+    library.sessions.removeWhere(
+      (id, _) =>
+          !library.recent.contains(id) && !library.favorites.contains(id),
+    );
+    await _savePracticeLibrary(scope, library);
+  }
+
+  bool isFavorite(String id) => favoriteSessionIds.contains(id);
+
+  Future<void> toggleFavorite(String id) async {
+    final scope = _practiceScope;
+    final library = await _practiceLibrary(scope);
+    if (library.favorites.contains(id)) {
+      library.favorites.remove(id);
+    } else {
+      Incienso? session = library.sessions[id];
+      if (_activeIncienso?.id == id) session = _activeIncienso;
+      session ??= (await recordedSessions())
+          .where((s) => s.id == id)
+          .firstOrNull;
+      if (session == null || scope != _practiceScope) return;
+      library.sessions[id] = session;
+      if (library.favorites.length >= 50) library.favorites.removeAt(0);
+      library.favorites.add(id);
+    }
+    if (!_isDisposed && scope == _practiceScope) {
+      favoriteSessionIds.assignAll(library.favorites);
+    }
+    await _savePracticeLibrary(scope, library);
+  }
+
+  Future<List<Incienso>> quickSessions() async {
+    final scope = _practiceScope;
+    final library = await _practiceLibrary(scope);
+    if (scope != _practiceScope || _isDisposed) return [];
+    favoriteSessionIds.assignAll(library.favorites);
+    return [
+      for (final id in {...library.favorites.reversed, ...library.recent})
+        if (library.sessions[id] != null) library.sessions[id]!,
+    ];
+  }
+
+  Future<void> stopChannelCheck() async {
+    ++_channelCheckRequest;
+    channelCheckRunning.value = false;
+    try {
+      await _channelCheckEngine?.stop();
+    } catch (e, st) {
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'stopChannelCheck',
+      );
+    }
+  }
+
+  Future<void> playChannelCheck(bool left) async {
+    if (_isDisposed ||
+        isRecording.value ||
+        playbackRequested.value ||
+        isPlaybackTransitioning.value) {
+      return;
+    }
+    final request = ++_channelCheckRequest;
+    playbackError.value = '';
+    final engine = _channelCheckEngine ??= NeomSineEngine.isolated();
+    // Interrupt the previous channel before resetting it; a rapid L/R click
+    // must start a fresh one-second check, not reuse the previous clock.
+    final stopped = engine.stop().catchError((Object e, StackTrace st) {
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'restartChannelCheck',
+      );
+    });
+    channelCheckRunning.value = true;
+    engine.onPlaybackComplete = () {
+      if (!_isDisposed && request == _channelCheckRequest) {
+        channelCheckRunning.value = false;
+      }
+    };
+    engine.onError = (e, st) {
+      if (!_isDisposed && request == _channelCheckRequest) {
+        channelCheckRunning.value = false;
+        playbackError.value =
+            GeneratorTranslationConstants.practiceChannelCheckFailed.tr;
+      }
+    };
+    engine.applyAudioState(InciensoAudioState(parameters: const {}));
+    engine.multiFrequencyMode = true;
+    engine.frequencyL = left ? 440 : 0;
+    engine.frequencyR = left ? 0 : 440;
+    engine.frequencySub = 0;
+    engine.subMixLevel = 0;
+    engine.volume = .08;
+    engine.fadeInSeconds = .08;
+    engine.fadeOutSeconds = .12;
+    engine.frameLimit = 44100;
+    engine.fadeOutEndFrame = 44100;
+    try {
+      await engine.start(); // Preserve the web audio gesture, no earlier await.
+      await stopped;
+    } catch (e, st) {
+      if (request == _channelCheckRequest && !_isDisposed) {
+        channelCheckRunning.value = false;
+        playbackError.value =
+            GeneratorTranslationConstants.practiceChannelCheckFailed.tr;
+      }
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'channelCheck',
+      );
+    }
+  }
+
+  Future<void> importSession() async {
+    final request = ++_loadRequest;
+    playbackError.value = '';
+    try {
+      final bytes = await _portableFile.pick();
+      if (bytes == null || _isDisposed || request != _loadRequest) return;
+      final id = InciensoPortableFile.decode(bytes);
+      await _openPublicIncienso(id, request: request);
+    } catch (e, st) {
+      if (!_isDisposed && request == _loadRequest) {
+        playbackError.value =
+            GeneratorTranslationConstants.practiceImportInvalid.tr;
+      }
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'importInciensoReference',
+      );
+    }
+  }
+
+  Future<void> _openPublicIncienso(String id, {int? request}) async {
+    final load = request ?? ++_loadRequest;
+    // Reuse strict ID validation; a file or blog post cannot inject a path.
+    InciensoPortableFile.encode(id);
+    final builtin = InciensoCatalog.free.where((s) => s.id == id).firstOrNull;
+    final session = builtin ?? await _inciensoFirestore.retrieve(id);
+    if (_isDisposed || load != _loadRequest) return;
+    if (session == null || (builtin == null && !session.isPublic)) {
+      playbackError.value =
+          GeneratorTranslationConstants.practiceSharePublicOnly.tr;
+      return;
+    }
+    if (!_isDisposed) await loadIncienso(session);
+  }
+
+  bool canShareIncienso(Incienso session) =>
+      session.isPublic || InciensoCatalog.free.any((s) => s.id == session.id);
+
+  Future<void> exportSession(Incienso session) async {
+    playbackError.value = '';
+    try {
+      final builtin = InciensoCatalog.free
+          .where((s) => s.id == session.id)
+          .firstOrNull;
+      final current =
+          builtin ??
+          (session.isPublic
+              ? await _inciensoFirestore.retrieve(session.id)
+              : null);
+      if (_isDisposed) return;
+      if (current == null || (builtin == null && !current.isPublic)) {
+        playbackError.value =
+            GeneratorTranslationConstants.practiceSharePublicOnly.tr;
+        return;
+      }
+      await _portableFile.export(current.id);
+    } catch (e, st) {
+      if (!_isDisposed) {
+        playbackError.value =
+            GeneratorTranslationConstants.practiceExportFailed.tr;
+      }
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'exportInciensoReference',
+      );
+    }
+  }
+
+  Future<void> openSessionReflection() async {
+    final draft = _completedPractice;
+    if (draft == null || _reflectionOwner != _practiceScope) {
+      canReflectSession.value = false;
+      return;
+    }
+    await Sint.toNamed(AppRouteConstants.blogEditor, arguments: [draft]);
+  }
 
   @override
   void onInit() async {
     super.onInit();
+    WidgetsBinding.instance.addObserver(this);
+    _visualsResumed =
+        WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    painterEngine.frameDrivenVisuals = true;
+    painterEngine.visualUpdatesEnabled = _visualsResumed;
+    if (!Sint.isRegistered<NeomAudioVisualSignal>()) {
+      Sint.put<NeomAudioVisualSignal>(painterEngine, permanent: true);
+    }
     _sineEngine.painterEngine = painterEngine;
+    _sineEngine.beforeBuffer = _beforeAudioBuffer;
+    _sineEngine.afterBuffer = _afterAudioBuffer;
+    _sineEngine.onPlayingChanged = (playing) {
+      if (!_isDisposed) isPlaying.value = playing;
+    };
+    _sineEngine.onPlaybackComplete = () {
+      _finishAudioSession(endFrame: _sineEngine.generatedFrames);
+      playbackRequested.value = false;
+      isPlaying.value = false;
+      isPlaybackTransitioning.value = false;
+    };
+    _sineEngine.onError = (error, stack) {
+      _finishAudioSession(endFrame: _sineEngine.playedFrames);
+      playbackRequested.value = false;
+      isPlaying.value = false;
+      playbackError.value = GeneratorTranslationConstants.playbackFailed.tr;
+      NeomErrorLogger.recordError(
+        error,
+        stack,
+        module: 'neom_generator',
+        operation: 'audioOutput',
+      );
+    };
     try {
-      final rawArgs = Sint.arguments;
-
-      // Support Map arguments from levitation module
-      if (rawArgs is Map<String, dynamic>) {
-        _loadFromMapArguments(rawArgs);
-      } else {
-        final arguments = (rawArgs as List<dynamic>?) ?? [];
-        if(arguments.isNotEmpty) {
-          if(arguments.elementAt(0) is Incienso) {
-            // Incienso preset from experiences page — defer loading until after init
-            _activeIncienso = arguments.elementAt(0) as Incienso;
-          } else if(arguments.elementAt(0) is NeomChamberPreset) {
-            chamberPreset =  arguments.elementAt(0);
-          } else if(arguments.elementAt(0) is NeomFrequency) {
-            chamberPreset.mainFrequency = arguments.elementAt(0);
-          }
-        }
+      if (Sint.isRegistered<UserService>()) {
+        userServiceImpl = Sint.find<UserService>();
+      }
+      if (Sint.isRegistered<FrequencyService>()) {
+        frequencyServiceImpl = Sint.find<FrequencyService>();
       }
 
-      if(Sint.isRegistered<UserService>()) userServiceImpl = Sint.find<UserService>();
-      if(Sint.isRegistered<FrequencyService>()) frequencyServiceImpl = Sint.find<FrequencyService>();
-
       profile = userServiceImpl?.profile;
-      isAdmin = (userServiceImpl?.user.userRole.value ?? UserRole.subscriber.value) <= UserRole.admin.value;
+      isAdmin =
+          (userServiceImpl?.user.userRole.value ?? UserRole.subscriber.value) <=
+          UserRole.admin.value;
       chambers.value = profile?.chambers ?? {};
 
       chamberPreset.mainFrequency ??= NeomFrequency();
       chamberPreset.neomParameter ??= NeomParameter();
       // Inicializar valores locales desde el preset
-      currentFreq.value = chamberPreset.mainFrequency?.frequency ?? NeomGeneratorConstants.defaultFrequency;
+      currentFreq.value =
+          chamberPreset.mainFrequency?.frequency ??
+          NeomGeneratorConstants.defaultFrequency;
       currentVol.value = chamberPreset.neomParameter?.volume ?? 0.5;
 
       // Ahora verificamos directamente la propiedad binauralFrequency
@@ -204,110 +639,140 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
         currentBeat.value = 0;
       }
 
-      // Inicializar Player y Recorder
-      await _sineEngine.init();
-      await initializeRecorder();
+      // Audio is activated by a gesture; microphone permission is requested
+      // only when voice detection is explicitly selected.
 
       // Inicializar Ticker para animación
       _waveTicker = Ticker((elapsed) {
         if (!isPlaying.value) return;
 
-        final dt = elapsed.inMilliseconds / 1000.0;
-
-        wavePhase.value += dt * currentFreq.value * 0.02;
-        wavePhase.value %= (2 * pi);
-
-        painterEngine.updateFromAudio(
-          phase: wavePhase.value,
-          amplitude: currentVol.value,
-          pan: posX.value,
-          breath: breathDepth.value,
-          modulation: modulationDepth.value,
-          neuro: neuroState.value.index / NeomNeuroState.values.length,
-          frequency: currentFreq.value,
+        final frame = _visualFrameTiming.advance(
+          elapsed,
+          visualEnabled: _visualsResumed,
         );
+        final visualDt = frame.visualDeltaSeconds;
+        if (visualDt != null) {
+          wavePhase.value =
+              (wavePhase.value + visualDt * currentFreq.value * 0.02) %
+              (2 * pi);
 
-        painterEngine.tickBinaural(currentBeat.value.abs(), dt);
-
-        // ── Incienso hooks ──
-        final coherence = painterEngine.hemisphericCoherence;
-
-        // Detect breath cycle completion (phase wrap)
-        final breathPhase = _sineEngine.breathEngine.currentValue;
-        if (_prevBreathPhase > 0.8 && breathPhase < 0.2
-            && _sineEngine.breathEngine.mode != NeomBreathMode.off) {
-          inciensoTracker.onBreathCycle(coherence: coherence);
-        }
-        _prevBreathPhase = breathPhase;
-
-        // Continuous coherence reading (~every frame)
-        inciensoTracker.onCoherenceReading(coherence);
-
-        // Feed recorder with current values
-        if (inciensoRecorder.isRecording) {
-          inciensoRecorder.updateValues(
-            leftHz: currentFreq.value,
-            rightHz: currentFreq.value + currentBeat.value,
-            coherence: coherence,
-            volume: currentVol.value,
-            neuroState: neuroState.value,
-            breathPhase: breathPhase,
+          painterEngine.updateFromAudio(
+            phase: wavePhase.value,
+            amplitude: currentVol.value,
+            pan: posX.value,
+            breath: breathDepth.value,
+            modulation: modulationDepth.value,
+            neuro: neuroState.value.index / NeomNeuroState.values.length,
+            frequency: currentFreq.value,
+            isVisualFrame: true,
           );
         }
 
+        // Session capture and replay are driven by audio buffers, never UI.
       });
-
-    } catch(e, st) {
-      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'onInit');
+    } catch (e, st) {
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'onInit',
+      );
     }
-
   }
 
   @override
   void onReady() async {
     super.onReady();
     try {
-      if(chambers.isEmpty) {
+      if (chambers.isEmpty) {
         noChambers = true;
       } else {
         existsInChamber.value = frequencyAlreadyInItemlist();
-        if(chamber.value.id.isEmpty) {
+        if (chamber.value.id.isEmpty) {
           chamber.value = chambers.values.first;
         }
       }
 
       frequencyDescription.value = chamberPreset.description.isNotEmpty
-          ? chamberPreset.description : chamberPreset.mainFrequency?.description ?? '';
-
+          ? chamberPreset.description
+          : chamberPreset.mainFrequency?.description ?? '';
     } catch (e, st) {
-      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'onReady');
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'onReady',
+      );
     }
 
     isLoading.value = false;
     update([AppPageIdConstants.generator]);
+    unawaited(_restoreRecordedDrafts());
+    unawaited(_practiceLibrary(_practiceScope));
+  }
 
-    // Deferred incienso loading — after engine is fully initialized
-    if (_activeIncienso != null) {
-      loadIncienso(_activeIncienso!);
-    }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _visualsResumed = state == AppLifecycleState.resumed;
+    painterEngine.visualUpdatesEnabled = _visualsResumed;
+    _visualFrameTiming.resetVisual();
+    // Audio clock is independent; visual suspension cannot alter recordings.
   }
 
   @override
   void onClose() {
+    ++_playbackRequest;
+    ++_loadRequest;
+    final stopping = _sineEngine.stop();
+    _finishAudioSession(endFrame: _sineEngine.playedFrames);
+    unawaited(
+      stopping.catchError((Object e, StackTrace st) {
+        NeomErrorLogger.recordError(
+          e,
+          st,
+          module: 'neom_generator',
+          operation: 'closeChamber',
+        );
+      }),
+    );
     _isDisposed = true;
-    if(_waveTicker?.isActive ?? false) _waveTicker?.stop();
+    ++_channelCheckRequest;
+    unawaited(
+      _channelCheckEngine?.dispose().catchError((Object e, StackTrace st) {
+        NeomErrorLogger.recordError(
+          e,
+          st,
+          module: 'neom_generator',
+          operation: 'disposeChannelCheck',
+        );
+      }),
+    );
+    _voiceRequest++;
+    _voiceTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    painterEngine.visualUpdatesEnabled = false;
+    if (Sint.isRegistered<NeomAudioVisualSignal>() &&
+        identical(Sint.find<NeomAudioVisualSignal>(), painterEngine)) {
+      Sint.delete<NeomAudioVisualSignal>(force: true);
+    }
+    if (_waveTicker?.isActive ?? false) _waveTicker?.stop();
     _waveTicker?.dispose();
 
-    _recorder.closeRecorder();
-    // Don't dispose the sine engine — it's a singleton shared across
-    // onboarding, mini player, and Cámara Neom. Audio persists after
-    // navigating away from the generator page.
-    // _sineEngine.dispose();
+    if (_recorderOpened) unawaited(_recorder.closeRecorder());
+    unawaited(_voiceCapture.dispose());
+    // The engine singleton stays reusable. Navigation keeps this controller
+    // alive; actual controller teardown stops its output and pending work.
 
     _audioStreamController?.close();
 
-    _stopPhaseRunner();
-    _stopTimelinePlayback();
+    _sineEngine.beforeBuffer = null;
+    _sineEngine.afterBuffer = null;
+    if (identical(_sineEngine.painterEngine, painterEngine)) {
+      _sineEngine.painterEngine = null;
+    }
+    _sineEngine.onPlayingChanged = null;
+    _sineEngine.onPlaybackComplete = null;
+    _sineEngine.onError = null;
     inciensoTracker.dispose();
     inciensoRecorder.dispose();
 
@@ -324,38 +789,215 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     chamberPreset.neomParameter?.volume = volume;
     final visualAmp = 0.12 + (volume * 0.25);
     setVisualAmplitude(visualAmp);
-    if(existsInChamber.value) isUpdate.value = true;
+    if (existsInChamber.value) isUpdate.value = true;
   }
 
-  Future<void> playStopPreview({bool stop = false}) async {
-    // Ensure engine is ready before any play/stop
-    await _sineEngine.init();
-
-    if (isPlaying.value || stop) {
-      await _sineEngine.stop();
-      isPlaying.value = false;
-      NeomStopwatch().pause(ref: chamberPreset.id);
-      if(_waveTicker?.isActive ?? false) _waveTicker?.stop();
-
-      // Stop incienso tracking
-      _stopPhaseRunner();
-      _stopTimelinePlayback();
-      inciensoTracker.stop();
-      _prevBreathPhase = 0.0;
-      unawaited(_autoSaveRecordedSession());
-    } else {
-      _syncParams();
-      await _sineEngine.start();
-      isPlaying.value = true;
-      NeomStopwatch().start(ref: chamberPreset.id);
-      if(!(_waveTicker?.isActive ?? false)) _waveTicker?.start();
-
-      // Start incienso tracking
-      _sessionStartedAt = DateTime.now();
-      inciensoTracker.start();
-      inciensoRecorder.startRecording();
+  Future<void> playStopPreview({bool stop = false}) {
+    // Detect owns the microphone until shutdown completes. A second Play
+    // gesture must not route speaker audio back into the measurement.
+    if (!stop && (_voiceStarting || _voiceStopping || isRecording.value)) {
+      return Future<void>.value();
     }
-    update([AppPageIdConstants.generator, 'miniNeomPlayer']);
+    if (stop) ++_loadRequest; // Stop cancels pending selection/autostart, too.
+    return _playStopPreview(stop: stop);
+  }
+
+  Future<void> _playStopPreview({bool stop = false}) async {
+    if (_isDisposed) return;
+    // Cancel the separate output synchronously, retaining the Play gesture.
+    unawaited(stopChannelCheck());
+    final requested = !stop && !playbackRequested.value;
+    playbackRequested.value = requested;
+    isPlaybackTransitioning.value = true;
+    playbackError.value = '';
+    final request = ++_playbackRequest;
+    try {
+      if (!requested) {
+        final stopping = _sineEngine.stop();
+        _finishAudioSession(endFrame: _sineEngine.playedFrames);
+        await stopping;
+      } else {
+        ++_loadRequest; // Explicit Play supersedes pending navigation/reset.
+        if (_loadedInitialState != null) {
+          _applyRecordedState(_loadedInitialState!);
+        }
+        _playback?.reset();
+        _syncParams();
+        _sineEngine.frameLimit = _activeIncienso == null
+            ? (freeSessionMinutes.value > 0
+                  ? freeSessionMinutes.value * 60 * 44100
+                  : null)
+            : (_activeIncienso!.effectiveDuration.inMicroseconds *
+                      NeomGeneratorConstants.sampleRate /
+                      1000000)
+                  .round();
+        // Recorded sessions retain their original envelope, even if the
+        // listener selected different defaults for NEW practices.
+        if (!(_activeIncienso?.isRecorded ?? false)) {
+          _sineEngine.fadeInSeconds = softTransitions.value ? 2 : 0;
+          _sineEngine.fadeOutSeconds = softTransitions.value ? 5 : 0;
+          _sineEngine.fadeOutEndFrame = softTransitions.value
+              ? _sineEngine.frameLimit
+              : null;
+        }
+        _sessionInitialState = _captureAudioState();
+        _sessionPrepared = true;
+        _hasSessionClock = true;
+        _sessionStartedAt = DateTime.now();
+        _sessionCreatorId = userServiceImpl?.profile.id;
+        _sessionBeforeFeeling = switch (reflectionBeforeFeeling.value) {
+          'neutral' => GeneratorTranslationConstants.practiceFeelingNeutral.tr,
+          'calm' => GeneratorTranslationConstants.practiceFeelingCalm.tr,
+          'tense' => GeneratorTranslationConstants.practiceFeelingTense.tr,
+          'tired' => GeneratorTranslationConstants.practiceFeelingTired.tr,
+          'energized' =>
+            GeneratorTranslationConstants.practiceFeelingEnergized.tr,
+          _ => '',
+        };
+        _lastTrackedFrame = 0;
+        _lastBreathCycles = _sineEngine.breathEngine.completedCycles;
+        inciensoTracker.start();
+        inciensoTracker.onStateChanged(neuroState.value);
+        inciensoRecorder.startRecording(
+          initialState: _captureAudioState(),
+          audioClock: true,
+        );
+        // No await before start: browsers require activation in this gesture.
+        await _sineEngine.start();
+        if (_isDisposed ||
+            request != _playbackRequest ||
+            !playbackRequested.value) {
+          return;
+        }
+        if (!_sineEngine.isPlaying) throw StateError('Audio did not start');
+        NeomStopwatch().start(ref: chamberPreset.id);
+        if (!(_waveTicker?.isActive ?? false)) {
+          _visualFrameTiming.reset();
+          _waveTicker?.start();
+        }
+      }
+    } catch (e, st) {
+      if (!_isDisposed && request == _playbackRequest) {
+        _finishAudioSession(endFrame: _sineEngine.playedFrames);
+        playbackRequested.value = false;
+        playbackError.value = GeneratorTranslationConstants.playbackFailed.tr;
+        NeomErrorLogger.recordError(
+          e,
+          st,
+          module: 'neom_generator',
+          operation: 'playStopPreview',
+        );
+      }
+    } finally {
+      if (request == _playbackRequest && !_isDisposed) {
+        isPlaying.value = _sineEngine.isPlaying;
+        isPlaybackTransitioning.value = false;
+        update([AppPageIdConstants.generator, 'miniNeomPlayer']);
+      }
+    }
+  }
+
+  InciensoAudioState _captureAudioState() => _sineEngine.captureAudioState(
+    baseHz: currentFreq.value,
+    octave: currentOctave.value,
+    neuroState: neuroState.value.name,
+    visualMode: visualMode.value.name,
+    visualExperience: _activeIncienso?.defaultVisual?.name,
+  );
+
+  void _beforeAudioBuffer(int frame) {
+    if (!_sessionPrepared || _isDisposed) return;
+    final active = _activeIncienso;
+    if (_playback != null) {
+      _playback!.applyAt(
+        frame,
+        applyState: _applyRecordedState,
+        applyLegacy: _applyLegacyFrame,
+      );
+    } else if (active != null && active.phases.isNotEmpty) {
+      final seconds = frame / NeomGeneratorConstants.sampleRate;
+      final phase = active.phases.lastWhere(
+        (p) => p.startAt.inMicroseconds / 1000000 <= seconds,
+        orElse: () => active.phases.first,
+      );
+      final duration = phase.duration.inMicroseconds / 1000000;
+      final progress = duration <= 0
+          ? 1.0
+          : ((seconds - phase.startAt.inMicroseconds / 1000000) / duration)
+                .clamp(0.0, 1.0);
+      setBinauralBeat(
+        beat:
+            phase.startBeatHz +
+            (phase.endBeatHz - phase.startBeatHz) * progress,
+      );
+    }
+    inciensoRecorder.captureAudioFrame(
+      _captureAudioState(),
+      frame,
+      coherence: painterEngine.hemisphericCoherence,
+      breathPhase: _sineEngine.breathEngine.currentValue,
+    );
+  }
+
+  void _afterAudioBuffer(int frame) {
+    if (!_sessionPrepared || _isDisposed) return;
+    inciensoRecorder.advanceAudioClock(frame);
+    final breath = _sineEngine.breathEngine;
+    final cycles = breath.completedCycles;
+    if (cycles < _lastBreathCycles) _lastBreathCycles = cycles;
+    while (_lastBreathCycles < cycles) {
+      inciensoTracker.onBreathCycle(
+        coherence: painterEngine.hemisphericCoherence,
+      );
+      _lastBreathCycles++;
+    }
+    if (frame - _lastTrackedFrame >= NeomGeneratorConstants.sampleRate) {
+      inciensoTracker.onCoherenceReading(painterEngine.hemisphericCoherence);
+      _lastTrackedFrame = frame;
+    }
+  }
+
+  void _finishAudioSession({required int endFrame}) {
+    if (!_sessionPrepared) return;
+    _sessionPrepared = false;
+    NeomStopwatch().pause(ref: chamberPreset.id);
+    if (_waveTicker?.isActive ?? false) _waveTicker?.stop();
+    inciensoTracker.stop();
+    final ownerScope =
+        '${AppProperties.getAppName()}:${_sessionCreatorId ?? ''}';
+    if (endFrame >= 44100) {
+      _completedPractice = InciensoPracticeDraft(
+        sessionId:
+            'practice_${_sessionStartedAt?.microsecondsSinceEpoch ?? DateTime.now().microsecondsSinceEpoch}',
+        inciensoName:
+            _activeIncienso?.getName(Sint.locale?.languageCode ?? 'es') ??
+            _autoSessionName(),
+        publicInciensoId:
+            (_activeIncienso != null && canShareIncienso(_activeIncienso!))
+            ? _activeIncienso!.id
+            : '',
+        feelingBefore: _sessionBeforeFeeling,
+      );
+      _reflectionOwner = ownerScope;
+      if (!_isDisposed) canReflectSession.value = ownerScope == _practiceScope;
+    }
+    if (_activeIncienso?.isRecorded ?? false) {
+      inciensoRecorder.cancel();
+    } else {
+      // Detach the immutable recording before any async persistence. An old
+      // save must never cancel or mutate the next session's recorder.
+      final recording = inciensoRecorder.stopAndBuild(
+        name: _autoSessionName(),
+        creatorId: _sessionCreatorId,
+        endFrame: endFrame,
+      );
+      inciensoRecorder.cancel();
+      if (recording != null) {
+        _pendingRecordings.add(recording);
+        unawaited(_retainRecording(recording));
+        unawaited(_rememberIncienso(recording, ownerScope));
+      }
+    }
   }
 
   /// Effective frequency sent to the audio engine (base * 2^octave).
@@ -364,7 +1006,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   double get effectiveFrequency {
     final oct = currentOctave.value;
     if (oct >= 0) {
-      return currentFreq.value * (1 << oct); // base * 2^oct
+      return (currentFreq.value * (1 << oct)).clamp(0, 22000);
     }
     return currentFreq.value / (1 << oct.abs()); // base / 2^|oct|
   }
@@ -399,7 +1041,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     );
 
     currentBeat.value = clampedBeat;
-    _sineEngine.beat = clampedBeat.abs();
+    _sineEngine.beat = clampedBeat;
 
     // Record user-driven beat change
     if (inciensoRecorder.isRecording) {
@@ -423,7 +1065,6 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
     update([AppPageIdConstants.generator]);
   }
-
 
   // --- MULTI-FREQUENCY (Levitation) ---
 
@@ -497,7 +1138,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     frequencyDescription.value = "";
     if (frequencyServiceImpl != null) {
       for (NeomFrequency neomFreq in frequencyServiceImpl!.frequencies.values) {
-        if(neomFreq.frequency.ceilToDouble() == frequency.ceilToDouble()) {
+        if (neomFreq.frequency.ceilToDouble() == frequency.ceilToDouble()) {
           frequencyDescription.value = neomFreq.description;
           break;
         }
@@ -505,16 +1146,16 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     }
   }
 
-  void setFrequencyState(AppItemState newState){
+  void setFrequencyState(AppItemState newState) {
     AppConfig.logger.d("Setting new appItem $newState");
     frequencyState.value = newState.value;
     chamberPreset.state = newState.value;
     update([AppPageIdConstants.generator]);
   }
 
-  void setSelectedItemlist(String selectedItemlist){
+  void setSelectedItemlist(String selectedItemlist) {
     AppConfig.logger.d("Setting selectedItemlist $selectedItemlist");
-    chamber.value.id  = selectedItemlist;
+    chamber.value.id = selectedItemlist;
     update([AppPageIdConstants.generator]);
   }
 
@@ -531,38 +1172,54 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     return already;
   }
 
-  Future<void> addPreset(BuildContext context, {int frequencyPracticeState = 0}) async {
-
-    if(!isButtonDisabled.value) {
+  Future<void> addPreset(
+    BuildContext context, {
+    int frequencyPracticeState = 0,
+  }) async {
+    if (!isButtonDisabled.value) {
       isButtonDisabled.value = true;
       isLoading.value = true;
       update([AppPageIdConstants.generator]);
 
-      AppConfig.logger.i("ChamberPreset would be added as $frequencyState for Itemlist ${chamber.value.id}");
+      AppConfig.logger.i(
+        "ChamberPreset would be added as $frequencyState for Itemlist ${chamber.value.id}",
+      );
 
-      if(frequencyPracticeState > 0) frequencyState.value = frequencyPracticeState;
+      if (frequencyPracticeState > 0) {
+        frequencyState.value = frequencyPracticeState;
+      }
 
-      if(noChambers) {
+      if (noChambers) {
         chamber.value.name = CommonTranslationConstants.myFavItemlistName.tr;
-        chamber.value.description = CommonTranslationConstants.myFavItemlistDesc.tr;
+        chamber.value.description =
+            CommonTranslationConstants.myFavItemlistDesc.tr;
         chamber.value.imgUrl = AppProperties.getAppLogoUrl();
         chamber.value.ownerId = profile?.id ?? '';
         chamber.value.id = await chamberRepository.insert(chamber.value);
       } else {
-        if(chamber.value.id.isEmpty) chamber.value.id = chambers.values.first.id;
+        if (chamber.value.id.isEmpty) {
+          chamber.value.id = chambers.values.first.id;
+        }
       }
 
-      if(chamber.value.id.isNotEmpty) {
-
+      if (chamber.value.id.isNotEmpty) {
         try {
-          chamberPreset.id = "${chamberPreset.mainFrequency?.frequency.ceilToDouble().toString()}_${chamberPreset.neomParameter!.volume.toString()}"
+          chamberPreset.id =
+              "${chamberPreset.mainFrequency?.frequency.ceilToDouble().toString()}_${chamberPreset.neomParameter!.volume.toString()}"
               "_${chamberPreset.neomParameter!.x.toString()}_${chamberPreset.neomParameter!.y.toString()}_${chamberPreset.neomParameter!.z.toString()}";
-          chamberPreset.name = "${AppTranslationConstants.frequency.tr} ${chamberPreset.mainFrequency?.frequency.ceilToDouble().toString()} Hz";
+          chamberPreset.name =
+              "${AppTranslationConstants.frequency.tr} ${chamberPreset.mainFrequency?.frequency.ceilToDouble().toString()} Hz";
           chamberPreset.imgUrl = AppProperties.getAppLogoUrl();
           chamberPreset.ownerId = profile?.id ?? '';
           chamberPreset.mainFrequency!.description = frequencyDescription.value;
-          if(await chamberRepository.addPreset(chamber.value.id, chamberPreset)) {
-            await ProfileFirestore().addChamberPreset(profileId: profile?.id ?? '', chamberPresetId: chamberPreset.id);
+          if (await chamberRepository.addPreset(
+            chamber.value.id,
+            chamberPreset,
+          )) {
+            await ProfileFirestore().addChamberPreset(
+              profileId: profile?.id ?? '',
+              chamberPresetId: chamberPreset.id,
+            );
             await userServiceImpl?.reloadProfileItemlists();
             await userServiceImpl?.loadProfileChambers();
             userServiceImpl?.profile.chamberPresets?.add(chamberPreset.id);
@@ -571,18 +1228,24 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
             AppConfig.logger.d("Preset not added to Neom NeomChamber");
           }
         } catch (e, st) {
-          NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'addPreset');
+          NeomErrorLogger.recordError(
+            e,
+            st,
+            module: 'neom_generator',
+            operation: 'addPreset',
+          );
           AppUtilities.showSnackBar(
-              title: AppTranslationConstants.generator.tr,
-              message: GeneratorTranslationConstants.presetAddError.tr,
+            title: AppTranslationConstants.generator.tr,
+            message: GeneratorTranslationConstants.presetAddError.tr,
           );
         }
 
         AppUtilities.showSnackBar(
-            title: AppTranslationConstants.generator.tr,
-            message: '${GeneratorTranslationConstants.presetAddedMsg.tr}'
-                ' ${chamberPreset.mainFrequency?.frequency.ceilToDouble().toString()}'
-                ' Hz - ${chamber.value.name}.',
+          title: AppTranslationConstants.generator.tr,
+          message:
+              '${GeneratorTranslationConstants.presetAddedMsg.tr}'
+              ' ${chamberPreset.mainFrequency?.frequency.ceilToDouble().toString()}'
+              ' Hz - ${chamber.value.name}.',
         );
       }
     }
@@ -595,20 +1258,23 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   }
 
   Future<void> removePreset(BuildContext context) async {
-
-
-    if(!isButtonDisabled.value) {
+    if (!isButtonDisabled.value) {
       isButtonDisabled.value = true;
       isLoading.value = true;
       update([AppPageIdConstants.generator]);
 
-      AppConfig.logger.i("ChamberPreset would be removed for Itemlist ${chamber.value.id}");
+      AppConfig.logger.i(
+        "ChamberPreset would be removed for Itemlist ${chamber.value.id}",
+      );
 
-      if(chamber.value.id.isEmpty) chamber.value.id = chambers.values.first.id;
+      if (chamber.value.id.isEmpty) chamber.value.id = chambers.values.first.id;
 
-      if(chamber.value.id.isNotEmpty) {
+      if (chamber.value.id.isNotEmpty) {
         try {
-          if(await chamberRepository.deletePreset(chamber.value.id, chamberPreset)) {
+          if (await chamberRepository.deletePreset(
+            chamber.value.id,
+            chamberPreset,
+          )) {
             await userServiceImpl?.reloadProfileItemlists();
             chambers.value = userServiceImpl?.profile.chambers ?? {};
             AppConfig.logger.d("Preset removed from Neom NeomChamber");
@@ -616,18 +1282,24 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
             AppConfig.logger.d("Preset not removed from Neom NeomChamber");
           }
         } catch (e, st) {
-          NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'removePreset');
+          NeomErrorLogger.recordError(
+            e,
+            st,
+            module: 'neom_generator',
+            operation: 'removePreset',
+          );
           AppUtilities.showSnackBar(
-              title: GeneratorTranslationConstants.neomChamber.tr,
-              message: GeneratorTranslationConstants.presetRemoveError.tr,
+            title: GeneratorTranslationConstants.neomChamber.tr,
+            message: GeneratorTranslationConstants.presetRemoveError.tr,
           );
         }
 
         AppUtilities.showSnackBar(
-            title: GeneratorTranslationConstants.neomChamber.tr,
-            message: '${GeneratorTranslationConstants.presetRemovedMsg.tr}'
-                ' ${chamberPreset.binauralFrequency?.frequency.ceilToDouble().toString()}'
-                ' Hz - ${chamber.value.name}.',
+          title: GeneratorTranslationConstants.neomChamber.tr,
+          message:
+              '${GeneratorTranslationConstants.presetRemovedMsg.tr}'
+              ' ${chamberPreset.binauralFrequency?.frequency.ceilToDouble().toString()}'
+              ' Hz - ${chamber.value.name}.',
         );
       }
     }
@@ -639,7 +1311,11 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   }
 
   @override
-  void setParameterPosition({required double x, required double y, required double z}) {
+  void setParameterPosition({
+    required double x,
+    required double y,
+    required double z,
+  }) {
     AppConfig.logger.d("Setting position x:$x y:$y z:$z");
     posX.value = x;
     posY.value = y;
@@ -651,7 +1327,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     chamberPreset.neomParameter?.x = x;
     chamberPreset.neomParameter?.y = y;
     chamberPreset.neomParameter?.z = z;
-    if(existsInChamber.value) isUpdate.value = true;
+    if (existsInChamber.value) isUpdate.value = true;
     // update(); // No necesario si usamos Obx en UI para sliders
   }
 
@@ -662,7 +1338,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
   Future<void> decreaseFrequency({double step = 1}) async {
     double newFreq = currentFreq.value - step;
-    if(newFreq > 0) await setFrequency(newFreq);
+    if (newFreq > 0) await setFrequency(newFreq);
   }
 
   Future<void> increaseActiveValue({double step = 1}) async {
@@ -672,9 +1348,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
         break;
 
       case NeomNumericTarget.binauralBeat:
-        setBinauralBeat(
-          beat: currentBeat.value + step,
-        );
+        setBinauralBeat(beat: currentBeat.value + step);
         break;
     }
   }
@@ -686,9 +1360,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
         break;
 
       case NeomNumericTarget.binauralBeat:
-        setBinauralBeat(
-          beat: currentBeat.value - step,
-        );
+        setBinauralBeat(beat: currentBeat.value - step);
         break;
     }
   }
@@ -698,7 +1370,8 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
   void increaseOnLongPress() {
     if (longPressed.value) {
-      if (timerDuration > NeomGeneratorConstants.recursiveCallTimerDurationMin) {
+      if (timerDuration >
+          NeomGeneratorConstants.recursiveCallTimerDurationMin) {
         timerDuration--;
       }
       increaseActiveValue();
@@ -708,7 +1381,8 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
   void decreaseOnLongPress() {
     if (longPressed.value) {
-      if (timerDuration > NeomGeneratorConstants.recursiveCallTimerDurationMin) {
+      if (timerDuration >
+          NeomGeneratorConstants.recursiveCallTimerDurationMin) {
         timerDuration--;
       }
       decreaseActiveValue();
@@ -717,25 +1391,37 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   }
 
   Future<void> initializeRecorder() async {
+    if (_usesVoiceAdapter) return;
     if (!kIsWeb) {
-      await Permission.microphone.request();
+      final permission = await Permission.microphone.request();
+      if (!permission.isGranted) {
+        throw StateError('Microphone permission denied');
+      }
     }
-    await _recorder.openRecorder();
+    if (!_recorderOpened) {
+      await _recorder.openRecorder();
+      _recorderOpened = true;
+    }
   }
 
-  void initializeStreamController(){
+  void initializeStreamController() {
     _audioStreamController = StreamController<Uint8List>(sync: true);
     _audioStreamController!.stream.listen((audioData) async {
-      if (_isDisposed) return;
-
-      // Get exact sample rate from AudioContext + detect mono/stereo
-      if (kIsWeb) _detectWebSampleRate(audioData.length);
+      if (_isDisposed || !isRecording.value) return;
+      final voiceRequest = _voiceRequest;
 
       // Feed real-time waveform visualization
       _pushMicAmplitude(audioData);
 
       double freqPitch = await getPitchFromAudioData(audioData);
-      if(freqPitch > NeomGeneratorConstants.frequencyMin && freqPitch < (isAdmin ? NeomGeneratorConstants.frequencyMax : NeomGeneratorConstants.frequencyLimit)) {
+      if (_isDisposed || !isRecording.value || voiceRequest != _voiceRequest) {
+        return;
+      }
+      if (freqPitch > NeomGeneratorConstants.frequencyMin &&
+          freqPitch <
+              (isAdmin
+                  ? NeomGeneratorConstants.frequencyMax
+                  : NeomGeneratorConstants.frequencyLimit)) {
         AppConfig.logger.d("Pitch: $freqPitch Hz");
         detectedFrequency.value = freqPitch;
         detectedPitches.add(freqPitch);
@@ -743,67 +1429,6 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
       update([AppPageIdConstants.generator]);
     });
-  }
-
-  /// Get the real sample rate from the browser's AudioContext.
-  /// This is exact — no heuristics, no guessing.
-  ///
-  /// Also determines mono/stereo by comparing actual byte throughput
-  /// against the known sample rate:
-  ///   mono  = sampleRate × 2 bytes/sample
-  ///   stereo = sampleRate × 4 bytes/frame
-  void _detectWebSampleRate(int chunkBytes) {
-    if (!_webSampleRateDetected) {
-      _webSampleRate = getWebAudioContextSampleRate();
-      _webSampleRateDetected = true;
-      AppConfig.logger.d('Web AudioContext.sampleRate: $_webSampleRate Hz');
-    }
-
-    // Determine mono vs stereo from byte throughput
-    if (_webIsStereoDetermined) return;
-    _webByteStart ??= DateTime.now();
-    _webByteAccum += chunkBytes;
-    final elapsedMs = DateTime.now().difference(_webByteStart!).inMilliseconds;
-    if (elapsedMs < 400) return; // Need 400ms of data
-
-    final bytesPerSec = _webByteAccum * 1000.0 / elapsedMs;
-    
-    // We compare expected rates to see if mono or stereo is a better fit.
-    // Standard rates: 48000, 44100.
-    final expectedMono48 = 48000.0 * 2;
-    final expectedStereo48 = 48000.0 * 4;
-    final expectedMono44 = 44100.0 * 2;
-    final expectedStereo44 = 44100.0 * 4;
-
-    final diffMono48 = (bytesPerSec - expectedMono48).abs();
-    final diffStereo48 = (bytesPerSec - expectedStereo48).abs();
-    final diffMono44 = (bytesPerSec - expectedMono44).abs();
-    final diffStereo44 = (bytesPerSec - expectedStereo44).abs();
-
-    final minMono = min(diffMono48, diffMono44);
-    final minStereo = min(diffStereo48, diffStereo44);
-
-    _webIsStereo = minStereo < minMono;
-    _webIsStereoDetermined = true;
-
-    // Calculate EXACT sample rate from byte rate
-    final double rawSampleRate = _webIsStereo ? bytesPerSec / 4 : bytesPerSec / 2;
-    
-    // Quantize to nearest standard sample rate to filter out slight timer/timing jitter
-    if ((rawSampleRate - 48000).abs() < 2500) {
-      _webSampleRate = 48000.0;
-    } else if ((rawSampleRate - 44100).abs() < 2500) {
-      _webSampleRate = 44100.0;
-    } else if ((rawSampleRate - 32000).abs() < 2000) {
-      _webSampleRate = 32000.0;
-    } else if ((rawSampleRate - 16000).abs() < 2000) {
-      _webSampleRate = 16000.0;
-    } else {
-      _webSampleRate = rawSampleRate; // Fallback to raw calculated rate
-    }
-
-    AppConfig.logger.d('Web audio format: ${_webIsStereo ? "STEREO" : "MONO"} '
-        '(${bytesPerSec.round()} B/s, exact sampleRate calculated from stream: ${_webSampleRate.round()} Hz)');
   }
 
   /// Extract RMS amplitude from PCM int16 chunk and push to waveform.
@@ -825,82 +1450,191 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   }
 
   Future<void> startRecording() async {
-    AppConfig.logger.d("Start Recording");
-
-    try {
-      // 1. Detener audio (Obligatorio para evitar feedback)
-      if (isPlaying.value) await playStopPreview(stop: true);
-
-      isRecording.value = true;
-      detectedFrequency.value = 0;
-      micWaveform.clear();
-      _webSampleRateDetected = false;
-      _webSampleRate = 48000.0;
-      _webIsStereoDetermined = false;
-      _webIsStereo = false;
-      _webByteAccum = 0;
-      _webByteStart = null;
-      _accumulatedData.clear(); // Clear leftover PCM bytes
-
-      if (_audioStreamController == null) {
-        initializeStreamController();
-      }
-
-      _recorder.startRecorder(
-        codec: Codec.pcm16,
-        sampleRate: NeomGeneratorConstants.sampleRate,
-        numChannels: 1,
-        toStream: _audioStreamController?.sink, //
-      );
-
-      // Stop the recorder after x seconds
-      Timer(Duration(seconds: NeomGeneratorConstants.sampleDuration), () {
-        if (!_isDisposed) stopRecording();
-        if((detectedFrequency.value) > 0) {
-          setFrequency(detectedFrequency.value);
-        }
-      });
-    } catch(e, st) {
-      NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'startRecording');
+    if (_voiceStarting || _voiceStopping || isRecording.value || _isDisposed) {
+      return;
     }
-
-    update([AppPageIdConstants.generator]);
+    final request = ++_voiceRequest;
+    _voiceStarting = true;
+    _voicePlaybackReady = false;
+    isRecording.value = true; // Allows cancelling a pending permission prompt.
+    playbackError.value = '';
+    unawaited(stopChannelCheck());
+    try {
+      final stopAudio = playbackRequested.value || isPlaying.value
+          ? playStopPreview(stop: true)
+          : Future<void>.value();
+      _voicePlaybackRequest = _playbackRequest;
+      detectedFrequency.value = 0;
+      detectedPitches.clear();
+      micWaveform.clear();
+      _captureSampleRate = NeomGeneratorConstants.sampleRate.toDouble();
+      _accumulatedData.clear();
+      if (_audioStreamController == null) initializeStreamController();
+      // Both activations originate in Detect's gesture. Preparing output emits
+      // no sound, and observes errors immediately while permission is pending.
+      final Future<({Object? error, StackTrace? stack})> outputPreparation =
+          _sineEngine.preparePlayback().then(
+            (_) => (error: null, stack: null),
+            onError: (Object error, StackTrace stack) =>
+                (error: error, stack: stack),
+          );
+      if (_usesVoiceAdapter) {
+        // Activate from this gesture, without awaiting shutdown/permission first.
+        await _voiceCapture.start((pcm) {
+          if (request != _voiceRequest || _isDisposed || !isRecording.value) {
+            return;
+          }
+          _captureSampleRate = _voiceCapture.sampleRate.toDouble();
+          if (_captureSampleRate > 0) _audioStreamController?.add(pcm);
+        });
+        await stopAudio;
+      } else {
+        await stopAudio;
+        await initializeRecorder();
+        if (request != _voiceRequest || _isDisposed) return;
+        await _recorder.startRecorder(
+          codec: Codec.pcm16,
+          sampleRate: NeomGeneratorConstants.sampleRate,
+          numChannels: 1,
+          toStream: _audioStreamController?.sink,
+        );
+      }
+      final output = await outputPreparation;
+      if (output.error != null) {
+        Error.throwWithStackTrace(output.error!, output.stack!);
+      }
+      if (request != _voiceRequest || _isDisposed) {
+        if (_usesVoiceAdapter) {
+          await _voiceCapture.stop();
+        } else {
+          await _recorder.stopRecorder();
+        }
+        return;
+      }
+      _voicePlaybackReady = true;
+      _voiceTimer?.cancel();
+      _voiceTimer = Timer(
+        Duration(seconds: NeomGeneratorConstants.sampleDuration),
+        () {
+          if (request == _voiceRequest && !_isDisposed) {
+            unawaited(stopRecording());
+          }
+        },
+      );
+    } catch (e, st) {
+      if (request == _voiceRequest) {
+        isRecording.value = false;
+        _voicePlaybackReady = false;
+        ++_voiceRequest;
+        try {
+          if (_usesVoiceAdapter) {
+            await _voiceCapture.stop();
+          } else if (_recorderOpened) {
+            await _recorder.stopRecorder();
+          }
+        } catch (_) {
+          // Keep the original startup error; never start output after failure.
+        }
+        playbackError.value = GeneratorTranslationConstants.microphoneFailed.tr;
+      }
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'startRecording',
+      );
+    } finally {
+      _voiceStarting = false;
+      if (!_isDisposed) update([AppPageIdConstants.generator]);
+    }
   }
 
-  void stopRecording() async {
-    await _recorder.stopRecorder();
+  Future<void> stopRecording({bool applyDetectedFrequency = true}) async {
+    final request = ++_voiceRequest;
+    final wasRecording = isRecording.value;
+    _voiceTimer?.cancel();
+    _voiceTimer = null;
     isRecording.value = false;
-    detectedFrequency.value = getMostFrequentPitch();
-    if(detectedFrequency.value > 0) playStopPreview();
-    update([AppPageIdConstants.generator]);
+    // Repeated Stop/Cancel invalidates the older completion without opening a
+    // second teardown, or allowing a new capture to race the same microphone.
+    if (_voiceStopping) return;
+    _voiceStopping = true;
+    final playbackRequest = _playbackRequest;
+    try {
+      if (_usesVoiceAdapter) {
+        await _voiceCapture.stop();
+      } else if (_recorderOpened) {
+        await _recorder.stopRecorder();
+      }
+      if (!wasRecording ||
+          !applyDetectedFrequency ||
+          !_voicePlaybackReady ||
+          _isDisposed ||
+          request != _voiceRequest ||
+          _voicePlaybackRequest != _playbackRequest ||
+          playbackRequest != _playbackRequest) {
+        return;
+      }
+      final frequency = getMostFrequentPitch();
+      if (!frequency.isFinite ||
+          frequency <= NeomGeneratorConstants.frequencyMin ||
+          frequency >=
+              (isAdmin
+                  ? NeomGeneratorConstants.frequencyMax
+                  : NeomGeneratorConstants.frequencyLimit)) {
+        detectedFrequency.value = 0;
+        return;
+      }
+      detectedFrequency.value = frequency;
+      // Voice detection starts a new free practice. A loaded replay must not
+      // overwrite the detected root at frame zero or at its next keyframe.
+      ++_loadRequest;
+      _activeIncienso = null;
+      _playback = null;
+      _loadedInitialState = null;
+      _hasSessionClock = false;
+      _sineEngine.multiFrequencyMode = false;
+      currentOctave.value = 0;
+      await setFrequency(frequency);
+      if (_isDisposed ||
+          request != _voiceRequest ||
+          playbackRequest != _playbackRequest) {
+        return;
+      }
+      // Capture has fully released the microphone before speakers can start.
+      // Never toggle a newer user-started playback back off.
+      if (!playbackRequested.value && !isPlaying.value) {
+        await _playStopPreview();
+      }
+    } catch (e, st) {
+      if (!_isDisposed && request == _voiceRequest) {
+        playbackError.value = GeneratorTranslationConstants.microphoneFailed.tr;
+      }
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'stopRecording',
+      );
+    } finally {
+      _voiceStopping = false;
+      _voicePlaybackReady = false;
+      if (!_isDisposed) update([AppPageIdConstants.generator]);
+    }
   }
 
   Future<double> getPitchFromAudioData(Uint8List audioData) async {
-    if (kIsWeb && !_webIsStereoDetermined) {
-      return 0.0; // Skip pitch detection during calibration to avoid garbage readings
-    }
-
-    // Web browsers may deliver stereo (2-ch interleaved int16) even when mono
-    // is requested. Down-mix to mono so the pitch detector sees the correct
-    // period — otherwise every other sample belongs to a different channel,
-    // which halves the apparent frequency (one octave down).
-    if (kIsWeb) {
-      _accumulatedData.addAll(_stereoToMono(audioData));
-    } else {
-      _accumulatedData.addAll(audioData);
-    }
+    final voiceRequest = _voiceRequest;
+    _accumulatedData.addAll(audioData);
 
     const int bytesPerSample = 2;
     double pitch = 0;
     int neededBytes = NeomGeneratorConstants.neededSamples * bytesPerSample;
 
-    // On web, use the auto-detected sample rate from _calibrateWebSampleRate().
-    // On mobile, use the requested rate (OS respects it).
-    final double effectiveSampleRate = kIsWeb
-        ? _webSampleRate
-        : NeomGeneratorConstants.sampleRate.toDouble();
+    final double effectiveSampleRate = _captureSampleRate;
 
-    while (_accumulatedData.length >= neededBytes) {
+    while (voiceRequest == _voiceRequest &&
+        _accumulatedData.length >= neededBytes) {
       final chunk = _accumulatedData.sublist(0, neededBytes);
       _accumulatedData.removeRange(0, neededBytes);
 
@@ -912,42 +1646,22 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       try {
         final chunkAsUint8List = Uint8List.fromList(chunk);
 
-        PitchDetectorResult pitchResult = await pitchDetectorDart.getPitchFromIntBuffer(chunkAsUint8List);
-        pitch = pitchResult.pitch.roundToDouble();
+        PitchDetectorResult pitchResult = await pitchDetectorDart
+            .getPitchFromFloatBuffer(decodeMonoPcm16(chunkAsUint8List));
+        if (pitchResult.pitched && pitchResult.probability >= .9) {
+          pitch = pitchResult.pitch.roundToDouble();
+        }
       } catch (e, st) {
-        NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'getPitchFromAudioData');
+        NeomErrorLogger.recordError(
+          e,
+          st,
+          module: 'neom_generator',
+          operation: 'getPitchFromAudioData',
+        );
       }
     }
 
     return pitch;
-  }
-
-  /// Convert interleaved stereo int16 PCM to mono by averaging L+R channels.
-  /// If the buffer has an odd number of samples (already mono), returns as-is.
-  /// Convert stereo int16 interleaved data to mono by averaging L+R.
-  /// Only converts if [_webIsStereo] is true (determined from byte rate).
-  /// If mono, returns data unchanged.
-  Uint8List _stereoToMono(Uint8List data) {
-    // Don't convert until we've determined the format
-    if (!_webIsStereoDetermined || !_webIsStereo) return data;
-    if (data.length < 4) return data;
-
-    final byteData = ByteData.sublistView(data);
-    final int totalSamples = data.length ~/ 2;
-    if (totalSamples < 2) return data;
-
-    final int frames = totalSamples ~/ 2;
-    final monoBytes = Uint8List(frames * 2);
-    final monoView = ByteData.sublistView(monoBytes);
-
-    for (int i = 0; i < frames; i++) {
-      final int left = byteData.getInt16(i * 4, Endian.little);
-      final int right = byteData.getInt16(i * 4 + 2, Endian.little);
-      final int mono = ((left + right) ~/ 2).clamp(-32768, 32767);
-      monoView.setInt16(i * 2, mono, Endian.little);
-    }
-
-    return monoBytes;
   }
 
   double getMostFrequentPitch() {
@@ -959,8 +1673,9 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       frequencyMap[pitch] = (frequencyMap[pitch] ?? 0) + 1;
     }
 
-    final mostFrequentEntry = frequencyMap.entries
-        .reduce((a, b) => a.value >= b.value ? a : b);
+    final mostFrequentEntry = frequencyMap.entries.reduce(
+      (a, b) => a.value >= b.value ? a : b,
+    );
 
     return mostFrequentEntry.key; //Most recurrent freq
   }
@@ -981,13 +1696,6 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   Future<void> setIsochronicEnabled(bool enabled) async {
     isIsochronicEnabled.value = enabled;
     _sineEngine.isochronic.enabled = enabled;
-    // Restart stream so the change takes effect immediately on web,
-    // where buffered audio may delay parameter updates.
-    if (isPlaying.value) {
-      await _sineEngine.stop();
-      _syncParams();
-      await _sineEngine.start();
-    }
   }
 
   void setIsochronicFrequency(double hz) {
@@ -1015,8 +1723,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     _sineEngine.modulator.depth = depth;
   }
 
-  final Rx<NeomSpatialMode> spatialMode =
-      NeomSpatialMode.softPan.obs;
+  final Rx<NeomSpatialMode> spatialMode = NeomSpatialMode.softPan.obs;
 
   final RxDouble orbitSpeed = 0.15.obs;
 
@@ -1049,8 +1756,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     _sineEngine.orbitDirection = dir;
   }
 
-  final Rx<NeomBreathMode> breathMode =
-      NeomBreathMode.off.obs;
+  final Rx<NeomBreathMode> breathMode = NeomBreathMode.off.obs;
 
   final RxDouble breathRate = 6.0.obs;
   final RxDouble breathDepth = 0.5.obs;
@@ -1070,8 +1776,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     _sineEngine.breathEngine.depth = depth;
   }
 
-  final Rx<NeomNeuroState> neuroState =
-      NeomNeuroState.neutral.obs;
+  final Rx<NeomNeuroState> neuroState = NeomNeuroState.neutral.obs;
 
   void setNeuroState(NeomNeuroState state) {
     neuroState.value = state;
@@ -1091,6 +1796,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
       setSpatialMode: setSpatialMode,
       setSpatialIntensity: setSpatialIntensity,
     );
+    _syncUiFromEngine();
   }
 
   void setVisualAmplitude(double v) {
@@ -1098,8 +1804,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     painterEngine.notifyVisualUpdate();
   }
 
-  final Rx<NeomVisualMode> visualMode =
-      NeomVisualMode.scientific.obs;
+  final Rx<NeomVisualMode> visualMode = NeomVisualMode.scientific.obs;
 
   void setVisualMode(NeomVisualMode mode) {
     visualMode.value = mode;
@@ -1131,10 +1836,9 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   final Rx<NeomNumericTarget> activeNumericTarget =
       NeomNumericTarget.rootFrequency.obs;
 
-
   void startEditFrequency() {
     activeNumericTarget.value = NeomNumericTarget.rootFrequency;
-    frequencyEditCtrl.text = currentFreq.value.toStringAsFixed(0);
+    frequencyEditCtrl.text = currentFreq.value.toString();
     isEditingFrequency.value = true;
   }
 
@@ -1147,7 +1851,7 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     if (value.isEmpty) return;
 
     final parsed = double.tryParse(value.replaceAll(',', '.'));
-    if (parsed == null) return;
+    if (parsed == null || !parsed.isFinite) return;
 
     final min = NeomGeneratorConstants.frequencyMin;
     final max = isAdmin
@@ -1164,21 +1868,23 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
   void startEditBeat() {
     activeNumericTarget.value = NeomNumericTarget.binauralBeat;
-    beatEditCtrl.text = currentBeat.value.toStringAsFixed(0);
+    beatEditCtrl.text = currentBeat.value.toString();
     isEditingBeat.value = true;
   }
 
   void finishEditBeat() {
-    final v = double.tryParse(beatEditCtrl.text);
-    if (v != null) {
-      final clamped = v.clamp(0.0, NeomGeneratorConstants.binauralBeatMax);
+    final v = double.tryParse(beatEditCtrl.text.replaceAll(',', '.'));
+    if (v != null && v.isFinite) {
+      final clamped = v.clamp(
+        -NeomGeneratorConstants.binauralBeatMax,
+        NeomGeneratorConstants.binauralBeatMax,
+      );
       setBinauralBeat(beat: clamped);
     }
     isEditingBeat.value = false;
   }
 
-  final Rx<NeomFrequencyTarget> selectedTarget =
-      NeomFrequencyTarget.root.obs;
+  final Rx<NeomFrequencyTarget> selectedTarget = NeomFrequencyTarget.root.obs;
 
   void selectRootFrequency() {
     selectedTarget.value = NeomFrequencyTarget.root;
@@ -1214,179 +1920,185 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   ///
   /// For multi-phase inciensos, starts a timer-driven phase runner that
   /// transitions between phases at the scheduled times.
-  Future<void> loadIncienso(Incienso incienso, {bool autoStart = true}) async {
-    _activeIncienso = incienso;
-
-    // ── Base frequencies ──
-    currentFreq.value = incienso.leftFrequencyHz;
-    chamberPreset.mainFrequency ??= NeomFrequency();
-    chamberPreset.mainFrequency!.frequency = incienso.leftFrequencyHz;
-
-    final beat = incienso.rightFrequencyHz - incienso.leftFrequencyHz;
-    setBinauralBeat(beat: beat);
-
-    // ── Isochronic pulse ──
-    if (incienso.pulseFrequencyHz > 0) {
-      setIsochronicFrequency(incienso.pulseFrequencyHz);
-      await setIsochronicEnabled(true);
-    } else {
-      await setIsochronicEnabled(false);
-    }
-
-    // ── Neuro state (from binaural beat) ──
-    setNeuroState(incienso.targetState);
-
-    // ── Breathing guide ──
-    setBreathMode(NeomBreathMode.box);
-
-    // ── Phase runner / timeline playback ──
-    _stopPhaseRunner();
-    _stopTimelinePlayback();
-
-    if (incienso.isRecorded) {
-      // Recorded incienso — use timeline keyframe playback
-      // (skip phase runner entirely; the timeline contains everything)
-    } else if (incienso.isMultiPhase) {
-      _currentPhaseIndex = 0;
-      _applyPhase(incienso.phases.first);
-    }
-
-    // ── Auto-start playback ──
-    if (autoStart && !isPlaying.value) {
-      await playStopPreview();
-    }
-
-    // ── Schedule phase transitions or timeline playback ──
-    if (incienso.isRecorded) {
-      _startTimelinePlayback(incienso);
-    } else if (incienso.isMultiPhase) {
-      _startPhaseRunner(incienso);
-    }
-
-    update([AppPageIdConstants.generator]);
-  }
-
-  /// Apply a single phase's frequency parameters.
-  void _applyPhase(InciensoPhase phase) {
-    // Set beat to start value — the engine will interpolate if needed.
-    // Left carrier stays fixed; right carrier adjusts for the beat.
-    setBinauralBeat(beat: phase.startBeatHz);
-  }
-
-  /// Start a periodic timer that checks and applies phase transitions.
-  /// Runs every second to detect when the next phase should begin.
-  void _startPhaseRunner(Incienso incienso) {
-    final phases = incienso.phases;
-    _currentPhaseIndex = 0;
-    final sessionStart = DateTime.now();
-
-    _phaseTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!isPlaying.value || _activeIncienso == null) {
-        timer.cancel();
-        return;
-      }
-
-      final elapsed = DateTime.now().difference(sessionStart);
-
-      // Check if we need to advance to the next phase
-      for (int i = _currentPhaseIndex + 1; i < phases.length; i++) {
-        if (elapsed >= phases[i].startAt) {
-          _currentPhaseIndex = i;
-          _applyPhase(phases[i]);
+  Future<void> loadIncienso(Incienso incienso, {bool autoStart = false}) async {
+    final load = ++_loadRequest;
+    try {
+      final playback = incienso.isRecorded ? InciensoPlayback(incienso) : null;
+      await _playStopPreview(stop: true);
+      if (load != _loadRequest || _isDisposed) return;
+      _activeIncienso = incienso;
+      _hasSessionClock = false;
+      _playback = playback;
+      currentOctave.value = 0;
+      // Deterministic defaults: never inherit another session's spatial,
+      // multi-channel, breathing or modulation configuration.
+      _sineEngine.applyAudioState(
+        InciensoAudioState(
+          parameters: {
+            'carrierHz': incienso.leftFrequencyHz,
+            'beatHz': incienso.rightFrequencyHz - incienso.leftFrequencyHz,
+            'volume': incienso.timeline.isNotEmpty
+                ? incienso.timeline.first.volume
+                : .5,
+          },
+        ),
+      );
+      neuroState.value = NeomNeuroState.neutral;
+      if (playback != null) {
+        playback.applyAt(
+          0,
+          applyState: _applyRecordedState,
+          applyLegacy: _applyLegacyFrame,
+        );
+      } else {
+        setNeuroState(incienso.targetState);
+        setIsochronicFrequency(
+          incienso.pulseFrequencyHz > 0 ? incienso.pulseFrequencyHz : 4,
+        );
+        await setIsochronicEnabled(incienso.pulseFrequencyHz > 0);
+        if (_isDisposed || load != _loadRequest) return;
+        if (incienso.phases.isNotEmpty) {
+          setBinauralBeat(beat: incienso.phases.first.startBeatHz);
         }
       }
-
-      // Interpolate beat within current phase for smooth sweeps
-      final phase = phases[_currentPhaseIndex];
-      final phaseElapsed = elapsed - phase.startAt;
-      final progress = phase.duration.inMilliseconds > 0
-          ? (phaseElapsed.inMilliseconds / phase.duration.inMilliseconds)
-              .clamp(0.0, 1.0)
-          : 1.0;
-
-      final interpolatedBeat = phase.startBeatHz +
-          (phase.endBeatHz - phase.startBeatHz) * progress;
-
-      if ((currentBeat.value - interpolatedBeat).abs() > 0.05) {
-        setBinauralBeat(beat: interpolatedBeat);
+      _syncUiFromEngine();
+      currentFreq.value =
+          incienso.timeline.firstOrNull?.audioState?.number(
+            'baseHz',
+            _sineEngine.frequency,
+          ) ??
+          _sineEngine.frequency;
+      chamberPreset.mainFrequency ??= NeomFrequency();
+      chamberPreset.mainFrequency!.frequency = currentFreq.value;
+      _loadedInitialState = _captureAudioState();
+      _sessionInitialState = _loadedInitialState;
+      unawaited(_rememberIncienso(incienso, _practiceScope));
+      if (autoStart) await playStopPreview();
+      update([AppPageIdConstants.generator]);
+    } catch (e, st) {
+      if (!_isDisposed && load == _loadRequest) {
+        playbackError.value = GeneratorTranslationConstants.playbackFailed.tr;
       }
-
-      // Auto-stop when suggested duration is reached
-      if (elapsed >= incienso.suggestedDuration) {
-        timer.cancel();
-        playStopPreview(stop: true);
-        _inciensoFirestore.incrementPracticeCount(incienso.id);
-      }
-    });
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'loadIncienso',
+      );
+    }
   }
 
-  /// Cancel the phase runner timer.
-  void _stopPhaseRunner() {
-    _phaseTimer?.cancel();
-    _phaseTimer = null;
-    _currentPhaseIndex = 0;
+  void _applyRecordedState(InciensoAudioState state) {
+    _sineEngine.applyAudioState(state);
+    currentFreq.value = state.number('baseHz', _sineEngine.frequency);
+    currentOctave.value = state.number('octave', 0).toInt().clamp(-4, 4);
+    neuroState.value = NeomNeuroState.values.firstWhere(
+      (v) => v.name == state.text('neuroState', 'neutral'),
+      orElse: () => NeomNeuroState.neutral,
+    );
+    visualMode.value = NeomVisualMode.values.firstWhere(
+      (v) => v.name == state.text('visualMode', 'scientific'),
+      orElse: () => NeomVisualMode.scientific,
+    );
+    _syncUiFromEngine();
   }
 
-  // ── Timeline playback for recorded inciensos ──
-
-  /// Start a 50 ms timer that walks through [incienso.timeline] keyframes,
-  /// interpolating frequencies and volume between consecutive keyframes.
-  void _startTimelinePlayback(Incienso incienso) {
-    final timeline = incienso.timeline;
-    if (timeline.isEmpty) return;
-
-    _timelineStart = DateTime.now();
-
-    _timelineTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      if (!isPlaying.value || _activeIncienso == null) {
-        timer.cancel();
-        return;
-      }
-
-      final elapsedMs = DateTime.now()
-          .difference(_timelineStart!)
-          .inMilliseconds
-          .toDouble();
-
-      // Past the last keyframe — auto-stop.
-      if (elapsedMs >= timeline.last.timestampMs) {
-        timer.cancel();
-        playStopPreview(stop: true);
-        _inciensoFirestore.incrementPracticeCount(incienso.id);
-        return;
-      }
-
-      // Find the two keyframes bracketing the current time.
-      int lo = 0;
-      for (int i = 1; i < timeline.length; i++) {
-        if (timeline[i].timestampMs > elapsedMs) break;
-        lo = i;
-      }
-      final hi = (lo + 1).clamp(0, timeline.length - 1);
-
-      final a = timeline[lo];
-      final b = timeline[hi];
-
-      // Interpolation factor between a and b.
-      final span = b.timestampMs - a.timestampMs;
-      final t = span > 0 ? ((elapsedMs - a.timestampMs) / span).clamp(0.0, 1.0) : 1.0;
-
-      final leftHz  = a.leftHz  + (b.leftHz  - a.leftHz)  * t;
-      final rightHz = a.rightHz + (b.rightHz - a.rightHz) * t;
-      final vol     = a.volume  + (b.volume  - a.volume)  * t;
-      final beat    = (rightHz - leftHz).abs();
-
-      currentFreq.value = leftHz;
-      setBinauralBeat(beat: beat);
-      setVolume(vol);
-    });
+  void _applyLegacyFrame(InciensoKeyframe frame) {
+    _sineEngine.frequency = frame.leftHz.clamp(0, 22000);
+    _sineEngine.beat = (frame.rightHz - frame.leftHz).clamp(-250, 250);
+    _sineEngine.volume = frame.volume.clamp(0, 1);
+    currentFreq.value = _sineEngine.frequency;
+    currentOctave.value = 0;
+    currentBeat.value = _sineEngine.beat;
+    currentVol.value = _sineEngine.volume;
+    neuroState.value = NeomNeuroState.values.firstWhere(
+      (v) => v.name == frame.neuroState,
+      orElse: () => NeomNeuroState.neutral,
+    );
   }
 
-  /// Cancel timeline playback timer.
-  void _stopTimelinePlayback() {
-    _timelineTimer?.cancel();
-    _timelineTimer = null;
-    _timelineStart = null;
+  void _syncUiFromEngine() {
+    currentBeat.value = _sineEngine.beat;
+    currentVol.value = _sineEngine.volume;
+    posX.value = _sineEngine.posX * NeomGeneratorConstants.positionMax;
+    posY.value = _sineEngine.posY * NeomGeneratorConstants.positionMax;
+    posZ.value = _sineEngine.posZ * NeomGeneratorConstants.positionMax;
+    isIsochronicEnabled.value = _sineEngine.isochronic.enabled;
+    isochronicFreq.value = _sineEngine.isochronic.pulseFrequency;
+    isochronicDuty.value = _sineEngine.isochronic.dutyCycle;
+    isModulationEnabled.value = _sineEngine.modulator.enabled;
+    modulationType.value = _sineEngine.modulator.type;
+    modulationFreq.value = _sineEngine.modulator.modFrequency;
+    modulationDepth.value = _sineEngine.modulator.depth;
+    spatialMode.value = _sineEngine.spatialMode;
+    spatialIntensity.value = _sineEngine.spatialIntensity;
+    orbitSpeed.value = _sineEngine.orbitSpeed;
+    orbitDirection.value = _sineEngine.orbitDirection;
+    breathMode.value = _sineEngine.breathEngine.mode;
+    breathRate.value = _sineEngine.breathEngine.breathsPerMinute;
+    breathDepth.value = _sineEngine.breathEngine.depth;
+  }
+
+  /// Called once for each generator route entry, not once per permanent
+  /// controller lifetime. Selecting A then B must actually load B.
+  Future<void> loadRouteArguments(Object? arguments) async {
+    final value = arguments is List && arguments.isNotEmpty
+        ? arguments.first
+        : arguments;
+    if (value is Incienso) {
+      await loadIncienso(value, autoStart: false);
+    } else if (value is InciensoPracticeReference && value.canOpen) {
+      final request = ++_loadRequest;
+      try {
+        await _openPublicIncienso(value.publicInciensoId, request: request);
+      } catch (e, st) {
+        if (!_isDisposed && request == _loadRequest) {
+          playbackError.value =
+              GeneratorTranslationConstants.practiceImportFailed.tr;
+        }
+        NeomErrorLogger.recordError(
+          e,
+          st,
+          module: 'neom_generator',
+          operation: 'openPracticeReference',
+        );
+      }
+    } else if (value is NeomChamberPreset ||
+        value is NeomFrequency ||
+        value is Map<String, dynamic>) {
+      final request = ++_loadRequest;
+      await _playStopPreview(stop: true);
+      if (_isDisposed || request != _loadRequest) return;
+      _activeIncienso = null;
+      _hasSessionClock = false;
+      _playback = null;
+      _loadedInitialState = null;
+      _sineEngine.applyAudioState(InciensoAudioState(parameters: const {}));
+      currentOctave.value = 0;
+      if (value is NeomChamberPreset) {
+        chamberPreset = value.clone();
+        _sineEngine.frequency = value.mainFrequency?.frequency ?? 432;
+        _sineEngine.beat =
+            (value.binauralFrequency?.frequency ?? _sineEngine.frequency) -
+            _sineEngine.frequency;
+        _sineEngine.volume = value.neomParameter?.volume ?? .5;
+        _sineEngine.posX =
+            (value.neomParameter?.x ?? 0) / NeomGeneratorConstants.positionMax;
+        _sineEngine.posY =
+            (value.neomParameter?.y ?? 0) / NeomGeneratorConstants.positionMax;
+        _sineEngine.posZ =
+            (value.neomParameter?.z ?? 0) / NeomGeneratorConstants.positionMax;
+      } else if (value is NeomFrequency) {
+        _sineEngine.frequency = value.frequency;
+      } else {
+        _loadFromMapArguments(value as Map<String, dynamic>);
+        _sineEngine.frequency = currentFreq.value;
+      }
+      currentFreq.value = _sineEngine.frequency;
+      _syncUiFromEngine();
+      _sessionInitialState = _captureAudioState();
+      update([AppPageIdConstants.generator]);
+    }
   }
 
   // ── Visual experience navigation ──
@@ -1405,12 +2117,18 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
 
   String? _visualRoute(InciensoVisual visual) {
     switch (visual) {
-      case InciensoVisual.flocking:     return AppRouteConstants.flockingFullscreen;
-      case InciensoVisual.breathing:    return AppRouteConstants.breathingFullscreen;
-      case InciensoVisual.fractals:     return AppRouteConstants.fractalFullscreen;
-      case InciensoVisual.neomatics:    return AppRouteConstants.neomaticsFullscreen;
-      case InciensoVisual.neuroMandala: return AppRouteConstants.neuromandalaFullscreen;
-      case InciensoVisual.photonicPulse: return null; // Handled inline
+      case InciensoVisual.flocking:
+        return AppRouteConstants.flockingFullscreen;
+      case InciensoVisual.breathing:
+        return AppRouteConstants.breathingFullscreen;
+      case InciensoVisual.fractals:
+        return AppRouteConstants.fractalFullscreen;
+      case InciensoVisual.neomatics:
+        return AppRouteConstants.neomaticsFullscreen;
+      case InciensoVisual.neuroMandala:
+        return AppRouteConstants.neuromandalaFullscreen;
+      case InciensoVisual.photonicPulse:
+        return null; // Handled inline
     }
   }
 
@@ -1475,7 +2193,8 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   Incienso? saveAsIncienso(String name) {
     return inciensoRecorder.stopAndBuild(
       name: name,
-      creatorId: profile?.id,
+      creatorId: _sessionCreatorId,
+      endFrame: _sineEngine.playedFrames,
     );
   }
 
@@ -1486,10 +2205,12 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   /// stopping rather than the controller pushing UI.
   InciensoSessionSummary? pendingSessionSummary() {
     if (inciensoTracker.inciensoCount <= 0) return null;
-    return InciensoSessionSummary.fromSession(buildInciensoSession(
-      inciensoId: _activeIncienso?.id ?? '',
-      source: _activeIncienso?.source ?? InciensoSource.userCreated,
-    ));
+    return InciensoSessionSummary.fromSession(
+      buildInciensoSession(
+        inciensoId: _activeIncienso?.id ?? '',
+        source: _activeIncienso?.source ?? InciensoSource.userCreated,
+      ),
+    );
   }
 
   /// Stores how the session felt. Silent on failure — a review is optional and
@@ -1498,8 +2219,12 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
     try {
       await _inciensoFirestore.insertReview(review);
     } catch (e, st) {
-      NeomErrorLogger.recordError(e, st,
-          module: 'neom_generator', operation: 'saveSessionReview');
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'saveSessionReview',
+      );
     }
   }
 
@@ -1516,27 +2241,103 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   /// Skipped while following someone else's recording: that session already
   /// exists, and re-saving it would fill the catalogue with copies attributed
   /// to whoever played it.
-  Future<void> _autoSaveRecordedSession() async {
-    if (_activeIncienso?.isRecorded ?? false) {
-      inciensoRecorder.cancel();
-      return;
-    }
-    if (!canSaveRecordedSession) {
-      inciensoRecorder.cancel();
-      return;
-    }
+  int get pendingRecordingCount => _pendingRecordings.length;
 
+  /// Private sessions plus recoverable local drafts. Guest drafts stay local
+  /// and are never silently attributed to a subsequently signed-in account.
+  Future<List<Incienso>> recordedSessions() async {
+    final owner = userServiceImpl?.profile.id ?? '';
+    bool visible(Incienso value) => owner.isEmpty
+        ? (value.creatorId == null || value.creatorId!.isEmpty)
+        : value.creatorId == owner;
+    final sessions = <String, Incienso>{};
+    if (owner.isNotEmpty) {
+      for (final value in await _inciensoFirestore.fetchByCreator(owner)) {
+        if (visible(value)) sessions[value.id] = value;
+      }
+    }
+    for (final value in await _draftStore.load()) {
+      if (visible(value)) sessions[value.id] = value;
+    }
+    for (final value in _pendingRecordings) {
+      if (visible(value)) sessions[value.id] = value;
+    }
+    return sessions.values.toList().reversed.toList();
+  }
+
+  Future<void> _retainRecording(Incienso recording) async {
     try {
-      await publishRecordedIncienso(_autoSessionName());
+      await _draftStore.save(recording);
+      await retryPendingRecordings();
     } catch (e, st) {
-      // A failed save must not break stopping playback.
-      NeomErrorLogger.recordError(e, st,
-          module: 'neom_generator', operation: '_autoSaveRecordedSession');
+      recordingSaveError.value =
+          GeneratorTranslationConstants.recordingSaveFailed.tr;
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'retainRecording',
+      );
+    }
+  }
+
+  Future<void> _restoreRecordedDrafts() async {
+    try {
+      for (final draft in await _draftStore.load()) {
+        if (!_pendingRecordings.any((p) => p.id == draft.id)) {
+          _pendingRecordings.add(draft);
+        }
+      }
+      await retryPendingRecordings();
+    } catch (e, st) {
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'restoreRecordingDrafts',
+      );
+    }
+  }
+
+  Future<void> retryPendingRecordings() async {
+    if (_savingRecordings) return;
+    final owner = userServiceImpl?.profile.id ?? '';
+    if (owner.isEmpty) {
+      return; // Guests retain local drafts; never assign them to another account.
+    }
+    _savingRecordings = true;
+    var failed = false;
+    final attempted = <String>{};
+    try {
+      while (userServiceImpl?.profile.id == owner) {
+        final recording = _pendingRecordings
+            .where((r) => r.creatorId == owner && !attempted.contains(r.id))
+            .firstOrNull;
+        if (recording == null) break;
+        attempted.add(recording.id);
+        try {
+          final id = await _inciensoFirestore.insert(recording);
+          if (id.isEmpty) {
+            failed = true;
+            continue; // One invalid/oversized session must not block later ones.
+          }
+          await _draftStore.remove(recording.id);
+          _pendingRecordings.removeWhere((r) => r.id == recording.id);
+        } catch (e, st) {
+          failed = true;
+          NeomErrorLogger.recordError(
+            e,
+            st,
+            module: 'neom_generator',
+            operation: 'retryRecordingSave',
+          );
+        }
+      }
+      recordingSaveError.value = failed
+          ? GeneratorTranslationConstants.recordingSaveFailed.tr
+          : '';
     } finally {
-      // stopAndBuild leaves the keyframes in place, and stopping is reachable
-      // more than once — without this, a second stop would save the same
-      // session again.
-      inciensoRecorder.cancel();
+      _savingRecordings = false;
     }
   }
 
@@ -1561,23 +2362,24 @@ class NeomGeneratorController extends SintController implements NeomGeneratorSer
   /// stays theirs until they choose to share it.
   ///
   /// Returns null when the session was too short to be worth keeping.
-  Future<Incienso?> publishRecordedIncienso(String name,
-      {String? description,
-      List<String> tags = const [],
-      bool isPublic = false}) async {
+  Future<Incienso?> publishRecordedIncienso(
+    String name, {
+    String? description,
+    List<String> tags = const [],
+    bool isPublic = false,
+  }) async {
     final recorded = inciensoRecorder.stopAndBuild(
       name: name,
       description: description,
-      creatorId: profile?.id,
+      creatorId: _sessionCreatorId,
       tags: tags,
+      endFrame: _sineEngine.playedFrames,
     );
     if (recorded == null) return null;
 
     final incienso = recorded.copyWithVisibility(isPublic: isPublic);
-    final docId = await _inciensoFirestore.insert(incienso);
-    AppConfig.logger.d("Saved Incienso $docId (public: $isPublic)");
-
-    return incienso;
+    _pendingRecordings.add(incienso);
+    await _retainRecording(incienso);
+    return _pendingRecordings.any((r) => r.id == incienso.id) ? null : incienso;
   }
-
 }

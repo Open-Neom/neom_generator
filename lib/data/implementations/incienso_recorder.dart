@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:neom_core/domain/model/neom/neom_neuro_state.dart';
 
 import '../../domain/models/incienso.dart';
+import '../../domain/models/incienso_audio_state.dart';
 
 /// Records a live Cámara Neom session into a shareable [Incienso].
 ///
@@ -33,6 +34,15 @@ import '../../domain/models/incienso.dart';
 /// final incienso = recorder.stopAndBuild(name: 'Mi meditación nocturna');
 /// ```
 class InciensoRecorder extends ChangeNotifier {
+  InciensoRecorder({Duration Function()? elapsed}) : _elapsedOverride = elapsed;
+  final Duration Function()? _elapsedOverride;
+  final Stopwatch _clock = Stopwatch();
+  Duration _audioElapsed = Duration.zero;
+  bool _audioClockMode = false;
+  int _sampleRate = 44100;
+  int _sampleFrame = 0;
+  int _lastMetadataFrame = 0;
+  InciensoAudioState? _lastAudioState;
   final List<InciensoKeyframe> _keyframes = [];
   bool _isRecording = false;
   DateTime? _startedAt;
@@ -55,25 +65,98 @@ class InciensoRecorder extends ChangeNotifier {
 
   /// Recording duration so far.
   Duration get recordingDuration => _startedAt != null
-      ? DateTime.now().difference(_startedAt!)
+      ? (_audioClockMode
+            ? _audioElapsed
+            : (_elapsedOverride?.call() ?? _clock.elapsed))
       : Duration.zero;
 
   /// Start recording a new Incienso.
-  void startRecording() {
+  void startRecording({
+    InciensoAudioState? initialState,
+    bool audioClock = false,
+    int sampleRate = 44100,
+  }) {
+    _sampleTimer?.cancel();
+    _sampleTimer = null;
+    _clock
+      ..reset()
+      ..start();
+    _audioClockMode = audioClock;
+    _sampleRate = sampleRate;
+    _sampleFrame = 0;
+    _lastMetadataFrame = 0;
+    _audioElapsed = Duration.zero;
+    _lastLeftHz = 200;
+    _lastRightHz = 210;
+    _lastVolume = .7;
+    _lastCoherence = 0;
+    _lastState = NeomNeuroState.neutral;
+    _lastBreathPhase = 0;
+    _lastVisual = null;
+    _lastAudioState = initialState;
+    if (initialState != null) _cacheState(initialState);
     _keyframes.clear();
     _isRecording = true;
     _startedAt = DateTime.now();
 
     // Auto-sample at 1 Hz for consistent timeline
-    _sampleTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_isRecording) {
-        _addKeyframe(isUserAction: false);
-      }
-    });
+    if (!audioClock) {
+      _sampleTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (_isRecording) {
+          _addKeyframe(isUserAction: false);
+        }
+      });
+    }
 
     // Capture initial state immediately
-    _addKeyframe(isUserAction: false);
+    _addKeyframe(isUserAction: false, audioState: initialState);
     notifyListeners();
+  }
+
+  void _cacheState(InciensoAudioState state) {
+    final carrier = state.number('carrierHz', 432);
+    final multi = state.flag('multi', false);
+    _lastLeftHz = multi ? state.number('leftHz', carrier) : carrier;
+    _lastRightHz = multi
+        ? state.number('rightHz', carrier)
+        : carrier + state.number('beatHz', 0);
+    _lastVolume = state.number('volume', .5);
+    _lastState = NeomNeuroState.values.firstWhere(
+      (v) => v.name == state.text('neuroState', 'neutral'),
+      orElse: () => NeomNeuroState.neutral,
+    );
+    _lastVisual = state.parameters['visualExperience'] as String?;
+  }
+
+  /// Called at an audio buffer boundary, independently of rendering frames.
+  /// Full snapshots are stored only on changes, avoiding ~1KB per second of
+  /// redundant oscillator state in long sessions. Metadata remains at 1 Hz.
+  void captureAudioFrame(
+    InciensoAudioState state,
+    int frame, {
+    double coherence = 0,
+    double breathPhase = 0,
+  }) {
+    if (!_isRecording || !_audioClockMode) return;
+    advanceAudioClock(frame);
+    final changed =
+        _lastAudioState == null || !_lastAudioState!.sameParameters(state);
+    _cacheState(state);
+    _lastCoherence = coherence;
+    _lastBreathPhase = breathPhase;
+    if (changed || frame - _lastMetadataFrame >= _sampleRate) {
+      _addKeyframe(isUserAction: changed, audioState: changed ? state : null);
+      _lastMetadataFrame = frame;
+    }
+    _lastAudioState = state;
+  }
+
+  void advanceAudioClock(int frame) {
+    if (!_isRecording || !_audioClockMode) return;
+    _sampleFrame = frame;
+    _audioElapsed = Duration(
+      microseconds: (frame * 1000000 / _sampleRate).round(),
+    );
   }
 
   /// Update current values (called frequently from generator controller).
@@ -107,7 +190,7 @@ class InciensoRecorder extends ChangeNotifier {
     double? breathPhase,
     String? visualExperience,
   }) {
-    if (!_isRecording) return;
+    if (!_isRecording || _audioClockMode) return;
     updateValues(
       leftHz: leftHz,
       rightHz: rightHz,
@@ -120,21 +203,28 @@ class InciensoRecorder extends ChangeNotifier {
     _addKeyframe(isUserAction: true);
   }
 
-  void _addKeyframe({required bool isUserAction}) {
+  void _addKeyframe({
+    required bool isUserAction,
+    InciensoAudioState? audioState,
+  }) {
     if (_startedAt == null) return;
 
-    final elapsed = DateTime.now().difference(_startedAt!);
-    _keyframes.add(InciensoKeyframe(
-      timestampMs: elapsed.inMilliseconds.toDouble(),
-      leftHz: _lastLeftHz,
-      rightHz: _lastRightHz,
-      coherence: _lastCoherence,
-      volume: _lastVolume,
-      neuroState: _lastState.name,
-      breathPhase: _lastBreathPhase,
-      visualExperience: _lastVisual,
-      isUserAction: isUserAction,
-    ));
+    final elapsed = recordingDuration;
+    _keyframes.add(
+      InciensoKeyframe(
+        timestampMs: elapsed.inMicroseconds / 1000,
+        leftHz: _lastLeftHz,
+        rightHz: _lastRightHz,
+        coherence: _lastCoherence,
+        volume: _lastVolume,
+        neuroState: _lastState.name,
+        breathPhase: _lastBreathPhase,
+        visualExperience: _lastVisual,
+        isUserAction: isUserAction,
+        audioState: audioState,
+        sampleFrame: _audioClockMode ? _sampleFrame : null,
+      ),
+    );
   }
 
   /// Stop recording and build the [Incienso] preset.
@@ -152,7 +242,7 @@ class InciensoRecorder extends ChangeNotifier {
     if (_keyframes.length < minKeyframes) return false;
     final startedAt = _startedAt;
     if (startedAt == null) return false;
-    return DateTime.now().difference(startedAt) >= minDuration;
+    return recordingDuration >= minDuration;
   }
 
   Incienso? stopAndBuild({
@@ -160,15 +250,37 @@ class InciensoRecorder extends ChangeNotifier {
     String? description,
     String? creatorId,
     List<String> tags = const [],
+    int? endFrame,
   }) {
+    if (!_isRecording) return null;
+    if (_audioClockMode && endFrame != null) {
+      advanceAudioClock(endFrame.clamp(0, _sampleFrame));
+      _keyframes.removeWhere((f) => (f.sampleFrame ?? 0) > _sampleFrame);
+      // Discard parameter changes still queued, not yet heard at stop.
+      if (_keyframes.isNotEmpty) {
+        final tail = _keyframes.last;
+        _lastLeftHz = tail.leftHz;
+        _lastRightHz = tail.rightHz;
+        _lastVolume = tail.volume;
+        _lastCoherence = tail.coherence;
+        _lastBreathPhase = tail.breathPhase;
+        _lastState = NeomNeuroState.values.firstWhere(
+          (v) => v.name == tail.neuroState,
+          orElse: () => NeomNeuroState.neutral,
+        );
+        _lastVisual = tail.visualExperience;
+      }
+    }
+    _addKeyframe(isUserAction: false);
     _isRecording = false;
+    _clock.stop();
     _sampleTimer?.cancel();
     _sampleTimer = null;
 
     if (_keyframes.length < minKeyframes) return null; // Too short to be useful
     if (_startedAt == null) return null;
 
-    final duration = DateTime.now().difference(_startedAt!);
+    final duration = recordingDuration;
     if (duration < minDuration) return null;
 
     // Derive initial frequencies from first keyframe
@@ -196,11 +308,11 @@ class InciensoRecorder extends ChangeNotifier {
     // Average coherence for metadata
     final avgCoherence = _keyframes.isNotEmpty
         ? _keyframes.fold<double>(0.0, (sum, kf) => sum + kf.coherence) /
-            _keyframes.length
+              _keyframes.length
         : 0.0;
 
     final incienso = Incienso(
-      id: 'rec_${DateTime.now().millisecondsSinceEpoch}',
+      id: 'rec_${DateTime.now().microsecondsSinceEpoch}',
       names: {'es': name, 'en': name},
       descriptions: description != null
           ? {'es': description, 'en': description}
@@ -209,6 +321,8 @@ class InciensoRecorder extends ChangeNotifier {
       rightFrequencyHz: first.rightHz,
       suggestedDuration: duration,
       timeline: List.unmodifiable(_keyframes),
+      recordingVersion: _audioClockMode && _lastAudioState != null ? 2 : 1,
+      sampleRate: _sampleRate,
       defaultVisual: dominantVisual,
       source: InciensoSource.userCreated,
       creatorId: creatorId,
@@ -223,6 +337,9 @@ class InciensoRecorder extends ChangeNotifier {
   /// Cancel recording without building.
   void cancel() {
     _isRecording = false;
+    _clock
+      ..stop()
+      ..reset();
     _sampleTimer?.cancel();
     _sampleTimer = null;
     _keyframes.clear();

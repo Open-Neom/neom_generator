@@ -1,10 +1,10 @@
 import 'dart:math';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, listEquals;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
 import '../../engine/neom_frequency_painter_engine.dart';
+import '../widgets/visual_animation.dart';
 
 /// A "living circuit" painter that traces sine waves along the borders
 /// of registered child widgets, connecting them with flowing current.
@@ -21,99 +21,198 @@ import '../../engine/neom_frequency_painter_engine.dart';
 /// - Breath → pulsing intensity
 /// - Neuro state → color temperature
 class CircuitWavePainter extends CustomPainter {
-  final List<Rect> childBounds;
+  final List<Rect> _childBounds;
+  final ValueNotifier<List<Rect>>? bounds;
+
+  /// Visible paint regions for nodes inside independently scrolling columns.
+  final ValueNotifier<List<Rect>>? clips;
+  List<Rect> get childBounds => bounds?.value ?? _childBounds;
   final NeomFrequencyPainterEngine engine;
-  final double time;
+  final double _time;
+  final VisualAnimationClock? clock;
+  double get time => clock == null ? _time : clock!.value * 2 * pi;
   final Color primaryColor;
   final Color secondaryColor;
 
   CircuitWavePainter({
-    required this.childBounds,
+    List<Rect> childBounds = const [],
+    this.bounds,
+    this.clips,
     required this.engine,
-    required this.time,
+    double time = 0,
+    this.clock,
     this.primaryColor = const Color(0xFF00BCD4),
     this.secondaryColor = const Color(0xFFAB47BC),
-  });
+  }) : _childBounds = List.unmodifiable(childBounds),
+       _time = time,
+       super(repaint: Listenable.merge([clock, bounds, clips]));
+
+  List<Rect>? _cachedBounds;
+  List<Rect>? _cachedClips;
+  Size? _cachedSize;
+  List<_CircuitSegment> _segments = [];
+  double _totalLength = 0;
+  Path _paintRegion = Path();
+
+  // Keep transparent controls clear, including the glow behind the traces.
+  static const _borderBand = 6.0;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (childBounds.isEmpty) return;
+    if (childBounds.isEmpty || size.isEmpty || !size.isFinite) return;
 
     // Audio-reactive parameters
-    final freq = engine.visualPhase * 15 + 4; // wave density
-    final amp = 6.0 + engine.glowIntensity * 8.0; // 6-14px displacement
+    // Density follows pitch, not the continuously wrapping audio phase.
+    final freq = 4.0 + engine.waveStretch * 2.0;
+    final amp = 3.0 + engine.glowIntensity * 2.0;
     final beat = engine.binauralPhase;
     final breath = engine.breathPulse;
     final panBias = engine.waveHeight; // 0-1, spatial position
 
     // Build complete circuit path through all child perimeters + connections
-    final segments = _buildCircuitSegments(size);
+    if (_cachedSize != size ||
+        !listEquals(_cachedBounds, childBounds) ||
+        !listEquals(_cachedClips, clips?.value)) {
+      _cachedSize = size;
+      _cachedBounds = List.of(childBounds);
+      _cachedClips = clips == null ? null : List.of(clips!.value);
+      _segments = _buildCircuitSegments(size);
+      _totalLength = _segments.fold(
+        0,
+        (total, segment) => total + segment.length,
+      );
+      _paintRegion = Path()..addRect(Offset.zero & size);
+      for (final rect in childBounds) {
+        if (!rect.isFinite || rect.isEmpty) continue;
+        final interior = rect.deflate(_borderBand);
+        if (!interior.isEmpty) {
+          _paintRegion = Path.combine(
+            PathOperation.difference,
+            _paintRegion,
+            Path()..addRect(interior),
+          );
+        }
+      }
+    }
+    final segments = _segments;
     if (segments.isEmpty) return;
 
     // Total path length for continuous phase
-    double totalLen = 0;
-    for (final seg in segments) {
-      totalLen += seg.length;
-    }
+    final totalLen = _totalLength;
     if (totalLen <= 0) return;
+    canvas.save();
+    canvas.clipPath(_paintRegion);
 
     // Draw the two traces (L and R channels)
-    _drawTrace(canvas, segments, totalLen, freq, amp, beat, breath, panBias,
-        primaryColor, time * 3, 1.0);
-    _drawTrace(canvas, segments, totalLen, freq, amp * 0.7, beat, breath, panBias,
-        secondaryColor, time * 3 + beat, 0.6);
+    _drawTrace(
+      canvas,
+      segments,
+      totalLen,
+      freq,
+      amp,
+      breath,
+      panBias,
+      primaryColor,
+      time * 3,
+      1.0,
+    );
+    _drawTrace(
+      canvas,
+      segments,
+      totalLen,
+      freq,
+      amp * 0.7,
+      breath,
+      panBias,
+      secondaryColor,
+      time * 3 + beat,
+      0.6,
+    );
 
     // Draw node dots at connection points between widgets
     _drawNodes(canvas, segments);
+    canvas.restore();
   }
 
   /// Build circuit segments: each child's perimeter + connections between them.
   List<_CircuitSegment> _buildCircuitSegments(Size canvasSize) {
     final segments = <_CircuitSegment>[];
 
-    for (int i = 0; i < childBounds.length; i++) {
+    final viewport = Offset.zero & canvasSize;
+    final nodes = <({Rect rect, Rect clip})>[];
+    final seen = <Rect>{};
+    for (var i = 0; i < childBounds.length; i++) {
       final rect = childBounds[i];
-
-      // Add the perimeter of this child
-      segments.add(_CircuitSegment(
-        type: _SegmentType.perimeter,
-        rect: rect,
-        length: 2 * (rect.width + rect.height),
-      ));
-
-      // Add connection trace to next child (if any)
-      // Uses L-shaped orthogonal path (like a PCB trace) instead of diagonal
-      if (i < childBounds.length - 1) {
-        final next = childBounds[i + 1];
-        final fromPt = Offset(rect.center.dx, rect.bottom);
-        final midPt = Offset(rect.center.dx, next.top);
-        final toPt = Offset(next.center.dx, next.top);
-
-        // Vertical segment (down from current)
-        final vLen = (midPt - fromPt).distance;
-        if (vLen > 1) {
-          segments.add(_CircuitSegment(
-            type: _SegmentType.connection,
-            from: fromPt,
-            to: midPt,
-            length: vLen,
-          ));
-        }
-
-        // Horizontal segment (across to next, if needed)
-        final hLen = (toPt - midPt).distance;
-        if (hLen > 1) {
-          segments.add(_CircuitSegment(
-            type: _SegmentType.connection,
-            from: midPt,
-            to: toPt,
-            length: hLen,
-          ));
-        }
+      if (!rect.isFinite || rect.isEmpty || !seen.add(rect)) continue;
+      final nodeClip = clips != null && i < clips!.value.length
+          ? viewport.intersect(clips!.value[i])
+          : viewport;
+      if (!nodeClip.isFinite || nodeClip.isEmpty || !rect.overlaps(nodeClip)) {
+        continue;
       }
+      nodes.add((rect: rect, clip: nodeClip));
+      segments.add(_CircuitSegment.perimeter(rect, nodeClip));
+    }
+
+    for (var i = 0; i + 1 < nodes.length; i++) {
+      final node = nodes[i];
+      final next = nodes[i + 1];
+      // Registration order is not a route: different columns may have an
+      // entire unregistered panel between them. Only bridge a short shared
+      // gutter, and never bridge independent scroll viewports.
+      if (node.clip != next.clip) continue;
+      final connection = _gapConnection(node.rect, next.rect, node.clip);
+      if (connection == null) continue;
+      final corridor = Rect.fromPoints(
+        connection.points.first,
+        connection.points.last,
+      ).inflate(1);
+      final obstructed = childBounds.any(
+        (rect) =>
+            rect.isFinite &&
+            rect != node.rect &&
+            rect != next.rect &&
+            rect.deflate(1).overlaps(corridor),
+      );
+      if (!obstructed) segments.add(connection);
     }
 
     return segments;
+  }
+
+  _CircuitSegment? _gapConnection(Rect first, Rect second, Rect clip) {
+    const maxGap = 24.0;
+    final left = max(first.left, second.left);
+    final right = min(first.right, second.right);
+    if (right > left) {
+      final upper = first.top < second.top ? first : second;
+      final lower = upper == first ? second : first;
+      final gap = lower.top - upper.bottom;
+      if (gap > 1 && gap <= maxGap) {
+        final x = (left + right) / 2;
+        return _CircuitSegment.connection(
+          Offset(x, upper.bottom),
+          Offset(x, lower.top),
+          clip,
+        );
+      }
+    }
+    final top = max(first.top, second.top);
+    final bottom = min(first.bottom, second.bottom);
+    if (bottom > top) {
+      final leading = first.left < second.left ? first : second;
+      final trailing = leading == first ? second : first;
+      final gap = trailing.left - leading.right;
+      if (gap > 1 && gap <= maxGap) {
+        final y = (top + bottom) / 2;
+        return _CircuitSegment.connection(
+          Offset(leading.right, y),
+          Offset(trailing.left, y),
+          clip,
+        );
+      }
+    }
+    return null;
   }
 
   void _drawTrace(
@@ -122,160 +221,143 @@ class CircuitWavePainter extends CustomPainter {
     double totalLen,
     double freq,
     double amp,
-    double beat,
     double breath,
     double panBias,
     Color color,
     double timeOffset,
     double opacity,
   ) {
-    final path = Path();
     double accumulated = 0;
-    bool first = true;
 
     // Web canvas is slower — use coarser sampling to avoid jank
-    final sampleStep = kIsWeb ? 8.0 : 3.0;
+    const sampleStep = 8.0;
+    // At least eight samples per cycle keeps audio phase from aliasing into
+    // a dense zigzag when the phase/frequency is high.
+    final cycles = freq.clamp(1.0, max(1.0, totalLen / (sampleStep * 8)));
 
     for (final seg in segments) {
-      final steps = (seg.length / sampleStep).ceil();
-
-      for (int s = 0; s <= steps; s++) {
-        final localT = s / steps; // 0..1 within this segment
-        final globalT = (accumulated + localT * seg.length) / totalLen;
-
-        // Position on the circuit path
-        final pos = seg.positionAt(localT);
-        // Normal direction (perpendicular)
-        final normal = seg.normalAt(localT);
-
-        // Wave displacement
-        final phase = globalT * freq * 2 * pi + timeOffset;
-        final breathMod = 0.7 + breath * 0.3;
-        final displacement = sin(phase) * amp * breathMod;
-
-        // Apply spatial bias: slightly different amplitude on left vs right
-        final spatialMod = pos.dx < (childBounds.isNotEmpty ? childBounds.first.center.dx : 0)
-            ? 1.0 + panBias * 0.3
-            : 1.0 - panBias * 0.3;
-
-        final point = Offset(
-          pos.dx + normal.dx * displacement * spatialMod,
-          pos.dy + normal.dy * displacement * spatialMod,
-        );
-
-        if (first) {
-          path.moveTo(point.dx, point.dy);
-          first = false;
-        } else {
-          path.lineTo(point.dx, point.dy);
+      // Each perimeter/bridge owns its contour. Joining the end of one
+      // perimeter to a bridge's start draws a diagonal through the control.
+      final path = Path();
+      double edgeStart = accumulated;
+      for (var edge = 0; edge + 1 < seg.points.length; edge++) {
+        final from = seg.points[edge];
+        final to = seg.points[edge + 1];
+        final delta = to - from;
+        final length = delta.distance;
+        final normal = Offset(-delta.dy, delta.dx) / length;
+        final steps = max(1, (length / sampleStep).ceil());
+        for (var s = 0; s <= steps; s++) {
+          final localT = s / steps;
+          final pos = Offset.lerp(from, to, localT)!;
+          final phase =
+              (edgeStart + localT * length) / totalLen * cycles * 2 * pi +
+              timeOffset;
+          // Pin every corner and bridge endpoint to the actual edge. This
+          // closes the loop even at fractional wave densities.
+          final taper = min(1.0, min(localT, 1 - localT) * length / 12);
+          final spatialMod = pos.dx < childBounds.first.center.dx
+              ? 1.0 + panBias * 0.3
+              : 1.0 - panBias * 0.3;
+          final wave = seg.isPerimeter
+              ? (sin(phase) + 1) * 0.5
+              : sin(phase) * 0.35;
+          final displacement =
+              wave * amp * (0.7 + breath * 0.3) * spatialMod * taper;
+          final point = pos + normal * displacement;
+          if (edge == 0 && s == 0) {
+            path.moveTo(point.dx, point.dy);
+          } else {
+            path.lineTo(point.dx, point.dy);
+          }
         }
+        edgeStart += length;
       }
-
+      if (seg.isPerimeter) path.close();
       accumulated += seg.length;
+      canvas.save();
+      canvas.clipRect(seg.clip);
+      // Glow layer — skip blur on web (expensive canvas operation)
+      if (!kIsWeb) {
+        canvas.drawPath(
+          path,
+          Paint()
+            ..color = color.withAlpha((20 * opacity).round())
+            ..strokeWidth = 6
+            ..style = PaintingStyle.stroke
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+        );
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = color.withAlpha((kIsWeb ? 180 : 150) * opacity ~/ 1)
+          ..strokeWidth = kIsWeb ? 2.0 : 1.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.restore();
     }
-
-    // Glow layer — skip blur on web (expensive canvas operation)
-    if (!kIsWeb) {
-      final glowPaint = Paint()
-        ..color = color.withAlpha((20 * opacity).round())
-        ..strokeWidth = 6
-        ..style = PaintingStyle.stroke
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-      canvas.drawPath(path, glowPaint);
-    }
-
-    // Main trace — slightly thicker on web to compensate for missing glow
-    final paint = Paint()
-      ..color = color.withAlpha((kIsWeb ? 180 : 150) * opacity ~/ 1)
-      ..strokeWidth = kIsWeb ? 2.0 : 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawPath(path, paint);
   }
 
   void _drawNodes(Canvas canvas, List<_CircuitSegment> segments) {
     final dotPaint = Paint()..color = primaryColor.withAlpha(80);
-    final glowPaint = kIsWeb ? null : (Paint()
-      ..color = primaryColor.withAlpha(20)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+    final glowPaint = kIsWeb
+        ? null
+        : (Paint()
+            ..color = primaryColor.withAlpha(20)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
 
+    final drawn = <Offset>{};
     for (final seg in segments) {
-      if (seg.type == _SegmentType.connection) {
-        canvas.drawCircle(seg.from!, 2.5, dotPaint);
-        canvas.drawCircle(seg.to!, 2.5, dotPaint);
+      if (!seg.isPerimeter) {
+        canvas.save();
+        canvas.clipRect(seg.clip);
+        for (final point in [seg.points.first, seg.points.last]) {
+          if (!drawn.add(point)) continue;
+          canvas.drawCircle(point, 2.5, dotPaint);
 
-        if (glowPaint != null) {
-          canvas.drawCircle(seg.from!, 5, glowPaint);
-          canvas.drawCircle(seg.to!, 5, glowPaint);
+          if (glowPaint != null) canvas.drawCircle(point, 5, glowPaint);
         }
+        canvas.restore();
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant CircuitWavePainter old) => true;
+  bool shouldRepaint(covariant CircuitWavePainter old) =>
+      clock == null ||
+      engine != old.engine ||
+      clock != old.clock ||
+      _time != old._time ||
+      bounds != old.bounds ||
+      clips != old.clips ||
+      !listEquals(_childBounds, old._childBounds) ||
+      primaryColor != old.primaryColor ||
+      secondaryColor != old.secondaryColor;
 }
 
-enum _SegmentType { perimeter, connection }
-
 class _CircuitSegment {
-  final _SegmentType type;
-  final Rect? rect; // for perimeter segments
-  final Offset? from, to; // for connection segments
+  final bool isPerimeter;
+  final List<Offset> points;
+  final Rect clip;
   final double length;
 
-  _CircuitSegment({
-    required this.type,
-    this.rect,
-    this.from,
-    this.to,
-    required this.length,
-  });
+  _CircuitSegment.perimeter(Rect rect, this.clip)
+    : isPerimeter = true,
+      points = [
+        rect.topLeft,
+        rect.topRight,
+        rect.bottomRight,
+        rect.bottomLeft,
+        rect.topLeft,
+      ],
+      length = 2 * (rect.width + rect.height);
 
-  /// Get position at t (0..1) along this segment.
-  Offset positionAt(double t) {
-    if (type == _SegmentType.connection) {
-      return Offset.lerp(from!, to!, t)!;
-    }
-
-    // Perimeter: clockwise from top-left
-    final r = rect!;
-    final w = r.width;
-    final h = r.height;
-    final perim = 2 * (w + h);
-    final d = t * perim;
-
-    if (d <= w) {
-      return Offset(r.left + d, r.top);
-    } else if (d <= w + h) {
-      return Offset(r.right, r.top + (d - w));
-    } else if (d <= 2 * w + h) {
-      return Offset(r.right - (d - w - h), r.bottom);
-    } else {
-      return Offset(r.left, r.bottom - (d - 2 * w - h));
-    }
-  }
-
-  /// Normal vector at t (outward for perimeters, perpendicular for connections).
-  Offset normalAt(double t) {
-    if (type == _SegmentType.connection) {
-      final dir = (to! - from!);
-      final normalized = dir / dir.distance;
-      // Perpendicular (rotate 90°)
-      return Offset(-normalized.dy, normalized.dx);
-    }
-
-    final r = rect!;
-    final w = r.width;
-    final h = r.height;
-    final perim = 2 * (w + h);
-    final d = t * perim;
-
-    if (d <= w) return const Offset(0, -1);
-    if (d <= w + h) return const Offset(1, 0);
-    if (d <= 2 * w + h) return const Offset(0, 1);
-    return const Offset(-1, 0);
-  }
+  _CircuitSegment.connection(Offset from, Offset to, this.clip)
+    : isPerimeter = false,
+      points = [from, to],
+      length = (to - from).distance;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -326,45 +408,82 @@ class CircuitWaveOverlay extends StatefulWidget {
   }
 }
 
-class CircuitWaveOverlayState extends State<CircuitWaveOverlay>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _anim;
+class CircuitWaveOverlayState extends State<CircuitWaveOverlay> {
   final List<GlobalKey> _nodeKeys = [];
-  List<Rect> _nodeBounds = [];
+  final _nodeBounds = ValueNotifier<List<Rect>>(const []);
+  final _nodeClips = ValueNotifier<List<Rect>>(const []);
+  VisualAnimationClock? _clock;
+  Duration _lastMeasurement = Duration.zero;
+  bool _boundsScheduled = false;
+  bool _disposed = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _anim = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 12),
-    )..repeat();
-
-    // Collect bounds after first frame
-    _anim.addListener(_updateBounds);
+  void _bindClock(VisualAnimationClock clock) {
+    if (_clock == clock) return;
+    _clock?.removeListener(_onVisualFrame);
+    _clock = clock..addListener(_onVisualFrame);
   }
 
-  int _frameCount = 0;
+  void _onVisualFrame() {
+    // Geometry is layout work, not frame work. Scroll/resize also request a
+    // post-layout measurement; this catches independently animated children.
+    if (_clock!.elapsed - _lastMeasurement <
+        const Duration(milliseconds: 250)) {
+      return;
+    }
+    _lastMeasurement = _clock!.elapsed;
+    _scheduleBounds();
+  }
+
+  void _scheduleBounds() {
+    if (_disposed || !mounted || _boundsScheduled || !widget.isActive) return;
+    _boundsScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _boundsScheduled = false;
+      if (!_disposed && mounted && widget.isActive) _updateBounds();
+    });
+  }
 
   void _updateBounds() {
-    _frameCount++;
-    // Only recalculate every 30 frames to save CPU
-    if (_frameCount % 30 != 0) return;
-
     final bounds = <Rect>[];
+    final clips = <Rect>[];
     final myBox = context.findRenderObject() as RenderBox?;
-    if (myBox == null) return;
+    if (myBox == null || !myBox.hasSize || !myBox.attached) return;
 
     for (final key in _nodeKeys) {
       final box = key.currentContext?.findRenderObject() as RenderBox?;
-      if (box == null || !box.hasSize) continue;
+      if (box == null || !box.hasSize || !box.attached || box.size.isEmpty) {
+        continue;
+      }
 
-      final topLeft = box.localToGlobal(Offset.zero, ancestor: myBox);
-      bounds.add(topLeft & box.size);
+      final rect = MatrixUtils.transformRect(
+        box.getTransformTo(myBox),
+        Offset.zero & box.size,
+      );
+      if (!rect.isFinite) continue;
+      var visible = Offset.zero & myBox.size;
+      // The overlay sits outside the scrolling columns. Carry each child's
+      // ancestor clips into its paint coordinates so offscreen borders cannot
+      // appear over the fixed panels beneath those columns.
+      RenderObject descendant = box;
+      while (descendant != myBox && descendant.parent != null) {
+        final parent = descendant.parent!;
+        final clip = parent.describeApproximatePaintClip(descendant);
+        if (clip != null) {
+          visible = visible.intersect(
+            MatrixUtils.transformRect(parent.getTransformTo(myBox), clip),
+          );
+        }
+        descendant = parent;
+      }
+      bounds.add(rect);
+      clips.add(visible);
     }
 
-    if (bounds.length != _nodeBounds.length || bounds.isNotEmpty) {
-      _nodeBounds = bounds;
+    if (!listEquals(clips, _nodeClips.value)) {
+      _nodeClips.value = List.unmodifiable(clips);
+    }
+    if (!listEquals(bounds, _nodeBounds.value)) {
+      _nodeBounds.value = List.unmodifiable(bounds);
     }
   }
 
@@ -372,46 +491,69 @@ class CircuitWaveOverlayState extends State<CircuitWaveOverlay>
   void registerNode(GlobalKey key) {
     if (!_nodeKeys.contains(key)) {
       _nodeKeys.add(key);
+      _scheduleBounds();
     }
   }
 
   /// Unregister a child node.
   void unregisterNode(GlobalKey key) {
     _nodeKeys.remove(key);
+    _scheduleBounds();
   }
 
   @override
   void dispose() {
-    _anim.removeListener(_updateBounds);
-    _anim.dispose();
+    _disposed = true;
+    _clock?.removeListener(_onVisualFrame);
+    _nodeBounds.dispose();
+    _nodeClips.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isActive) {
-      return widget.child;
-    }
-
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (_, child) {
-        // On web, skip every other frame to target ~30fps instead of 60
-        if (kIsWeb && _frameCount % 2 != 0) return child!;
-        return CustomPaint(
-          foregroundPainter: _nodeBounds.length >= 2
-              ? CircuitWavePainter(
-                  childBounds: _nodeBounds,
-                  engine: widget.engine,
-                  time: _anim.value * 2 * pi,
-                  primaryColor: widget.primaryColor ?? const Color(0xFF00BCD4),
-                  secondaryColor: widget.secondaryColor ?? const Color(0xFFAB47BC),
-                )
-              : null,
-          child: child,
+    _scheduleBounds();
+    return VisualAnimation(
+      active: widget.isActive,
+      duration: const Duration(seconds: 12),
+      builder: (_, clock, child) {
+        _bindClock(clock);
+        return NotificationListener<ScrollNotification>(
+          onNotification: (_) {
+            _scheduleBounds();
+            return false;
+          },
+          child: Stack(
+            fit: StackFit.passthrough,
+            children: [
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      painter: widget.isActive
+                          ? CircuitWavePainter(
+                              bounds: _nodeBounds,
+                              clips: _nodeClips,
+                              engine: widget.engine,
+                              clock: clock,
+                              primaryColor:
+                                  widget.primaryColor ??
+                                  const Color(0xFF00BCD4),
+                              secondaryColor:
+                                  widget.secondaryColor ??
+                                  const Color(0xFFAB47BC),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+              child!,
+            ],
+          ),
         );
       },
-      child: widget.child,
+      child: RepaintBoundary(child: widget.child),
     );
   }
 }
@@ -421,34 +563,34 @@ class CircuitWaveOverlayState extends State<CircuitWaveOverlay>
 class CircuitNode extends StatefulWidget {
   final Widget child;
 
-  CircuitNode({super.key, required this.child});
-
-  final GlobalKey _nodeKey = GlobalKey();
+  const CircuitNode({super.key, required this.child});
 
   @override
   State<CircuitNode> createState() => _CircuitNodeState();
 }
 
 class _CircuitNodeState extends State<CircuitNode> {
+  final GlobalKey _nodeKey = GlobalKey();
+  CircuitWaveOverlayState? _overlay;
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      CircuitWaveOverlay.of(context)?.registerNode(widget._nodeKey);
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final overlay = CircuitWaveOverlay.of(context);
+    if (_overlay == overlay) return;
+    _overlay?.unregisterNode(_nodeKey);
+    _overlay = overlay;
+    _overlay?.registerNode(_nodeKey);
   }
 
   @override
   void dispose() {
-    CircuitWaveOverlay.of(context)?.unregisterNode(widget._nodeKey);
+    _overlay?.unregisterNode(_nodeKey);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return KeyedSubtree(
-      key: widget._nodeKey,
-      child: widget.child,
-    );
+    return KeyedSubtree(key: _nodeKey, child: widget.child);
   }
 }

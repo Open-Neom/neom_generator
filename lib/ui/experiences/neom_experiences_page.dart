@@ -73,6 +73,18 @@ class NeomExperiencesPage extends StatelessWidget {
                 color: Colors.deepOrange,
                 onTap: () => Sint.toNamed(AppRouteConstants.vr360StereoFullscreen),
               ),
+              _experienceCard(
+                icon: Icons.grid_on,
+                title: GeneratorTranslationConstants.neomatics.tr,
+                color: Colors.deepOrange,
+                onTap: () => Sint.toNamed(AppRouteConstants.neomaticsFullscreen),
+              ),
+              _experienceCard(
+                icon: Icons.blur_circular,
+                title: GeneratorTranslationConstants.neuroMandala.tr,
+                color: Colors.deepPurple,
+                onTap: () => Sint.toNamed(AppRouteConstants.neuromandalaFullscreen),
+              ),
 
               const SizedBox(height: 28),
 

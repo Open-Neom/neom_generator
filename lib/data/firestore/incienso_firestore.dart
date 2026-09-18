@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:neom_core/app_config.dart';
@@ -9,8 +10,8 @@ import '../../domain/models/incienso.dart';
 import '../../domain/models/incienso_review.dart';
 
 class InciensoFirestore {
-  final CollectionReference _inciensoReference =
-      FirebaseFirestore.instance.collection(AppFirestoreCollectionConstants.inciensos);
+  final CollectionReference _inciensoReference = FirebaseFirestore.instance
+      .collection(AppFirestoreCollectionConstants.inciensos);
 
   /// Insert or update an Incienso preset in Firestore.
   Future<String> insert(Incienso incienso) async {
@@ -18,11 +19,17 @@ class InciensoFirestore {
     String id = incienso.id;
 
     try {
+      final data = incienso.toJson();
+      // Conservative application budget leaves room for Firestore field/path
+      // overhead. Oversized sessions remain available in the local draft store.
+      if (utf8.encode(jsonEncode(data)).length > 900 * 1024) {
+        throw StateError('Incienso exceeds the single-document upload budget');
+      }
       if (id.isEmpty) {
-        final docRef = await _inciensoReference.add(incienso.toJson());
+        final docRef = await _inciensoReference.add(data);
         id = docRef.id;
       } else {
-        await _inciensoReference.doc(id).set(incienso.toJson(), SetOptions(merge: true));
+        await _inciensoReference.doc(id).set(data, SetOptions(merge: true));
       }
       AppConfig.logger.d("Incienso $id saved successfully");
     } catch (e, st) {
@@ -32,6 +39,7 @@ class InciensoFirestore {
         module: 'neom_generator',
         operation: 'InciensoFirestore.insert',
       );
+      return ''; // An existing ID is not evidence that persistence succeeded.
     }
 
     return id;
@@ -114,14 +122,21 @@ class InciensoFirestore {
       AppConfig.logger.d("Incienso review stored: ${doc.id}");
       return doc.id;
     } catch (e, st) {
-      NeomErrorLogger.recordError(e, st,
-          module: 'neom_generator', operation: 'InciensoFirestore.insertReview');
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'InciensoFirestore.insertReview',
+      );
     }
     return '';
   }
 
   /// Every session recorded by [creatorId], shared or not, newest first.
-  Future<List<Incienso>> fetchByCreator(String creatorId, {int limit = 50}) async {
+  Future<List<Incienso>> fetchByCreator(
+    String creatorId, {
+    int limit = 50,
+  }) async {
     if (creatorId.isEmpty) return [];
     final List<Incienso> list = [];
 
@@ -140,8 +155,12 @@ class InciensoFirestore {
         list.add(Incienso.fromJson(data));
       }
     } catch (e, st) {
-      NeomErrorLogger.recordError(e, st,
-          module: 'neom_generator', operation: 'InciensoFirestore.fetchByCreator');
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'InciensoFirestore.fetchByCreator',
+      );
     }
 
     return list;
@@ -154,8 +173,12 @@ class InciensoFirestore {
       await _inciensoReference.doc(inciensoId).update({'isPublic': isPublic});
       return true;
     } catch (e, st) {
-      NeomErrorLogger.recordError(e, st,
-          module: 'neom_generator', operation: 'InciensoFirestore.setPublic');
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'InciensoFirestore.setPublic',
+      );
       return false;
     }
   }
@@ -167,7 +190,9 @@ class InciensoFirestore {
       await _inciensoReference.doc(inciensoId).update({
         'practiceCount': FieldValue.increment(1),
       });
-      AppConfig.logger.t("Practice count incremented for Incienso: $inciensoId");
+      AppConfig.logger.t(
+        "Practice count incremented for Incienso: $inciensoId",
+      );
     } catch (e, st) {
       NeomErrorLogger.recordError(
         e,

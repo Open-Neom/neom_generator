@@ -21,15 +21,15 @@ class NeomModulatorEngine {
   NeomModulationType type = NeomModulationType.none;
 
   double modFrequency = 0.5; // Hz
-  double depth = 0.5;        // 0.0 – 1.0
-  double intensity = 0.5;        // 0.0 – 1.0
+  double depth = 0.5; // 0.0 – 1.0
+  double intensity = 0.5; // 0.0 – 1.0
   double _phase = 0.0;
+  double get phase => _phase;
+  void restorePhase(double value) =>
+      _phase = value.isFinite ? value % (2 * pi) : 0;
   bool enabled = false;
 
-  double apply({
-    required double carrierFreq,
-    required int sampleRate,
-  }) {
+  double apply({required double carrierFreq, required int sampleRate}) {
     if (!enabled || type == NeomModulationType.none) return carrierFreq;
 
     final double twoPi = 2 * pi;
@@ -38,15 +38,15 @@ class NeomModulatorEngine {
 
     switch (type) {
       case NeomModulationType.am:
-      // AM afecta amplitud (se maneja fuera)
+        // AM afecta amplitud (se maneja fuera)
         return carrierFreq;
 
       case NeomModulationType.fm:
-      // FM altera la frecuencia portadora
+        // FM altera la frecuencia portadora
         return carrierFreq + (sin(_phase) * carrierFreq * depth);
 
       case NeomModulationType.phase:
-      // Phase se aplica directamente en el oscilador
+        // Phase se aplica directamente en el oscilador
         return carrierFreq;
 
       default:

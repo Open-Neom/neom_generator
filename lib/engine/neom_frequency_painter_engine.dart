@@ -2,15 +2,44 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:neom_core/app_config.dart';
 import 'package:neom_core/domain/model/neom_visual_state.dart';
+import 'package:neom_core/domain/use_cases/neom_audio_visual_signal.dart';
 import 'package:sint/sint.dart';
 
 import '../utils/constants/generator_translation_constants.dart';
 import '../utils/enums/eeg_band.dart';
 
-class NeomFrequencyPainterEngine extends ChangeNotifier {
+class NeomFrequencyPainterEngine extends ChangeNotifier
+    implements NeomAudioSessionSignal {
   NeomVisualState _state = NeomVisualState.zero();
+
+  /// Sampled by experiences on their own lifecycle-aware visual clock. Audio
+  /// telemetry does not notify widgets once per sample or require this painter
+  /// to have a visible Ticker.
+  NeomAudioSessionSnapshot Function()? audioSessionReader;
+  bool _disposed = false;
+
+  @override
+  NeomAudioSessionSnapshot get audioSession =>
+      audioSessionReader?.call() ?? const NeomAudioSessionSnapshot();
+
+  /// Playback transitions must reach a paused experience's status HUD too.
+  /// This is called only on Start/Stop, never from the per-sample loop.
+  void notifySessionChange() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    audioSessionReader = null;
+    _disposed = true;
+    super.dispose();
+  }
+
+  /// Opt in when a UI ticker owns visual updates. Audio buffers continue to
+  /// feed samples/phases, but cannot trigger extra repaints between frames.
+  bool frameDrivenVisuals = false;
+  bool visualUpdatesEnabled = true;
 
   double visualAmplitudeBase = 0.12;
   double visualAmplitudeMax = 0.45;
@@ -27,7 +56,6 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
     return current + (target - current) * factor;
   }
 
-
   void updateFromAudio({
     required double phase,
     required double amplitude,
@@ -36,16 +64,18 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
     required double modulation,
     required double neuro,
     required double frequency,
+    bool isVisualFrame = false,
   }) {
-    AppConfig.logger
-        .t('NeomFrequencyPainterEngine.updateFromAudio: '
-        'phase=$phase, amplitude=$amplitude, pan=$pan, '
-        'breath=$breath, modulation=$modulation, neuro=$neuro');
+    if (!visualUpdatesEnabled || (frameDrivenVisuals && !isVisualFrame)) return;
     _state = NeomVisualState(
       frequency: _normalizeFrequency(frequency),
       phase: _smooth(current: _state.phase, target: phase, factor: 0.2),
       pan: _smooth(current: _state.pan, target: pan, factor: 0.25),
-      modulation: _smooth(current: _state.modulation, target: modulation, factor: 0.2),
+      modulation: _smooth(
+        current: _state.modulation,
+        target: modulation,
+        factor: 0.2,
+      ),
       amplitude: _smooth(
         current: _state.amplitude,
         target: amplitude,
@@ -56,11 +86,7 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
         target: breath,
         factor: smoothBreath,
       ),
-      neuro: _smooth(
-        current: _state.neuro,
-        target: neuro,
-        factor: smoothNeuro,
-      ),
+      neuro: _smooth(current: _state.neuro, target: neuro, factor: smoothNeuro),
     );
 
     notifyListeners();
@@ -68,23 +94,24 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
 
   /// -------- SALIDAS PARA EL PAINTER --------
 
-  double get visualPhase =>
-      _state.phase + _state.modulation * pi * 0.5;
+  @override
+  double get visualPhase => _state.phase + _state.modulation * pi * 0.5;
 
+  @override
   double get glowIntensity =>
       _clamp01((_state.modulation + _state.neuro) * 0.5);
 
+  @override
   double get waveHeight {
     final amp =
         (_state.amplitude * 0.75) +
-            (_state.breath * 0.2) +
-            (_state.neuro * 0.15);
+        (_state.breath * 0.2) +
+        (_state.neuro * 0.15);
 
     return amp.clamp(0.0, 1.0) * visualAmplitudeMax;
   }
 
-
-
+  @override
   double get waveStretch {
     // Grave → ondas largas | Agudo → ondas cortas
     return lerpDouble(0.5, 5, _state.frequency)! +
@@ -92,13 +119,10 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
         (_state.modulation * 0.2);
   }
 
+  double get horizontalDrift => _clamp01(_state.pan * 0.5);
 
-  double get horizontalDrift =>
-      _clamp01(_state.pan * 0.5);
-
-  double get breathPulse =>
-      _clamp01(sin(_state.breath * pi).abs());
-
+  @override
+  double get breathPulse => _clamp01(sin(_state.breath * pi).abs());
 
   double _clamp01(double v) {
     if (v.isNaN || v.isInfinite) return 0.0;
@@ -109,8 +133,7 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
     const double minF = 40.0;
     const double maxF = 1500.0;
 
-    final double norm =
-        (log(f) - log(minF)) / (log(maxF) - log(minF));
+    final double norm = (log(f) - log(minF)) / (log(maxF) - log(minF));
 
     return norm.clamp(0.0, 1.0);
   }
@@ -131,14 +154,18 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
 
   /// Public method to notify listeners from outside the class
   void notifyVisualUpdate() {
-    notifyListeners();
+    if (visualUpdatesEnabled) notifyListeners();
   }
 
   double _binauralPhase = 0.0;
   double _binauralBeat = 0.0;
 
   void tickBinaural(double beatHz, double dt) {
-    if (beatHz <= 0) return;
+    if (!beatHz.isFinite || beatHz <= 0) {
+      _binauralBeat = 0;
+      _binauralPhase = 0;
+      return;
+    }
 
     _binauralBeat = beatHz;
     _binauralPhase += dt * beatHz * 2 * pi * 0.25; // lento, perceptual
@@ -150,14 +177,14 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
     // rebuilds for every frame that could actually be drawn.
   }
 
+  @override
   double get binauralPhase => _binauralPhase;
 
   // =========================
   // 🔬 OSCILLOSCOPE BUFFER
   // =========================
   static const int bufferSize = 512;
-  final List<double> _samples =
-  List.filled(bufferSize, 0.0, growable: false);
+  final List<double> _samples = List.filled(bufferSize, 0.0, growable: false);
   int _writeIndex = 0;
 
   List<double> get samples => _samples;
@@ -179,10 +206,7 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
   double _phaseL = 0.0;
   double _phaseR = 0.0;
 
-  void updatePhases({
-    required double phaseL,
-    required double phaseR,
-  }) {
+  void updatePhases({required double phaseL, required double phaseR}) {
     _phaseL = phaseL;
     _phaseR = phaseR;
   }
@@ -204,19 +228,24 @@ class NeomFrequencyPainterEngine extends ChangeNotifier {
 
   Color get eegColor {
     switch (eegBand) {
-      case EEGband.delta: return const Color(0xFF4B0082); // índigo
-      case EEGband.theta: return const Color(0xFF6A5ACD); // violeta
-      case EEGband.alpha: return const Color(0xFF00CED1); // cian
-      case EEGband.beta:  return const Color(0xFFFFA500); // ámbar
-      case EEGband.gamma: return const Color(0xFFFF4500); // rojo
+      case EEGband.delta:
+        return const Color(0xFF4B0082); // índigo
+      case EEGband.theta:
+        return const Color(0xFF6A5ACD); // violeta
+      case EEGband.alpha:
+        return const Color(0xFF00CED1); // cian
+      case EEGband.beta:
+        return const Color(0xFFFFA500); // ámbar
+      case EEGband.gamma:
+        return const Color(0xFFFF4500); // rojo
     }
   }
 
+  @override
   double get hemisphericCoherence {
     final diff = (_phaseL - _phaseR).abs();
     return cos(diff).abs().clamp(0.0, 1.0);
   }
-
 }
 
 Widget coherenceMeter(NeomFrequencyPainterEngine engine) {
@@ -227,11 +256,15 @@ Widget coherenceMeter(NeomFrequencyPainterEngine engine) {
     children: [
       Row(
         children: [
-          Text(GeneratorTranslationConstants.hemisfericCoherence.tr.toUpperCase(),
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 10,
-              letterSpacing: 1.5,
+          Expanded(
+            child: Text(
+              GeneratorTranslationConstants.hemisfericCoherence.tr
+                  .toUpperCase(),
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 10,
+                letterSpacing: 1.5,
+              ),
             ),
           ),
           const SizedBox(width: 6),
@@ -250,11 +283,7 @@ Widget coherenceMeter(NeomFrequencyPainterEngine engine) {
           minHeight: 6,
           backgroundColor: Colors.white10,
           valueColor: AlwaysStoppedAnimation<Color>(
-            Color.lerp(
-              Colors.redAccent,
-              Colors.greenAccent,
-              c,
-            )!,
+            Color.lerp(Colors.redAccent, Colors.greenAccent, c)!,
           ),
         ),
       ),
@@ -266,7 +295,7 @@ Widget coherenceMeter(NeomFrequencyPainterEngine engine) {
           fontSize: 12,
           color: Colors.white,
         ),
-      )
+      ),
     ],
   );
 }

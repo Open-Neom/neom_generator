@@ -14,12 +14,12 @@ class NeomBinauralBeatPainter extends CustomPainter {
     required this.beatHz,
     required this.intensity,
     required this.color,
-  }) : super(repaint: engine);
+    Listenable? repaint,
+  }) : super(repaint: repaint ?? engine);
 
   @override
   void paint(Canvas canvas, Size size) {
-
-    if(beatHz == 0) return;
+    if (beatHz == 0) return;
 
     final centerY = size.height / 2;
 
@@ -34,13 +34,9 @@ class NeomBinauralBeatPainter extends CustomPainter {
     final wavelength = size.width / pulses;
 
     for (double x = 0; x <= size.width; x++) {
-      final phase =
-          (x / wavelength) * 2 * math.pi + engine.binauralPhase;
+      final phase = (x / wavelength) * 2 * math.pi + engine.binauralPhase;
 
-      final y = math.sin(phase) *
-          size.height *
-          0.35 *
-          intensity;
+      final y = math.sin(phase) * size.height * 0.35 * intensity;
 
       if (x == 0) {
         path.moveTo(x, centerY + y);

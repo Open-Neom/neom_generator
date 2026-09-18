@@ -1,3 +1,24 @@
+# Changelog
+
+## [2.2.0] - 2026-09-18
+
+- Nueva ruta `AppRouteConstants.chamberNeuro` (`/chamber/neuro`) →
+  `ChamberNeuroPage`: Cámara Neom con el `ChamberNeuroPanel` registrado por la
+  app (EEG) en el centro y los controles de audio en un rail (izquierda
+  ≥900 px, barra inferior en móvil). Reusa el mismo `NeomGeneratorController`.
+  **La página estándar de la Cámara no cambia**: sin toggles ni layouts nuevos;
+  el host enlaza la ruta donde quiera (p. ej. desde el monitor EEG). Sin panel
+  registrado la página lo explica y ofrece volver. Contrato en
+  `domain/use_cases/chamber_neuro_panel.dart` (neom_generator no importa
+  módulos de sensores). Traducciones es/en/de/fr.
+
+- Cámara Neom **Modo EEG** (`neuroMode`): `ChamberNeuroView` pone el
+  `ChamberNeuroPanel` registrado por la app en el centro y reduce los
+  controles de audio a un rail (izquierda ≥900 px, barra inferior en móvil).
+  Toggle en `ChamberPracticeToolbar` sólo si hay panel registrado; excluyente
+  con `focusMode`. Contrato en `domain/use_cases/chamber_neuro_panel.dart`
+  (neom_generator no importa módulos de sensores). Traducciones es/en/de/fr.
+
 ## [2026-07-25] - Dependencias Externas
 - Actualizacion de dependencias externas a sus versiones mas recientes y compatibles.
 

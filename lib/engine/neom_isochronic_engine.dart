@@ -4,14 +4,14 @@ class NeomIsochronicEngine {
   bool enabled = false;
 
   double pulseFrequency = 4.0; // Hz (delta, theta, etc)
-  double dutyCycle = 0.5;      // 0.1 – 0.9
+  double dutyCycle = 0.5; // 0.1 – 0.9
 
   double _phase = 0.0;
+  double get phase => _phase;
+  void restorePhase(double value) =>
+      _phase = value.isFinite ? value % (2 * pi) : 0;
 
-  double apply({
-    required double amplitude,
-    required int sampleRate,
-  }) {
+  double apply({required double amplitude, required int sampleRate}) {
     if (!enabled) return amplitude;
 
     final double twoPi = 2 * pi;

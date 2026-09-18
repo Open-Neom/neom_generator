@@ -8,6 +8,72 @@ void main() {
   const sampleRate = 44100.0;
 
   group('notification rate', () {
+    void updateVisuals(
+      NeomFrequencyPainterEngine engine, {
+      bool frame = false,
+    }) {
+      engine.updateFromAudio(
+        phase: 0.5,
+        amplitude: 0.5,
+        pan: 0,
+        breath: 0.5,
+        modulation: 0,
+        neuro: 0,
+        frequency: 432,
+        isVisualFrame: frame,
+      );
+    }
+
+    test('standalone engines preserve automatic visual notifications', () {
+      final engine = NeomFrequencyPainterEngine();
+      addTearDown(engine.dispose);
+      var notifications = 0;
+      engine.addListener(() => notifications++);
+
+      updateVisuals(engine);
+
+      expect(notifications, 1);
+    });
+
+    test('frame-driven mode ignores audio-buffer visual dispatch', () {
+      final engine = NeomFrequencyPainterEngine()..frameDrivenVisuals = true;
+      addTearDown(engine.dispose);
+      var notifications = 0;
+      engine.addListener(() => notifications++);
+
+      for (var i = 0; i < 100; i++) {
+        updateVisuals(engine);
+      }
+      expect(notifications, 0);
+      updateVisuals(engine, frame: true);
+      expect(notifications, 1);
+    });
+
+    test('hidden visuals leave audio samples and binaural state active', () {
+      final engine = NeomFrequencyPainterEngine()
+        ..frameDrivenVisuals = true
+        ..visualUpdatesEnabled = false;
+      addTearDown(engine.dispose);
+      var notifications = 0;
+      engine.addListener(() => notifications++);
+
+      updateVisuals(engine);
+      updateVisuals(engine, frame: true);
+      engine.notifyVisualUpdate();
+      engine.pushSample(0.5);
+      engine.updatePhases(phaseL: 0.25, phaseR: 0.75);
+      engine.tickBinaural(4, 0.1);
+
+      expect(notifications, 0);
+      expect(engine.sampleRevision, 1);
+      expect(engine.phaseL, 0.25);
+      expect(engine.phaseR, 0.75);
+      expect(engine.binauralPhase, greaterThan(0));
+      engine.visualUpdatesEnabled = true;
+      updateVisuals(engine, frame: true);
+      expect(notifications, 1);
+    });
+
     test('writing samples never notifies', () {
       // pushSample runs once per audio sample; a listener here would be woken
       // 44 100 times a second for a screen that draws 60.
@@ -46,8 +112,11 @@ void main() {
         engine.tickBinaural(10, 1 / sampleRate);
       }
 
-      expect(notifications, 0,
-          reason: 'the frame Ticker drives repaints, not the audio loop');
+      expect(
+        notifications,
+        0,
+        reason: 'the frame Ticker drives repaints, not the audio loop',
+      );
     });
 
     test('the tick still advances its state', () {
@@ -93,8 +162,10 @@ void main() {
         engine.pushSample(0.1);
       }
 
-      expect(engine.sampleRevision,
-          before + NeomFrequencyPainterEngine.bufferSize * 2);
+      expect(
+        engine.sampleRevision,
+        before + NeomFrequencyPainterEngine.bufferSize * 2,
+      );
     });
   });
 }

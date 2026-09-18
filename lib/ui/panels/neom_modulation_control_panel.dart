@@ -2,157 +2,155 @@ import 'package:flutter/material.dart';
 import 'package:sint/sint.dart';
 
 import '../../engine/neom_modulator_engine.dart';
+import '../../utils/constants/generator_translation_constants.dart';
 import '../neom_generator_controller.dart';
+import '../widgets/chamber_controls.dart';
 
 class NeomModulationControlPanel extends StatelessWidget {
-  const NeomModulationControlPanel({super.key});
+  final NeomGeneratorController? controller;
+  const NeomModulationControlPanel({super.key, this.controller});
 
   @override
   Widget build(BuildContext context) {
-    final controller = Sint.find<NeomGeneratorController>();
-
+    final control = controller ?? Sint.find<NeomGeneratorController>();
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.18),
+          color: Colors.black.withValues(alpha: .18),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white12),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-            /// ───────── ISOCRÓNICO ─────────
-            _sectionHeader(
-              title: "ISOCRÓNICO (AM)",
-              switchWidget: Obx(() => Switch(
-                value: controller.isIsochronicEnabled.value,
-                onChanged: controller.setIsochronicEnabled,
-              )),
+            _header(
+              GeneratorTranslationConstants.isochronicPulse.tr,
+              Obx(
+                () => Switch(
+                  value: control.isIsochronicEnabled.value,
+                  onChanged: control.setIsochronicEnabled,
+                ),
+              ),
             ),
-
-            Obx(() => _paramLabel("FRECUENCIA", "${controller.isochronicFreq.value.toStringAsFixed(1)} Hz")),
-            Obx(() => Slider(
-              min: 0.5,
-              max: 40,
-              value: controller.isochronicFreq.value,
-              onChanged: controller.setIsochronicFrequency,
-            )),
-
-            Obx(() => _paramLabel("DUTY", "${(controller.isochronicDuty.value * 100).round()}%")),
-            Obx(() => Slider(
-              min: 0.1,
-              max: 1.0,
-              value: controller.isochronicDuty.value,
-              onChanged: controller.setIsochronicDuty,
-            )),
-
-            _divider(),
-
-            /// ───────── MODULACIÓN ─────────
-            _sectionHeader(
-              title: "MODULACIÓN (FM / PHASE)",
-              switchWidget: Obx(() => Switch(
-                value: controller.isModulationEnabled.value,
-                onChanged: controller.setModulationEnabled,
-              )),
+            Obx(
+              () => ChamberParameterLabel(
+                GeneratorTranslationConstants.frequency.tr,
+                '${control.isochronicFreq.value.toStringAsFixed(1)} Hz',
+              ),
             ),
-
-            Obx(() => _paramLabel(
-              "TIPO",
-              controller.modulationType.value.translationKey.tr,
-            )),
-
-            Obx(() => DropdownButton<NeomModulationType>(
-              value: controller.modulationType.value,
-              isExpanded: true,
-              underline: Container(height: 1, color: Colors.white12),
-              dropdownColor: Colors.black87,
-              items: NeomModulationType.values.map((type) {
-                return DropdownMenuItem(
-                  value: type,
-                  child: Text(
-                    type.translationKey.tr,
-                    style: const TextStyle(
-                      fontFamily: 'Courier',
-                      fontSize: 13,
-                      color: Colors.white,
-                    ),
-                  ),
-                );
-              }).toList(),
-              onChanged: controller.isModulationEnabled.value
-                  ? (v) => v != null ? controller.setModulationType(v) : null
-                  : null,
-            )),
-
-            Obx(() => _paramLabel(
-              "INTENSIDAD",
-              "${(controller.modulationDepth.value * 100).round()}%",
-            )),
-
-            Obx(() => Slider(
-              min: 0,
-              max: 1,
-              value: controller.modulationDepth.value,
-              onChanged: controller.isModulationEnabled.value
-                  ? controller.setModulationDepth
-                  : null,
-            )),
+            Obx(
+              () => Slider(
+                min: .5,
+                max: 40,
+                label: '${control.isochronicFreq.value.toStringAsFixed(1)} Hz',
+                semanticFormatterCallback: (value) =>
+                    '${GeneratorTranslationConstants.frequency.tr}: ${value.toStringAsFixed(1)} Hz',
+                value: control.isochronicFreq.value,
+                onChanged: control.setIsochronicFrequency,
+              ),
+            ),
+            Obx(
+              () => ChamberParameterLabel(
+                GeneratorTranslationConstants.isochronicDuty.tr,
+                '${(control.isochronicDuty.value * 100).round()}%',
+              ),
+            ),
+            Obx(
+              () => Slider(
+                min: .1,
+                max: 1,
+                semanticFormatterCallback: (value) =>
+                    '${GeneratorTranslationConstants.isochronicDuty.tr}: ${(value * 100).round()}%',
+                value: control.isochronicDuty.value,
+                onChanged: control.setIsochronicDuty,
+              ),
+            ),
+            const Divider(color: Colors.white12, height: 20),
+            _header(
+              GeneratorTranslationConstants.modulation.tr,
+              Obx(
+                () => Switch(
+                  value: control.isModulationEnabled.value,
+                  onChanged: control.setModulationEnabled,
+                ),
+              ),
+            ),
+            Obx(
+              () => ChamberParameterLabel(
+                GeneratorTranslationConstants.typeControl.tr,
+                control.modulationType.value.translationKey.tr,
+              ),
+            ),
+            Obx(
+              () => DropdownButton<NeomModulationType>(
+                value: control.modulationType.value,
+                isExpanded: true,
+                itemHeight: null,
+                dropdownColor: Colors.black87,
+                items: NeomModulationType.values
+                    .map(
+                      (type) => DropdownMenuItem(
+                        value: type,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            type.translationKey.tr,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: control.isModulationEnabled.value
+                    ? (value) {
+                        if (value != null) control.setModulationType(value);
+                      }
+                    : null,
+              ),
+            ),
+            Obx(
+              () => ChamberParameterLabel(
+                GeneratorTranslationConstants.intensityControl.tr,
+                '${(control.modulationDepth.value * 100).round()}%',
+              ),
+            ),
+            Obx(
+              () => Slider(
+                min: 0,
+                max: 1,
+                value: control.modulationDepth.value,
+                semanticFormatterCallback: (value) =>
+                    '${GeneratorTranslationConstants.intensityControl.tr}: ${(value * 100).round()}%',
+                onChanged: control.isModulationEnabled.value
+                    ? control.setModulationDepth
+                    : null,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // ───────── helpers ─────────
-
-  Widget _sectionHeader({required String title, required Widget switchWidget}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
+  Widget _header(String title, Widget toggle) => Row(
+    children: [
+      Expanded(
+        child: Text(
           title,
           style: const TextStyle(
             color: Colors.white70,
-            fontSize: 11,
-            letterSpacing: 1.5,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
         ),
-        switchWidget,
-      ],
-    );
-  }
-
-  Widget _paramLabel(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 10,
-              letterSpacing: 1.2,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontFamily: 'Courier',
-              fontSize: 12,
-            ),
-          ),
-        ],
       ),
-    );
-  }
-
-  Widget _divider() => const Divider(color: Colors.white12, height: 20);
+      const SizedBox(width: 8),
+      Semantics(label: title, child: toggle),
+    ],
+  );
 }

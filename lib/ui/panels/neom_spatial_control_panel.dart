@@ -1,144 +1,141 @@
 import 'package:flutter/material.dart';
 import 'package:sint/sint.dart';
 
+import '../../utils/constants/generator_translation_constants.dart';
 import '../../utils/enums/neom_spatial_mode.dart';
 import '../neom_generator_controller.dart';
+import '../widgets/chamber_controls.dart';
 
 class NeomSpatialControlPanel extends StatelessWidget {
-  const NeomSpatialControlPanel({super.key});
+  final NeomGeneratorController? controller;
+  const NeomSpatialControlPanel({super.key, this.controller});
 
   @override
   Widget build(BuildContext context) {
-    final controller = Sint.find<NeomGeneratorController>();
-
+    final control = controller ?? Sint.find<NeomGeneratorController>();
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.18),
+          color: Colors.black.withValues(alpha: .18),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white12),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-            /// ───────── HEADER ─────────
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text(
-                  "ESPACIALIZACIÓN",
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    letterSpacing: 1.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Icon(Icons.surround_sound, size: 16, color: Colors.white38),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            /// ───────── MODO ESPACIAL ─────────
-            Obx(() => _paramLabel(
-              "MODO",
-              controller.spatialMode.value.translationKey.tr,
-            )),
-
-            Obx(() => DropdownButton<NeomSpatialMode>(
-              value: controller.spatialMode.value,
-              isExpanded: true,
-              dropdownColor: Colors.black87,
-              underline: Container(height: 1, color: Colors.white12),
-              items: NeomSpatialMode.values.map((mode) {
-                return DropdownMenuItem(
-                  value: mode,
+              children: [
+                Expanded(
                   child: Text(
-                    mode.translationKey.tr,
+                    GeneratorTranslationConstants.spatiality.tr,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'Courier',
-                      fontSize: 13,
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                );
-              }).toList(),
-              onChanged: (mode) {
-                if (mode != null) {
-                  controller.setSpatialMode(mode);
-                }
-              },
-            )),
-
-            const SizedBox(height: 14),
-
-            /// ───────── INTENSIDAD ESPACIAL ─────────
-            Obx(() => _paramLabel(
-              "INTENSIDAD",
-              "${(controller.spatialIntensity.value * 100).round()}%",
-            )),
-
-            Obx(() => Slider(
-              min: 0.0,
-              max: 1.0,
-              value: controller.spatialIntensity.value,
-              onChanged: controller.setSpatialIntensity,
-            )),
-
-            const Divider(color: Colors.white12, height: 22),
-
-            /// ───────── ÓRBITA ─────────
+                ),
+                const Icon(
+                  Icons.surround_sound,
+                  size: 20,
+                  color: Colors.white54,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Obx(
+              () => ChamberParameterLabel(
+                GeneratorTranslationConstants.modeControl.tr,
+                control.spatialMode.value.translationKey.tr,
+              ),
+            ),
+            Obx(
+              () => DropdownButton<NeomSpatialMode>(
+                value: control.spatialMode.value,
+                isExpanded: true,
+                itemHeight: null,
+                dropdownColor: Colors.black87,
+                items: NeomSpatialMode.values
+                    .map(
+                      (mode) => DropdownMenuItem(
+                        value: mode,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            mode.translationKey.tr,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (mode) {
+                  if (mode != null) control.setSpatialMode(mode);
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            Obx(
+              () => ChamberParameterLabel(
+                GeneratorTranslationConstants.intensityControl.tr,
+                '${(control.spatialIntensity.value * 100).round()}%',
+              ),
+            ),
+            Obx(
+              () => Slider(
+                min: 0,
+                max: 1,
+                value: control.spatialIntensity.value,
+                semanticFormatterCallback: (value) =>
+                    '${GeneratorTranslationConstants.intensityControl.tr}: ${(value * 100).round()}%',
+                onChanged: control.setSpatialIntensity,
+              ),
+            ),
             Obx(() {
-              if (controller.spatialMode.value != NeomSpatialMode.orbit) {
+              if (control.spatialMode.value != NeomSpatialMode.orbit) {
                 return const SizedBox.shrink();
               }
-
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
-                  Obx(() => _paramLabel(
-                    "VELOCIDAD DE ÓRBITA",
-                    controller.orbitSpeed.value.toStringAsFixed(2),
-                  )),
-
-                  Obx(() => Slider(
-                    min: 0.01,
-                    max: 1.0,
-                    value: controller.orbitSpeed.value,
-                    onChanged: controller.setOrbitSpeed,
-                  )),
-
-                  /// 🔹 Dirección de órbita (funcionalidad nueva)
-                  const SizedBox(height: 8),
-
-                  Obx(() => Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const Divider(color: Colors.white12, height: 22),
+                  ChamberParameterLabel(
+                    GeneratorTranslationConstants.orbitSpeedControl.tr,
+                    control.orbitSpeed.value.toStringAsFixed(2),
+                  ),
+                  Slider(
+                    min: .01,
+                    max: 1,
+                    value: control.orbitSpeed.value,
+                    semanticFormatterCallback: (value) =>
+                        '${GeneratorTranslationConstants.orbitSpeedControl.tr}: ${value.toStringAsFixed(2)}',
+                    onChanged: control.setOrbitSpeed,
+                  ),
+                  Text(GeneratorTranslationConstants.directionControl.tr),
+                  Wrap(
+                    spacing: 12,
                     children: [
-                      _orbitDirButton(
+                      _directionButton(
                         icon: Icons.rotate_left,
-                        active: controller.orbitDirection.value == -1,
-                        onTap: () => controller.setOrbitDirection(-1),
+                        label:
+                            GeneratorTranslationConstants.orbitLeftControl.tr,
+                        active: control.orbitDirection.value == -1,
+                        onPressed: () => control.setOrbitDirection(-1),
                       ),
-                      const Text(
-                        "DIRECCIÓN",
-                        style: TextStyle(
-                          color: Colors.white38,
-                          fontSize: 10,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      _orbitDirButton(
+                      _directionButton(
                         icon: Icons.rotate_right,
-                        active: controller.orbitDirection.value == 1,
-                        onTap: () => controller.setOrbitDirection(1),
+                        label:
+                            GeneratorTranslationConstants.orbitRightControl.tr,
+                        active: control.orbitDirection.value == 1,
+                        onPressed: () => control.setOrbitDirection(1),
                       ),
                     ],
-                  )),
+                  ),
                 ],
               );
             }),
@@ -148,56 +145,22 @@ class NeomSpatialControlPanel extends StatelessWidget {
     );
   }
 
-  // ───────── helpers ─────────
-
-  Widget _paramLabel(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 10,
-              letterSpacing: 1.2,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontFamily: 'Courier',
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _orbitDirButton({
+  Widget _directionButton({
     required IconData icon,
+    required String label,
     required bool active,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: active ? Colors.white12 : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white24),
-        ),
-        child: Icon(
-          icon,
-          size: 16,
-          color: active ? Colors.white : Colors.white38,
-        ),
+    required VoidCallback onPressed,
+  }) => Semantics(
+    selected: active,
+    child: IconButton(
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+      tooltip: label,
+      onPressed: onPressed,
+      color: active ? Colors.white : Colors.white54,
+      style: IconButton.styleFrom(
+        backgroundColor: active ? Colors.white12 : Colors.transparent,
       ),
-    );
-  }
+      icon: Icon(icon),
+    ),
+  );
 }

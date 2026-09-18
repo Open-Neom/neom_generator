@@ -1,4 +1,6 @@
 import 'package:neom_core/domain/model/neom/neom_neuro_state.dart';
+import 'incienso_audio_state.dart';
+import 'incienso_timeline_codec.dart';
 
 /// INCIENSO — Inducción Cíclica de Enfoque Sostenido
 ///
@@ -26,10 +28,10 @@ enum InciensoEvidence {
   experiential;
 
   String get nameKey => switch (this) {
-        InciensoEvidence.clinical => 'evidenceClinical',
-        InciensoEvidence.preliminary => 'evidencePreliminary',
-        InciensoEvidence.experiential => 'evidenceExperiential',
-      };
+    InciensoEvidence.clinical => 'evidenceClinical',
+    InciensoEvidence.preliminary => 'evidencePreliminary',
+    InciensoEvidence.experiential => 'evidenceExperiential',
+  };
 }
 
 class Incienso {
@@ -71,6 +73,10 @@ class Incienso {
   /// Predefined inciensos use [phases] instead; recorded ones use this.
   final List<InciensoKeyframe> timeline;
 
+  /// v1 = legacy sampled frequencies; v2 = complete audio-clock snapshots.
+  final int recordingVersion;
+  final int sampleRate;
+
   /// Whether this incienso was recorded from a live session (vs manually configured).
   bool get isRecorded => timeline.isNotEmpty;
 
@@ -81,35 +87,39 @@ class Incienso {
   /// field is carried over: dropping any would quietly change the experience
   /// the recording captured.
   Incienso copyWithVisibility({required bool isPublic}) => Incienso(
-        id: id,
-        names: names,
-        descriptions: descriptions,
-        leftFrequencyHz: leftFrequencyHz,
-        rightFrequencyHz: rightFrequencyHz,
-        suggestedDuration: suggestedDuration,
-        phases: phases,
-        timeline: timeline,
-        defaultVisual: defaultVisual,
-        screenColorValue: screenColorValue,
-        pulseFrequencyHz: pulseFrequencyHz,
-        compatibility: compatibility,
-        source: source,
-        stateId: stateId,
-        protocolId: protocolId,
-        creatorId: creatorId,
-        isPro: isPro,
-        iconCodePoint: iconCodePoint,
-        tags: tags,
-        references: references,
-        practiceCount: practiceCount,
-        isPublic: isPublic,
-        evidence: evidence,
-        avgQualityRatio: avgQualityRatio,
-      );
+    id: id,
+    names: names,
+    descriptions: descriptions,
+    leftFrequencyHz: leftFrequencyHz,
+    rightFrequencyHz: rightFrequencyHz,
+    suggestedDuration: suggestedDuration,
+    phases: phases,
+    timeline: timeline,
+    recordingVersion: recordingVersion,
+    sampleRate: sampleRate,
+    defaultVisual: defaultVisual,
+    screenColorValue: screenColorValue,
+    pulseFrequencyHz: pulseFrequencyHz,
+    compatibility: compatibility,
+    source: source,
+    stateId: stateId,
+    protocolId: protocolId,
+    creatorId: creatorId,
+    isPro: isPro,
+    iconCodePoint: iconCodePoint,
+    tags: tags,
+    references: references,
+    practiceCount: practiceCount,
+    isPublic: isPublic,
+    evidence: evidence,
+    avgQualityRatio: avgQualityRatio,
+  );
 
   /// Total duration derived from timeline (if recorded) or suggestedDuration.
   Duration get effectiveDuration => isRecorded && timeline.isNotEmpty
-      ? Duration(milliseconds: (timeline.last.timestampMs).round())
+      ? (recordingVersion >= 2
+            ? suggestedDuration
+            : Duration(milliseconds: (timeline.last.timestampMs).round()))
       : suggestedDuration;
 
   /// Visual experience to pair with this incienso.
@@ -182,6 +192,8 @@ class Incienso {
     required this.suggestedDuration,
     this.phases = const [],
     this.timeline = const [],
+    this.recordingVersion = 1,
+    this.sampleRate = 44100,
     this.defaultVisual,
     this.screenColorValue = 0xFF1A0A2E,
     this.pulseFrequencyHz = 0.0,
@@ -232,8 +244,17 @@ class Incienso {
     'leftFrequencyHz': leftFrequencyHz,
     'rightFrequencyHz': rightFrequencyHz,
     'suggestedDuration': suggestedDuration.inSeconds,
+    if (recordingVersion >= 2) ...{
+      'recordingVersion': recordingVersion,
+      'sampleRate': sampleRate,
+      'durationUs': suggestedDuration.inMicroseconds,
+    },
     'phases': phases.map((p) => p.toJson()).toList(),
-    if (timeline.isNotEmpty) 'timeline': timeline.map((k) => k.toJson()).toList(),
+    if (timeline.isNotEmpty)
+      ...InciensoTimelineCodec.encode(
+        timeline,
+        recordingVersion: recordingVersion,
+      ),
     if (defaultVisual != null) 'defaultVisual': defaultVisual!.name,
     'screenColorValue': screenColorValue,
     'pulseFrequencyHz': pulseFrequencyHz,
@@ -247,7 +268,8 @@ class Incienso {
     'isPro': isPro,
     if (iconCodePoint != null) 'iconCodePoint': iconCodePoint,
     'tags': tags,
-    if (references.isNotEmpty) 'references': references.map((r) => r.toJson()).toList(),
+    if (references.isNotEmpty)
+      'references': references.map((r) => r.toJson()).toList(),
     'practiceCount': practiceCount,
     'isPublic': isPublic,
     'evidence': evidence.name,
@@ -260,13 +282,17 @@ class Incienso {
     descriptions: Map<String, String>.from(json['descriptions'] as Map? ?? {}),
     leftFrequencyHz: (json['leftFrequencyHz'] as num?)?.toDouble() ?? 200.0,
     rightFrequencyHz: (json['rightFrequencyHz'] as num?)?.toDouble() ?? 210.0,
-    suggestedDuration: Duration(seconds: json['suggestedDuration'] as int? ?? 600),
-    phases: (json['phases'] as List?)
-        ?.map((p) => InciensoPhase.fromJson(p as Map<String, dynamic>))
-        .toList() ?? [],
-    timeline: (json['timeline'] as List?)
-        ?.map((k) => InciensoKeyframe.fromJson(k as Map<String, dynamic>))
-        .toList() ?? [],
+    suggestedDuration: json['durationUs'] is num
+        ? Duration(microseconds: (json['durationUs'] as num).round())
+        : Duration(seconds: json['suggestedDuration'] as int? ?? 600),
+    recordingVersion: (json['recordingVersion'] as num?)?.toInt() ?? 1,
+    sampleRate: (json['sampleRate'] as num?)?.toInt() ?? 44100,
+    phases:
+        (json['phases'] as List?)
+            ?.map((p) => InciensoPhase.fromJson(p as Map<String, dynamic>))
+            .toList() ??
+        [],
+    timeline: InciensoTimelineCodec.decode(json),
     defaultVisual: json['defaultVisual'] != null
         ? InciensoVisual.values.firstWhere(
             (v) => v.name == json['defaultVisual'],
@@ -286,9 +312,11 @@ class Incienso {
     isPro: json['isPro'] as bool? ?? false,
     iconCodePoint: json['iconCodePoint'] as int?,
     tags: (json['tags'] as List?)?.cast<String>() ?? [],
-    references: (json['references'] as List?)
-        ?.map((r) => InciensoReference.fromJson(r as Map<String, dynamic>))
-        .toList() ?? [],
+    references:
+        (json['references'] as List?)
+            ?.map((r) => InciensoReference.fromJson(r as Map<String, dynamic>))
+            .toList() ??
+        [],
     practiceCount: json['practiceCount'] as int? ?? 0,
     isPublic: json['isPublic'] as bool? ?? false,
     evidence: InciensoEvidence.values.firstWhere(
@@ -305,16 +333,18 @@ class Incienso {
     // New format: { "compatibility": { "headphones": "optimal", ... } }
     if (json['compatibility'] is Map) {
       final raw = json['compatibility'] as Map;
-      return raw.map((key, value) => MapEntry(
-        OutputSource.values.firstWhere(
-          (s) => s.name == key,
-          orElse: () => OutputSource.headphones,
+      return raw.map(
+        (key, value) => MapEntry(
+          OutputSource.values.firstWhere(
+            (s) => s.name == key,
+            orElse: () => OutputSource.headphones,
+          ),
+          SourceEffectiveness.values.firstWhere(
+            (e) => e.name == value,
+            orElse: () => SourceEffectiveness.effective,
+          ),
         ),
-        SourceEffectiveness.values.firstWhere(
-          (e) => e.name == value,
-          orElse: () => SourceEffectiveness.effective,
-        ),
-      ));
+      );
     }
 
     // Legacy format: { "requiresHeadphones": true, "requiresSpeakers": false }
@@ -508,6 +538,10 @@ class InciensoKeyframe {
   /// Whether this keyframe marks a manual state change by the user.
   final bool isUserAction;
 
+  /// Present on v2 recordings; changes take effect at [sampleFrame].
+  final InciensoAudioState? audioState;
+  final int? sampleFrame;
+
   const InciensoKeyframe({
     required this.timestampMs,
     required this.leftHz,
@@ -518,6 +552,8 @@ class InciensoKeyframe {
     this.breathPhase = 0.0,
     this.visualExperience,
     this.isUserAction = false,
+    this.audioState,
+    this.sampleFrame,
   });
 
   Map<String, dynamic> toJson() => {
@@ -530,19 +566,28 @@ class InciensoKeyframe {
     'b': breathPhase,
     if (visualExperience != null) 'x': visualExperience,
     if (isUserAction) 'a': true,
+    if (audioState != null) 'p': audioState!.toJson(),
+    if (sampleFrame != null) 'f': sampleFrame,
   };
 
-  factory InciensoKeyframe.fromJson(Map<String, dynamic> json) => InciensoKeyframe(
-    timestampMs: (json['t'] as num?)?.toDouble() ?? 0.0,
-    leftHz: (json['l'] as num?)?.toDouble() ?? 200.0,
-    rightHz: (json['r'] as num?)?.toDouble() ?? 210.0,
-    coherence: (json['c'] as num?)?.toDouble() ?? 0.0,
-    volume: (json['v'] as num?)?.toDouble() ?? 0.7,
-    neuroState: json['s'] as String? ?? 'neutral',
-    breathPhase: (json['b'] as num?)?.toDouble() ?? 0.0,
-    visualExperience: json['x'] as String?,
-    isUserAction: json['a'] as bool? ?? false,
-  );
+  factory InciensoKeyframe.fromJson(Map<String, dynamic> json) =>
+      InciensoKeyframe(
+        timestampMs: (json['t'] as num?)?.toDouble() ?? 0.0,
+        leftHz: (json['l'] as num?)?.toDouble() ?? 200.0,
+        rightHz: (json['r'] as num?)?.toDouble() ?? 210.0,
+        coherence: (json['c'] as num?)?.toDouble() ?? 0.0,
+        volume: (json['v'] as num?)?.toDouble() ?? 0.7,
+        neuroState: json['s'] as String? ?? 'neutral',
+        breathPhase: (json['b'] as num?)?.toDouble() ?? 0.0,
+        visualExperience: json['x'] as String?,
+        isUserAction: json['a'] as bool? ?? false,
+        audioState: json['p'] is Map
+            ? InciensoAudioState.fromJson(
+                Map<String, dynamic>.from(json['p'] as Map),
+              )
+            : null,
+        sampleFrame: (json['f'] as num?)?.toInt(),
+      );
 }
 
 /// Visual experience paired with an Incienso.
@@ -690,42 +735,60 @@ class InciensoReference {
   /// Resolves the best available link for this reference.
   String get link {
     if (doi != null) return 'https://doi.org/$doi';
-    if (pmcId != null) return 'https://www.ncbi.nlm.nih.gov/pmc/articles/$pmcId/';
+    if (pmcId != null)
+      return 'https://www.ncbi.nlm.nih.gov/pmc/articles/$pmcId/';
     return url ?? '';
   }
 
   /// Human-readable label for the study type.
   String get studyTypeLabel {
     switch (studyType) {
-      case StudyType.metaAnalysis: return 'Meta-analysis';
-      case StudyType.rctDoubleBlind: return 'Double-blind RCT';
-      case StudyType.rct: return 'Randomized Controlled Trial';
-      case StudyType.controlledStudy: return 'Controlled Study';
-      case StudyType.pilotStudy: return 'Pilot Study';
-      case StudyType.inVitro: return 'In Vitro (Laboratory)';
-      case StudyType.preclinical: return 'Preclinical (Animal Model)';
-      case StudyType.caseReport: return 'Case Report';
+      case StudyType.metaAnalysis:
+        return 'Meta-analysis';
+      case StudyType.rctDoubleBlind:
+        return 'Double-blind RCT';
+      case StudyType.rct:
+        return 'Randomized Controlled Trial';
+      case StudyType.controlledStudy:
+        return 'Controlled Study';
+      case StudyType.pilotStudy:
+        return 'Pilot Study';
+      case StudyType.inVitro:
+        return 'In Vitro (Laboratory)';
+      case StudyType.preclinical:
+        return 'Preclinical (Animal Model)';
+      case StudyType.caseReport:
+        return 'Case Report';
     }
   }
 
   /// Human-readable label for the evidence level.
   String get evidenceLevelLabel {
     switch (evidenceLevel) {
-      case EvidenceLevel.high: return 'High';
-      case EvidenceLevel.moderateHigh: return 'Moderate-High';
-      case EvidenceLevel.moderate: return 'Moderate';
-      case EvidenceLevel.lowModerate: return 'Low-Moderate';
-      case EvidenceLevel.low: return 'Low';
+      case EvidenceLevel.high:
+        return 'High';
+      case EvidenceLevel.moderateHigh:
+        return 'Moderate-High';
+      case EvidenceLevel.moderate:
+        return 'Moderate';
+      case EvidenceLevel.lowModerate:
+        return 'Low-Moderate';
+      case EvidenceLevel.low:
+        return 'Low';
     }
   }
 
   /// Human-readable label for safety.
   String get safetyLabel {
     switch (safetyProfile) {
-      case SafetyProfile.noRisk: return 'No known risk';
-      case SafetyProfile.minimal: return 'Minimal risk';
-      case SafetyProfile.low: return 'Low risk';
-      case SafetyProfile.moderate: return 'Medical supervision recommended';
+      case SafetyProfile.noRisk:
+        return 'No known risk';
+      case SafetyProfile.minimal:
+        return 'Minimal risk';
+      case SafetyProfile.low:
+        return 'Low risk';
+      case SafetyProfile.moderate:
+        return 'Medical supervision recommended';
     }
   }
 

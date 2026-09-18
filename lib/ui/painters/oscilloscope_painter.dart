@@ -7,6 +7,7 @@ class OscilloscopePainter extends CustomPainter {
   final NeomFrequencyPainterEngine engine;
   final Color signalColor;
   final Color gridColor;
+
   /// Time scale: 1.0 = full buffer, 0.25 = zoomed in 4x, 2.0 = zoomed out.
   final double timeScale;
 
@@ -15,7 +16,8 @@ class OscilloscopePainter extends CustomPainter {
     required this.signalColor,
     required this.gridColor,
     this.timeScale = 1.0,
-  });
+    Listenable? repaint,
+  }) : super(repaint: repaint ?? engine);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -29,10 +31,7 @@ class OscilloscopePainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [
-          Colors.black,
-          const Color(0xFF12001A),
-        ],
+        colors: [Colors.black, const Color(0xFF12001A)],
       ).createShader(Offset.zero & size);
 
     canvas.drawRect(Offset.zero & size, paint);
@@ -53,10 +52,16 @@ class OscilloscopePainter extends CustomPainter {
       final x = size.width * i / divisions;
       final y = size.height * i / divisions;
 
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height),
-          i % 5 == 0 ? major : minor);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y),
-          i % 5 == 0 ? major : minor);
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        i % 5 == 0 ? major : minor,
+      );
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        i % 5 == 0 ? major : minor,
+      );
     }
   }
 
@@ -65,7 +70,9 @@ class OscilloscopePainter extends CustomPainter {
     if (allSamples.isEmpty) return;
 
     // Apply time scale: show only a portion of the buffer when zoomed in
-    final visibleCount = (allSamples.length * timeScale.clamp(0.1, 2.0)).round().clamp(10, allSamples.length);
+    final visibleCount = (allSamples.length * timeScale.clamp(0.1, 2.0))
+        .round()
+        .clamp(10, allSamples.length);
     final startIdx = allSamples.length - visibleCount;
     final samples = allSamples.sublist(startIdx);
 

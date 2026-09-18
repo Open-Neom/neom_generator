@@ -1,38 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/utils/constants/app_page_id_constants.dart';
 import 'package:sint/sint.dart';
 
+import '../widgets/visual_animation.dart';
 import 'neom_oscilloscope_controller.dart';
 import 'neom_oscilloscope_fullscreen_painter.dart';
 
-class NeomOscilloscopeFullscreenPage extends StatefulWidget {
+class NeomOscilloscopeFullscreenPage extends StatelessWidget {
   const NeomOscilloscopeFullscreenPage({super.key});
-
-  @override
-  State<NeomOscilloscopeFullscreenPage> createState() => _NeomOscilloscopeFullscreenPageState();
-}
-
-class _NeomOscilloscopeFullscreenPageState extends State<NeomOscilloscopeFullscreenPage>
-    with SingleTickerProviderStateMixin {
-  late Ticker _frameTicker;
-
-  @override
-  void initState() {
-    super.initState();
-    _frameTicker = createTicker((_) {
-      if (mounted) setState(() {});
-    });
-    _frameTicker.start();
-  }
-
-  @override
-  void dispose() {
-    _frameTicker.stop();
-    _frameTicker.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,24 +29,30 @@ class _NeomOscilloscopeFullscreenPageState extends State<NeomOscilloscopeFullscr
           },
           child: Stack(
             children: [
-              // Osciloscopio fullscreen — driven by _frameTicker setState
+              // Refresh only the canvas; controls rebuild on controller updates.
               Positioned.fill(
-                child: CustomPaint(
-                  painter: NeomOscilloscopeFullscreenPainter(
-                    samples: controller.displaySamples,
-                    sampleRevision: controller.displayRevision,
-                    signalColor: controller.isPaused.value
-                        ? AppColor.bondiBlue.withValues(alpha: 0.6)
-                        : AppColor.bondiBlue,
-                    gridColor: Colors.white12,
-                    thickness: controller.waveThickness.value,
-                    waveScale: controller.waveScale.value,
-                    timeScale: controller.timeScale.value,
-                    showGrid: controller.showGrid.value,
-                    showGlow: controller.showGlow.value,
-                    isPaused: controller.isPaused.value,
+                child: RepaintBoundary(
+                  child: VisualAnimation(
+                    active: !controller.isPaused.value,
+                    builder: (context, clock, child) => CustomPaint(
+                      painter: NeomOscilloscopeFullscreenPainter(
+                        samples: controller.displaySamples,
+                        sampleRevision: controller.displayRevision,
+                        signalColor: controller.isPaused.value
+                            ? AppColor.bondiBlue.withValues(alpha: 0.6)
+                            : AppColor.bondiBlue,
+                        gridColor: Colors.white12,
+                        thickness: controller.waveThickness.value,
+                        waveScale: controller.waveScale.value,
+                        timeScale: controller.timeScale.value,
+                        showGrid: controller.showGrid.value,
+                        showGlow: controller.showGlow.value,
+                        isPaused: controller.isPaused.value,
+                        repaint: clock,
+                      ),
+                      size: Size.infinite,
+                    ),
                   ),
-                  size: Size.infinite,
                 ),
               ),
 

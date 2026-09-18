@@ -29,6 +29,7 @@ class NeomOscilloscopeFullscreenPainter extends CustomPainter {
     this.showGrid = true,
     this.showGlow = true,
     this.isPaused = false,
+    super.repaint,
   });
 
   @override
