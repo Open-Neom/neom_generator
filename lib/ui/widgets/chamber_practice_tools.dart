@@ -3,6 +3,7 @@ import 'package:neom_commons/ui/theme/app_theme.dart';
 import 'package:sint/sint.dart';
 
 import '../../domain/models/incienso.dart';
+import '../../domain/use_cases/chamber_sead_extension.dart';
 import '../../utils/constants/generator_translation_constants.dart';
 import '../neom_generator_controller.dart';
 import '../painters/lissajous_painter.dart';
@@ -136,6 +137,29 @@ class _ChamberPracticeToolbarState extends State<ChamberPracticeToolbar> {
                   label: Text(GeneratorTranslationConstants.practiceOptions.tr),
                   onPressed: () => _showSettings(context),
                 ),
+              if (ChamberSeadExtension.isAvailable)
+                widget.compact
+                    ? IconButton(
+                        key: const ValueKey('chamber-sead-extension'),
+                        tooltip: ChamberSeadExtension.registered!.label,
+                        icon: Icon(
+                          ChamberSeadExtension.registered!.icon,
+                          color: Colors.cyanAccent,
+                        ),
+                        onPressed: () => _showSeadExtension(context),
+                      )
+                    : OutlinedButton.icon(
+                        key: const ValueKey('chamber-sead-extension'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                        ),
+                        icon: Icon(
+                          ChamberSeadExtension.registered!.icon,
+                          color: Colors.cyanAccent,
+                        ),
+                        label: Text(ChamberSeadExtension.registered!.label),
+                        onPressed: () => _showSeadExtension(context),
+                      ),
             ],
           ),
           FutureBuilder<List<Incienso>>(
@@ -219,6 +243,22 @@ class _ChamberPracticeToolbarState extends State<ChamberPracticeToolbar> {
       builder: (_) => ChamberPracticeSettings(controller: widget.controller),
     );
     _refresh();
+  }
+
+  Future<void> _showSeadExtension(BuildContext context) async {
+    final ext = ChamberSeadExtension.registered;
+    if (ext == null) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: const Color(0xFF070B12),
+      constraints: const BoxConstraints(maxWidth: 720),
+      builder: (ctx) => FractionallySizedBox(
+        heightFactor: 0.90,
+        child: ext.builder(ctx),
+      ),
+    );
   }
 }
 
