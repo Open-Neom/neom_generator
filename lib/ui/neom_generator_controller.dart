@@ -3,7 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:neom_commons/utils/app_utilities.dart';
@@ -219,6 +219,7 @@ class NeomGeneratorController extends SintController
   List<double> detectedPitches = [];
 
   bool _isDisposed = false;
+  bool _didRunReady = false;
   bool isAdmin = false;
 
   // Both capture paths deliver mono PCM16; web reports its actual context rate.
@@ -682,6 +683,8 @@ class NeomGeneratorController extends SintController
 
   @override
   void onReady() async {
+    if (_didRunReady || _isDisposed) return;
+    _didRunReady = true;
     super.onReady();
     try {
       if (chambers.isEmpty) {
@@ -758,7 +761,10 @@ class NeomGeneratorController extends SintController
     if (_waveTicker?.isActive ?? false) _waveTicker?.stop();
     _waveTicker?.dispose();
 
-    if (_recorderOpened) unawaited(_recorder.closeRecorder());
+    if (_recorderOpened) {
+      _recorderOpened = false;
+      unawaited(_recorder.closeRecorder().catchError((Object _) {}));
+    }
     unawaited(_voiceCapture.dispose());
     // The engine singleton stays reusable. Navigation keeps this controller
     // alive; actual controller teardown stops its output and pending work.
@@ -1392,7 +1398,15 @@ class NeomGeneratorController extends SintController
 
   Future<void> initializeRecorder() async {
     if (_usesVoiceAdapter) return;
-    if (!kIsWeb) {
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux)) {
+      throw UnsupportedError('FlutterSoundRecorder is not supported on desktop');
+    }
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS)) {
       final permission = await Permission.microphone.request();
       if (!permission.isGranted) {
         throw StateError('Microphone permission denied');

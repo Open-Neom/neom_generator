@@ -14,6 +14,15 @@ class NeomBreathingController extends SintController {
   NeomFrequencyPainterEngine? painterEngine;
 
   Timer? _animationTimer;
+  bool _closed = false;
+
+  static Object? _safeRouteArguments() {
+    try {
+      return Sint.arguments;
+    } catch (_) {
+      return null;
+    }
+  }
 
   // Controles de UI
   final RxBool isRunning = true.obs;
@@ -53,14 +62,22 @@ class NeomBreathingController extends SintController {
     breathingEngine = NeomBreathingEngine();
 
     // Recibir el painter engine del generador (para sincronización de audio)
-    if (Sint.arguments != null && Sint.arguments is NeomFrequencyPainterEngine) {
-      painterEngine = Sint.arguments;
+    final args = _safeRouteArguments();
+    if (args is NeomFrequencyPainterEngine) {
+      painterEngine = args;
     } else if (Sint.isRegistered<NeomFrequencyPainterEngine>()) {
       painterEngine = Sint.find<NeomFrequencyPainterEngine>();
     }
   }
 
   void initializeExercise(double width, double height) {
+    if (_closed ||
+        !width.isFinite ||
+        !height.isFinite ||
+        width <= 0 ||
+        height <= 0) {
+      return;
+    }
     breathingEngine.initialize(
       width: width,
       height: height,
@@ -76,11 +93,12 @@ class NeomBreathingController extends SintController {
 
     // 60 FPS animation loop
     _animationTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
-      if (!isRunning.value) return;
+      if (_closed || !isRunning.value) return;
 
       final now = DateTime.now();
       final dt = (now.difference(lastTime).inMicroseconds) / 1000000.0;
       lastTime = now;
+      if (!dt.isFinite || dt < 0) return;
 
       // Sincronizar con audio si está disponible
       if (painterEngine != null) {
@@ -103,7 +121,11 @@ class NeomBreathingController extends SintController {
 
   @override
   void onClose() {
+    if (_closed) return;
+    _closed = true;
     _animationTimer?.cancel();
+    _animationTimer = null;
+    breathingEngine.dispose();
 
     // Restaurar orientación
     SystemChrome.setPreferredOrientations([
@@ -113,6 +135,14 @@ class NeomBreathingController extends SintController {
 
     // Restaurar UI
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+    isRunning.close();
+    showGuide.close();
+    showParticles.close();
+    currentPattern.close();
+    attentionScore.close();
+    sessionAverage.close();
+    breathCycles.close();
 
     super.onClose();
   }
@@ -142,18 +172,24 @@ class NeomBreathingController extends SintController {
   }
 
   void onTouchStart(double y, double maxHeight) {
+    if (!y.isFinite || !maxHeight.isFinite || maxHeight <= 0) return;
     // Convertir posición de pantalla a normalizada (0 = abajo, 1 = arriba)
     final margin = breathingEngine.sphereRadius * 1.5;
     final usableHeight = maxHeight - (margin * 2);
-    final normalizedY = 1.0 - ((y - margin) / usableHeight).clamp(0.0, 1.0);
+    final normalizedY = usableHeight > 0
+        ? 1.0 - ((y - margin) / usableHeight).clamp(0.0, 1.0)
+        : 0.5;
 
     breathingEngine.onTouchStart(normalizedY);
   }
 
   void onTouchMove(double y, double maxHeight) {
+    if (!y.isFinite || !maxHeight.isFinite || maxHeight <= 0) return;
     final margin = breathingEngine.sphereRadius * 1.5;
     final usableHeight = maxHeight - (margin * 2);
-    final normalizedY = 1.0 - ((y - margin) / usableHeight).clamp(0.0, 1.0);
+    final normalizedY = usableHeight > 0
+        ? 1.0 - ((y - margin) / usableHeight).clamp(0.0, 1.0)
+        : 0.5;
 
     breathingEngine.onTouchMove(normalizedY);
   }
@@ -181,18 +217,20 @@ class NeomBreathingController extends SintController {
   bool get isUserTouching => breathingEngine.isUserTouching;
 
   String getCurrentPatternName() {
+    if (patterns.isEmpty) return '';
     final pattern = patterns.firstWhere(
           (p) => p['id'] == currentPattern.value,
       orElse: () => patterns.first,
     );
-    return pattern['name'] as String;
+    return (pattern['name'] as String?) ?? '';
   }
 
   String getCurrentPatternDesc() {
+    if (patterns.isEmpty) return '';
     final pattern = patterns.firstWhere(
           (p) => p['id'] == currentPattern.value,
       orElse: () => patterns.first,
     );
-    return pattern['desc'] as String;
+    return (pattern['desc'] as String?) ?? '';
   }
 }

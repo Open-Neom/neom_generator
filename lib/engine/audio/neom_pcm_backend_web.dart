@@ -29,9 +29,12 @@ class _WebPcmBackend implements NeomPcmBackend {
   Future<void> activate() {
     // Do not defer this call behind another await: Safari/iOS require the
     // initial context resume to originate from the user's play gesture.
-    final context = _context ??= web.AudioContext(
-      web.AudioContextOptions(latencyHint: 'interactive'.toJS),
-    );
+    if (_context == null || _context!.state == 'closed') {
+      _context = web.AudioContext(
+        web.AudioContextOptions(latencyHint: 'interactive'.toJS),
+      );
+    }
+    final context = _context!;
     return context.resume().toDart.then<void>((_) {});
   }
 
@@ -41,6 +44,17 @@ class _WebPcmBackend implements NeomPcmBackend {
     required int channels,
     required int framesPerBuffer,
   }) async {
+    if (!sampleRate.toDouble().isFinite ||
+        sampleRate < 8000 ||
+        sampleRate > 192000) {
+      throw ArgumentError.value(sampleRate, 'sampleRate');
+    }
+    if (!channels.toDouble().isFinite || channels < 1 || channels > 8) {
+      throw ArgumentError.value(channels, 'channels');
+    }
+    if (!framesPerBuffer.toDouble().isFinite || framesPerBuffer <= 0) {
+      throw ArgumentError.value(framesPerBuffer, 'framesPerBuffer');
+    }
     final context = _context;
     if (context == null || context.state != 'running') {
       throw StateError('Browser audio is suspended. Press play to enable it.');
@@ -53,9 +67,12 @@ class _WebPcmBackend implements NeomPcmBackend {
   }
 
   Future<void> _wait(double seconds) async {
-    if (seconds <= 0 || !_active) return;
+    if (!seconds.isFinite || seconds <= 0 || !_active) return;
+    final boundedSeconds = seconds > 60.0 ? 60.0 : seconds;
     await Future.any<void>([
-      Future<void>.delayed(Duration(microseconds: (seconds * 1000000).ceil())),
+      Future<void>.delayed(
+        Duration(microseconds: (boundedSeconds * 1000000).ceil()),
+      ),
       _cancelled.future,
     ]);
   }
@@ -83,6 +100,7 @@ class _WebPcmBackend implements NeomPcmBackend {
     final context = _context!;
     final input = ByteData.sublistView(pcm);
     final frames = pcm.lengthInBytes ~/ (_channels * 2);
+    if (frames <= 0) return;
     final audio = context.createBuffer(_channels, frames, _sampleRate);
     for (var channel = 0; channel < _channels; channel++) {
       final samples = Float32List(frames);
@@ -150,7 +168,9 @@ class _WebPcmBackend implements NeomPcmBackend {
     final context = _context;
     _context = null;
     if (context != null && context.state != 'closed') {
-      await context.close().toDart;
+      try {
+        await context.close().toDart;
+      } catch (_) {}
     }
   }
 }

@@ -117,7 +117,7 @@ Widget buildChamberList(BuildContext context, ChamberController chamberControlle
                 color: AppColor.bondiBlue75,
                 onPressed: () async {
                   await chamberController.updateChamber(chamber.id, chamber);
-                  Navigator.pop(ctx);
+                  Sint.pop();
                 },
                 child: Text(AppTranslationConstants.update.tr,
                   style: const TextStyle(fontSize: 14),
@@ -135,7 +135,7 @@ Widget buildChamberList(BuildContext context, ChamberController chamberControlle
                         message: CommonTranslationConstants.cantRemoveMainItemlist.tr);
                   } else {
                     await chamberController.deleteChamber(chamber);
-                    Navigator.pop(ctx);
+                    Sint.pop();
                   }
                 },
               ),
@@ -167,7 +167,7 @@ Widget buildPresetsList(BuildContext context, ChamberPresetController presetCont
                     ? "${chamberPreset.name.substring(0,AppConstants.maxAppItemNameLength)}..."
                     : chamberPreset.name),
                 const SizedBox(width:5),
-                (AppConfig.instance.appInUse == AppInUse.c || (presetController.userServiceImpl.profile.type == ProfileType.appArtist && !presetController.isFixed)) ?
+                (AppConfig.instance.appInUse == AppInUse.c || (presetController.userServiceImpl?.profile.type == ProfileType.appArtist && !presetController.isFixed)) ?
                 RatingHeartBar(state: chamberPreset.state.toDouble()) : const SizedBox.shrink(),
               ]
           ),
@@ -179,7 +179,10 @@ Widget buildPresetsList(BuildContext context, ChamberPresetController presetCont
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               onPressed: () {
-                NeomChamberPreset preset = presetController.chamber.chamberPresets!.firstWhere((element) => element.id == chamberPreset.id);
+                final preset = presetController.chamber.chamberPresets?.firstWhere(
+                  (element) => element.id == chamberPreset.id,
+                  orElse: () => chamberPreset,
+                ) ?? chamberPreset;
                 Sint.toNamed(AppRouteConstants.generator,  arguments: [preset.clone()]);
               }
           ),
@@ -187,7 +190,10 @@ Widget buildPresetsList(BuildContext context, ChamberPresetController presetCont
             if(!presetController.isFixed) {
               presetController.getChamberPresetDetails(chamberPreset);
             } else {
-              NeomChamberPreset preset = presetController.chamber.chamberPresets!.firstWhere((element) => element.id == chamberPreset.id);
+              final preset = presetController.chamber.chamberPresets?.firstWhere(
+                (element) => element.id == chamberPreset.id,
+                orElse: () => chamberPreset,
+              ) ?? chamberPreset;
               Sint.toNamed(AppRouteConstants.generator,  arguments: [preset.clone()]);
             }
           },

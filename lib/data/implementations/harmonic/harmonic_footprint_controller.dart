@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -24,17 +25,49 @@ class HarmonicFootprintController extends SintController
   static const int _sampleRate = 44100;
   static const int _harmonicCount = 8;
   static const int _bytesPerSample = 2; // PCM16
+  static const int _maxPcmBytes = _sampleRate * _bytesPerSample * 60; // 60s cap
 
   final Rxn<HarmonicFootprint> footprint = Rxn<HarmonicFootprint>();
   final RxBool isCapturing = false.obs;
   final RxBool isProcessing = false.obs;
+  final Map<String, String> _memoryFallback = {};
+  bool _disposed = false;
 
   final _captureStreamController =
       StreamController<HarmonicCapture>.broadcast();
 
-  final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
+  FlutterSoundRecorder? _recorder;
+  bool _recorderOpened = false;
+  Future<void>? _closingRecorderFuture;
   StreamController<Uint8List>? _audioStreamController;
   final List<int> _accumulatedPcm = [];
+
+  static bool get _isMobilePlatform =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  static bool get _supportsFlutterSoundRecorder =>
+      kIsWeb || _isMobilePlatform;
+
+  Future<Box?> _openSafeBox() async {
+    if (Hive.isBoxOpen(_hiveBox)) return Hive.box(_hiveBox);
+    final completer = Completer<Box?>();
+    runZonedGuarded(
+      () async {
+        try {
+          final box = await Hive.openBox(_hiveBox);
+          if (!completer.isCompleted) completer.complete(box);
+        } catch (_) {
+          if (!completer.isCompleted) completer.complete(null);
+        }
+      },
+      (_, _) {
+        if (!completer.isCompleted) completer.complete(null);
+      },
+    );
+    return completer.future;
+  }
 
   @override
   HarmonicFootprint? get currentFootprint => footprint.value;
@@ -50,18 +83,50 @@ class HarmonicFootprintController extends SintController
 
   @override
   void onClose() {
+    _disposed = true;
     _captureStreamController.close();
     _audioStreamController?.close();
-    _recorder.closeRecorder();
+    _audioStreamController = null;
+    unawaited(_closeRecorderSafely());
+    footprint.close();
+    isCapturing.close();
+    isProcessing.close();
     super.onClose();
   }
 
+  Future<void> _closeRecorderSafely() {
+    return _closingRecorderFuture ??= () async {
+      final recorder = _recorder;
+      final wasOpened = _recorderOpened;
+      _recorder = null;
+      _recorderOpened = false;
+      if (recorder == null || !wasOpened) return;
+      try {
+        if (recorder.isRecording) {
+          await recorder.stopRecorder();
+        }
+      } catch (_) {}
+      try {
+        await recorder.closeRecorder();
+      } catch (_) {}
+    }();
+  }
+
   Future<void> _initRecorder() async {
+    if (_disposed || _recorderOpened || !_supportsFlutterSoundRecorder) return;
     try {
-      if (!kIsWeb) {
+      if (_isMobilePlatform) {
         await Permission.microphone.request();
       }
-      await _recorder.openRecorder();
+      final recorder = _recorder ??= FlutterSoundRecorder();
+      await recorder.openRecorder();
+      if (_disposed) {
+        await recorder.closeRecorder();
+        return;
+      }
+      _recorderOpened = true;
+    } on MissingPluginException catch (e) {
+      debugPrint('[HarmonicFootprint] Recorder plugin unavailable: $e');
     } catch (e) {
       debugPrint('[HarmonicFootprint] Recorder init error: $e');
     }
@@ -75,7 +140,12 @@ class HarmonicFootprintController extends SintController
   Future<void> captureVoiceSample({
     Duration duration = const Duration(seconds: 5),
   }) async {
-    if (isCapturing.value || isProcessing.value) return;
+    if (_disposed || isCapturing.value || isProcessing.value) return;
+    if (duration <= Duration.zero) return;
+    if (!_recorderOpened) {
+      await _initRecorder();
+      if (!_recorderOpened || _disposed) return;
+    }
 
     try {
       isCapturing.value = true;
@@ -84,14 +154,20 @@ class HarmonicFootprintController extends SintController
       _accumulatedPcm.clear();
 
       // Set up audio stream
-      _audioStreamController?.close();
+      await _audioStreamController?.close();
       _audioStreamController = StreamController<Uint8List>(sync: true);
       _audioStreamController!.stream.listen((data) {
-        _accumulatedPcm.addAll(data);
+        final remaining = _maxPcmBytes - _accumulatedPcm.length;
+        if (remaining <= 0) return;
+        if (data.length <= remaining) {
+          _accumulatedPcm.addAll(data);
+        } else {
+          _accumulatedPcm.addAll(data.sublist(0, remaining));
+        }
       });
 
       // Start recording PCM16 mono to stream
-      await _recorder.startRecorder(
+      await _recorder!.startRecorder(
         codec: Codec.pcm16,
         sampleRate: _sampleRate,
         numChannels: 1,
@@ -102,7 +178,10 @@ class HarmonicFootprintController extends SintController
       await Future.delayed(duration);
 
       // Stop recording
-      await _recorder.stopRecorder();
+      if (_recorder != null && _recorderOpened) {
+        await _recorder!.stopRecorder();
+      }
+      if (_disposed) return;
 
       isCapturing.value = false;
       isProcessing.value = true;
@@ -113,47 +192,61 @@ class HarmonicFootprintController extends SintController
 
       // Process the captured audio
       final capture = await _processAudio(samples, duration.inMilliseconds);
-      if (capture != null) {
+      if (capture != null && !_disposed) {
         _addCaptureToFootprint(capture);
-        _captureStreamController.add(capture);
+        if (!_captureStreamController.isClosed) {
+          _captureStreamController.add(capture);
+        }
         await _persist();
       }
     } catch (e) {
       debugPrint('[HarmonicFootprint] Capture error: $e');
     } finally {
-      isCapturing.value = false;
-      isProcessing.value = false;
-      update();
+      await _audioStreamController?.close();
+      _audioStreamController = null;
+      if (!_disposed) {
+        isCapturing.value = false;
+        isProcessing.value = false;
+        update();
+      }
     }
   }
 
   @override
   Future<void> loadFootprint(String userId) async {
+    if (_disposed || userId.isEmpty) return;
     try {
-      final box = await Hive.openBox(_hiveBox);
-      final stored = box.get(userId);
-      if (stored != null) {
-        final json = Map<String, dynamic>.from(jsonDecode(stored as String));
+      final box = await _openSafeBox();
+      final stored = box != null ? box.get(userId) : _memoryFallback[userId];
+      if (stored is String) {
+        final json = Map<String, dynamic>.from(jsonDecode(stored) as Map);
         footprint.value = HarmonicFootprint.fromJson(json);
       } else {
         footprint.value = HarmonicFootprint(userId: userId);
       }
-      update();
+      if (!_disposed) update();
     } catch (e) {
       debugPrint('[HarmonicFootprint] Load error: $e');
-      footprint.value = HarmonicFootprint(userId: userId);
-      update();
+      if (!_disposed) {
+        footprint.value = HarmonicFootprint(userId: userId);
+        update();
+      }
     }
   }
 
   @override
   Future<void> clearFootprint() async {
+    if (_disposed) return;
     final userId = footprint.value?.userId;
     if (userId != null) {
       footprint.value = HarmonicFootprint(userId: userId);
-      final box = await Hive.openBox(_hiveBox);
-      await box.delete(userId);
-      update();
+      final box = await _openSafeBox();
+      if (box != null) {
+        await box.delete(userId);
+      } else {
+        _memoryFallback.remove(userId);
+      }
+      if (!_disposed) update();
     }
   }
 
@@ -219,7 +312,8 @@ class HarmonicFootprintController extends SintController
       final pcmBytes = Uint8List(window.length * _bytesPerSample);
       final byteData = ByteData.sublistView(pcmBytes);
       for (int i = 0; i < window.length; i++) {
-        final sample = (window[i] * 32767).round().clamp(-32768, 32767);
+        final v = window[i];
+        final sample = v.isFinite ? (v * 32767).round().clamp(-32768, 32767) : 0;
         byteData.setInt16(i * _bytesPerSample, sample, Endian.little);
       }
 
@@ -330,7 +424,8 @@ class HarmonicFootprintController extends SintController
         final pcmBytes = Uint8List(window.length * _bytesPerSample);
         final byteData = ByteData.sublistView(pcmBytes);
         for (int i = 0; i < window.length; i++) {
-          final sample = (window[i] * 32767).round().clamp(-32768, 32767);
+          final v = window[i];
+          final sample = v.isFinite ? (v * 32767).round().clamp(-32768, 32767) : 0;
           byteData.setInt16(i * _bytesPerSample, sample, Endian.little);
         }
 
@@ -366,8 +461,13 @@ class HarmonicFootprintController extends SintController
     final fp = footprint.value;
     if (fp == null) return;
     try {
-      final box = await Hive.openBox(_hiveBox);
-      await box.put(fp.userId, jsonEncode(fp.toJson()));
+      final encoded = jsonEncode(fp.toJson());
+      final box = await _openSafeBox();
+      if (box != null) {
+        await box.put(fp.userId, encoded);
+      } else {
+        _memoryFallback[fp.userId] = encoded;
+      }
     } catch (e) {
       debugPrint('[HarmonicFootprint] Persist error: $e');
     }

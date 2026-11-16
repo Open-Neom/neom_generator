@@ -20,6 +20,14 @@ abstract final class InciensoTimelineCodec {
   static const maxInflatedBytes = 64 * 1024 * 1024;
   static const maxCompressedBytes = 8 * 1024 * 1024;
   static const _maxHeaderBytes = 1024 * 1024;
+  static const _maxStringEntries = 65536;
+  static const _forbiddenSubkeys = <String>{
+    '__proto__',
+    'constructor',
+    'prototype',
+  };
+
+  static bool _isFiniteInt(Object? value) => value is int && value.isFinite;
 
   static Map<String, dynamic> encode(
     List<InciensoKeyframe> frames, {
@@ -164,17 +172,20 @@ abstract final class InciensoTimelineCodec {
 
   static List<InciensoKeyframe> decode(Map<String, dynamic> json) {
     if (!json.containsKey('timelineEncoding')) {
-      final timeline = json['timeline'] as List? ?? const [];
-      if (timeline.length > maxFrames) {
+      final rawTimeline = json['timeline'];
+      if (rawTimeline == null) return const [];
+      if (rawTimeline is! List) {
+        throw const FormatException('Invalid Incienso timeline');
+      }
+      if (rawTimeline.length > maxFrames) {
         throw const FormatException('Incienso timeline has too many frames');
       }
-      return timeline
-          .map(
-            (row) => InciensoKeyframe.fromJson(
-              Map<String, dynamic>.from(row as Map),
-            ),
-          )
-          .toList();
+      return rawTimeline.map((row) {
+        if (row is! Map) {
+          throw const FormatException('Invalid Incienso keyframe');
+        }
+        return InciensoKeyframe.fromJson(Map<String, dynamic>.from(row));
+      }).toList();
     }
     if (json['timelineEncoding'] != encoding || json.containsKey('timeline')) {
       throw const FormatException(
@@ -182,9 +193,11 @@ abstract final class InciensoTimelineCodec {
       );
     }
     final length = json['timelineBytes'];
+    final crc = json['timelineCrc32'];
     final data = json['timelineData'];
-    if (length is! int ||
-        length < 4 ||
+    if (!_isFiniteInt(length) ||
+        !_isFiniteInt(crc) ||
+        (length as int) < 4 ||
         length > maxInflatedBytes ||
         data is! String ||
         data.length > ((maxCompressedBytes + 2) ~/ 3) * 4) {
@@ -202,26 +215,32 @@ abstract final class InciensoTimelineCodec {
     final output = _BoundedOutput(length);
     const GZipDecoderWeb().decodeStream(InputMemoryStream(compressed), output);
     final raw = output.getBytes();
-    if (raw.length != length || getCrc32(raw) != json['timelineCrc32']) {
+    if (raw.length != length || getCrc32(raw) != crc) {
       throw const FormatException('Corrupt Incienso timeline');
     }
     final headerLength = ByteData.sublistView(raw).getUint32(0, Endian.little);
     if (headerLength > _maxHeaderBytes || headerLength > raw.length - 4) {
       throw const FormatException('Invalid Incienso timeline header');
     }
-    final header =
-        jsonDecode(utf8.decode(raw.sublist(4, 4 + headerLength))) as Map;
+    final decodedHeader = jsonDecode(
+      utf8.decode(raw.sublist(4, 4 + headerLength)),
+    );
+    if (decodedHeader is! Map) {
+      throw const FormatException('Invalid Incienso timeline header');
+    }
+    final header = decodedHeader;
     final count = header['rows'];
     final columns = header['columns'];
     final strings = header['strings'];
-    if (count is! int ||
-        count < 1 ||
+    if (!_isFiniteInt(count) ||
+        (count as int) < 1 ||
         count > maxFrames ||
         columns is! List ||
         columns.isEmpty ||
         columns.length > maxColumns ||
         count * columns.length > maxExpandedCells ||
         strings is! List ||
+        strings.length > _maxStringEntries ||
         strings.any((value) => value is! String)) {
       throw const FormatException('Invalid Incienso timeline dimensions');
     }
@@ -242,6 +261,12 @@ abstract final class InciensoTimelineCodec {
               key.startsWith('p:') ||
               key.startsWith('h:'))) {
         throw const FormatException('Invalid Incienso column key');
+      }
+      if (key != 'e') {
+        final subKey = key.substring(2);
+        if (subKey.isEmpty || _forbiddenSubkeys.contains(subKey)) {
+          throw const FormatException('Invalid Incienso column key');
+        }
       }
       final cells = descriptor[1] == true ? 1 : count;
       if (cells * 9 > raw.length - offset) {

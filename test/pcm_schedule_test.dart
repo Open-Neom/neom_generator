@@ -1,7 +1,32 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:neom_generator/engine/audio/neom_pcm_backend_factory.dart';
 import 'package:neom_generator/engine/audio/neom_pcm_schedule.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets(
+    'desktop PCM backend runs schedule fallback without MissingPluginException',
+    (tester) async {
+      final backend = createNeomPcmBackend();
+      await backend.init();
+      await backend.start(
+        sampleRate: 44100,
+        channels: 2,
+        framesPerBuffer: 512,
+      );
+      await backend.write(Uint8List(512 * 2 * 2));
+      await backend.stop();
+      await backend.dispose();
+    },
+    variant: TargetPlatformVariant(const {
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+    }),
+  );
+
   test('an immediate consumer cannot accumulate an unbounded PCM queue', () {
     final schedule = NeomPcmSchedule(sampleRate: 44100, leadSeconds: 0.004);
     var now = 0.0;

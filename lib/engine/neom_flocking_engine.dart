@@ -92,22 +92,39 @@ class NeomFlockingEngine extends ChangeNotifier {
     required double canvasWidth,
     required double canvasHeight,
   }) {
+    if (count <= 0 ||
+        !canvasWidth.isFinite ||
+        !canvasHeight.isFinite ||
+        canvasWidth <= 0 ||
+        canvasHeight <= 0) {
+      boids.clear();
+      _spatialGrid = {};
+      _cachedConnections.clear();
+      return;
+    }
+    final cappedCount = count.clamp(1, 2000);
+    if (colorPalette.isEmpty) {
+      colorPalette = [const Color(0xFF00CED1)];
+    }
 
     AppConfig.logger.d('🎯 ENGINE INIT: canvasWidth=$canvasWidth, canvasHeight=$canvasHeight');
 
     width = canvasWidth;
     height = canvasHeight;
-    _gridCellSize = (perceptionRadius * 1.1).toInt().clamp(35, 70);
+    final safePerception =
+        perceptionRadius.isFinite && perceptionRadius > 0 ? perceptionRadius : 50.0;
+    _gridCellSize = (safePerception * 1.1).toInt().clamp(35, 70);
     boids.clear();
     _spatialGrid = {};
 
-    for (int i = 0; i < count; i++) {
+    final safeMaxSpeed = maxSpeed.isFinite && maxSpeed > 0 ? maxSpeed : 4.0;
+    for (int i = 0; i < cappedCount; i++) {
       boids.add(Boid(
         x: _random.nextDouble() * width,
         y: _random.nextDouble() * height,
         z: _random.nextDouble(), // Profundidad aleatoria
-        vx: (_random.nextDouble() - 0.5) * maxSpeed,
-        vy: (_random.nextDouble() - 0.5) * maxSpeed,
+        vx: (_random.nextDouble() - 0.5) * safeMaxSpeed,
+        vy: (_random.nextDouble() - 0.5) * safeMaxSpeed,
         vz: (_random.nextDouble() - 0.5) * 0.015,
         size: 2.5 + _random.nextDouble() * 2.0,
         color: colorPalette[_random.nextInt(colorPalette.length)],
@@ -125,22 +142,24 @@ class NeomFlockingEngine extends ChangeNotifier {
     required double beat,
     required double phase,
   }) {
-    audioAmplitude = amplitude.clamp(0.0, 1.0);
-    audioFrequency = frequency.clamp(0.0, 1.0);
-    audioBeat = beat.clamp(0.0, 40.0);
-    audioPhase = phase;
+    audioAmplitude = amplitude.isFinite ? amplitude.clamp(0.0, 1.0) : 0.0;
+    audioFrequency = frequency.isFinite ? frequency.clamp(0.0, 1.0) : 0.0;
+    audioBeat = beat.isFinite ? beat.clamp(0.0, 40.0) : 0.0;
+    audioPhase = phase.isFinite ? phase : 0.0;
   }
 
   /// Construye el spatial grid para búsqueda eficiente
   void _buildSpatialGrid() {
     _spatialGrid.clear();
     for (var boid in boids) {
+      if (!boid.x.isFinite || !boid.y.isFinite) continue;
       final key = _getGridKey(boid.x, boid.y);
       _spatialGrid.putIfAbsent(key, () => []).add(boid);
     }
   }
 
   int _getGridKey(double x, double y) {
+    if (!x.isFinite || !y.isFinite || _gridCellSize <= 0) return 0;
     final gx = (x / _gridCellSize).floor();
     final gy = (y / _gridCellSize).floor();
     return gx + gy * 10000;
@@ -148,6 +167,13 @@ class NeomFlockingEngine extends ChangeNotifier {
 
   /// Obtiene vecinos cercanos usando spatial grid - MUCHO más eficiente
   List<Boid> _getNeighbors(Boid boid, double radius) {
+    if (!boid.x.isFinite ||
+        !boid.y.isFinite ||
+        !radius.isFinite ||
+        radius <= 0 ||
+        _gridCellSize <= 0) {
+      return const [];
+    }
     final neighbors = <Boid>[];
     final gx = (boid.x / _gridCellSize).floor();
     final gy = (boid.y / _gridCellSize).floor();
@@ -175,7 +201,13 @@ class NeomFlockingEngine extends ChangeNotifier {
 
   /// Tick principal de la simulación - OPTIMIZADO
   void update() {
-    if (boids.isEmpty) return;
+    if (boids.isEmpty ||
+        !width.isFinite ||
+        !height.isFinite ||
+        width <= 0 ||
+        height <= 0) {
+      return;
+    }
 
     // Reconstruir spatial grid
     _buildSpatialGrid();
@@ -314,14 +346,21 @@ class NeomFlockingEngine extends ChangeNotifier {
       boid.z = boid.z.clamp(0.0, 1.0);
 
       // Wrap around edges
-      if (boid.x < 0) boid.x += width;
-      if (boid.x > width) boid.x -= width;
-      if (boid.y < 0) boid.y += height;
-      if (boid.y > height) boid.y -= height;
+      if (!boid.x.isFinite) boid.x = width * 0.5;
+      if (!boid.y.isFinite) boid.y = height * 0.5;
+      if (boid.x < 0 || boid.x > width) {
+        boid.x = ((boid.x % width) + width) % width;
+      }
+      if (boid.y < 0 || boid.y > height) {
+        boid.y = ((boid.y % height) + height) % height;
+      }
 
       // Actualizar energía y tamaño
       boid.energy = 0.5 + audioAmplitude * 0.5;
-      boid.size = 2.5 + (speed / dynamicMaxSpeed) * 1.2 + audioAmplitude * 1.0;
+      boid.size =
+          2.5 +
+          (dynamicMaxSpeed > 0 ? (speed / dynamicMaxSpeed) * 1.2 : 0.0) +
+          audioAmplitude * 1.0;
     }
 
     // Actualizar conexiones cada 4 frames para ahorrar CPU

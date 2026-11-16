@@ -19,9 +19,24 @@ import '../../data/firestore/chamber_firestore.dart';
 import '../../utils/constants/generator_translation_constants.dart';
 
 class ChamberController extends SintController implements ChamberService {
+  final UserService? userServiceImpl;
+  final ChamberRepository chamberRepository;
 
-  final userServiceImpl = Sint.find<UserService>();
-  final ChamberRepository chamberRepository = ChamberFirestore();
+  ChamberController({
+    UserService? userService,
+    ChamberRepository? chamberRepository,
+  }) : userServiceImpl =
+           userService ??
+           (Sint.isRegistered<UserService>() ? Sint.find<UserService>() : null),
+       chamberRepository = chamberRepository ?? ChamberFirestore();
+
+  static Object? _safeRouteArguments() {
+    try {
+      return Sint.arguments;
+    } catch (_) {
+      return null;
+    }
+  }
 
   NeomChamber currentChamber = NeomChamber();
 
@@ -61,22 +76,26 @@ class ChamberController extends SintController implements ChamberService {
     AppConfig.logger.t("onInit NeomChamber Controller");
 
     try {
-      userServiceImpl.itemlistOwnerType = OwnerType.profile;
-      profile = userServiceImpl.profile;
-      ownerId = profile.id;
-      ownerName = profile.name;
+      final userSvc = userServiceImpl;
+      if (userSvc != null) {
+        userSvc.itemlistOwnerType = OwnerType.profile;
+        profile = userSvc.profile;
+        ownerId = profile.id;
+        ownerName = profile.name;
+      }
 
-      if(Sint.arguments != null) {
-        if(Sint.arguments.isNotEmpty && Sint.arguments[0] is Collective) {
-          collective = Sint.arguments[0];
-          userServiceImpl.collective = collective!;
+      final args = _safeRouteArguments();
+      if (args is List && args.isNotEmpty) {
+        if (args[0] is Collective) {
+          collective = args[0] as Collective;
+          userSvc?.collective = collective!;
         }
 
-        if(collective != null) {
+        if (collective != null) {
           ownerId = collective!.id;
           ownerName = collective!.name;
           ownerType = OwnerType.collective;
-          userServiceImpl.itemlistOwnerType = OwnerType.collective;
+          userSvc?.itemlistOwnerType = OwnerType.collective;
         }
       }
 
@@ -94,23 +113,40 @@ class ChamberController extends SintController implements ChamberService {
   void onReady() async {
     super.onReady();
     AppConfig.logger.t('Chambers being loaded from ${ownerType.name}');
-    if(ownerType == OwnerType.profile) {
-      chambers.value = profile.chambers ?? {};
-    } else if(ownerType == OwnerType.collective){
-      chambers.value = collective?.chambers ?? {};
-    }
+    try {
+      if (ownerType == OwnerType.profile) {
+        chambers.value = profile.chambers ?? {};
+      } else if (ownerType == OwnerType.collective) {
+        chambers.value = collective?.chambers ?? {};
+      }
 
-    if(chambers.isEmpty) {
-      chambers.value = await chamberRepository.fetchAll(ownerId: ownerId);
+      if (chambers.isEmpty) {
+        chambers.value = await chamberRepository.fetchAll(ownerId: ownerId);
+      }
+    } finally {
+      isLoading.value = false;
+      update([AppPageIdConstants.chamber]);
     }
-    isLoading.value = false;
-    update([AppPageIdConstants.chamber]);
   }
 
   @override
   void onClose() {
+    baseFreqController.removeListener(_updateBinauralPreview);
+    binauralBeatController.removeListener(_updateBinauralPreview);
+    newChamberNameController.dispose();
+    newChamberDescController.dispose();
     baseFreqController.dispose();
     binauralBeatController.dispose();
+    chambers.close();
+    addedChambers.close();
+    isLoading.close();
+    isButtonDisabled.close();
+    isPublicNewChamber.close();
+    errorMsg.close();
+    itemName.close();
+    itemNumber.close();
+    isBinauralUpper.close();
+    binauralPreview.close();
     super.onClose();
   }
 
@@ -144,19 +180,20 @@ class ChamberController extends SintController implements ChamberService {
 
         // --- LOGICA BINAURAL ---
         if (baseFreqController.text.isNotEmpty && binauralBeatController.text.isNotEmpty) {
-          double base = double.parse(baseFreqController.text);
-          double beat = double.parse(binauralBeatController.text);
-
-          // Asumiendo que has agregado estos campos a tu modelo NeomChamber
-          // Si no existen en el modelo, deberás agregarlos en domain/model/neom/chamber.dart
-          newChamber.chamberPresets?.first.mainFrequency?.frequency = base;
-          newChamber.chamberPresets?.first.binauralFrequency?.frequency = beat;
-
-          // newChamber.binauralBeat = beat;
-          // newChamber.isBinauralUpper = isBinauralUpper.value;
-
-          // Opcional: Guardar la segunda frecuencia calculada directamente
-          // newChamber. = isBinauralUpper.value ? (base + beat) : (base - beat);
+          final double? base = double.tryParse(baseFreqController.text.trim());
+          final double? beat = double.tryParse(binauralBeatController.text.trim());
+          final presets = newChamber.chamberPresets;
+          if (base != null &&
+              beat != null &&
+              base.isFinite &&
+              beat.isFinite &&
+              base > 0 &&
+              beat >= 0 &&
+              presets != null &&
+              presets.isNotEmpty) {
+            presets.first.mainFrequency?.frequency = base;
+            presets.first.binauralFrequency?.frequency = beat;
+          }
         }
 
         newChamber.ownerId = ownerId;
@@ -206,6 +243,14 @@ class ChamberController extends SintController implements ChamberService {
   @override
   Future<void> deleteChamber(NeomChamber chamber) async {
     AppConfig.logger.d("Removing for $chamber");
+    if (chamber.ownerId.isNotEmpty &&
+        ownerId.isNotEmpty &&
+        chamber.ownerId != ownerId) {
+      AppConfig.logger.w(
+        "Refusing unauthorized delete of chamber ${chamber.id} owned by ${chamber.ownerId}",
+      );
+      return;
+    }
 
     try {
       isLoading.value = true;
@@ -228,10 +273,10 @@ class ChamberController extends SintController implements ChamberService {
       }
     } catch (e, st) {
       NeomErrorLogger.recordError(e, st, module: 'neom_generator', operation: 'deleteChamber');
+    } finally {
+      isLoading.value = false;
+      update([AppPageIdConstants.chamber]);
     }
-
-    isLoading.value = false;
-    update([AppPageIdConstants.chamber]);
   }
 
 
@@ -239,6 +284,14 @@ class ChamberController extends SintController implements ChamberService {
   Future<void> updateChamber(String itemlistId, NeomChamber itemlist) async {
 
     AppConfig.logger.d("Updating to $itemlist");
+    if (itemlist.ownerId.isNotEmpty &&
+        ownerId.isNotEmpty &&
+        itemlist.ownerId != ownerId) {
+      AppConfig.logger.w(
+        "Refusing unauthorized update of chamber ${itemlist.id} owned by ${itemlist.ownerId}",
+      );
+      return;
+    }
 
     try {
       isLoading.value = true;
@@ -284,11 +337,10 @@ class ChamberController extends SintController implements ChamberService {
           title: CommonTranslationConstants.itemlistPrefs.tr,
           message: MessageTranslationConstants.itemlistUpdatedErrorMsg.tr
       );
+    } finally {
+      isLoading.value = false;
+      update([AppPageIdConstants.chamber]);
     }
-
-
-    isLoading.value = false;
-    update([AppPageIdConstants.chamber]);
   }
 
   @override

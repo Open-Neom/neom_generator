@@ -295,7 +295,7 @@ class ChamberPracticeSettings extends StatelessWidget {
                       ),
                       IconButton(
                         tooltip: GeneratorTranslationConstants.cancelControl.tr,
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => Sint.pop(),
                         icon: const Icon(Icons.close),
                       ),
                     ],
@@ -327,7 +327,7 @@ class ChamberPracticeSettings extends StatelessWidget {
                           ? null
                           : () async {
                               await controller.startFreeSession();
-                              if (context.mounted) Navigator.of(context).pop();
+                              if (context.mounted) Sint.pop();
                             },
                     ),
                   ],
@@ -511,7 +511,7 @@ class ChamberPracticeSettings extends StatelessWidget {
                         ? null
                         : () async {
                             await controller.resetSessionSettings();
-                            if (context.mounted) Navigator.of(context).pop();
+                            if (context.mounted) Sint.pop();
                           },
                   ),
                   const SizedBox(height: 8),
@@ -526,7 +526,7 @@ class ChamberPracticeSettings extends StatelessWidget {
                     onPressed: playing || checking
                         ? null
                         : () async {
-                            Navigator.of(context).pop();
+                            Sint.pop();
                             await controller.importSession();
                           },
                   ),

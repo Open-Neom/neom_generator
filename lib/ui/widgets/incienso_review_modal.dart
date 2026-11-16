@@ -116,7 +116,7 @@ class _InciensoReviewModalState extends State<InciensoReviewModal> {
     return '${minutes}m ${seconds.toString().padLeft(2, '0')}s';
   }
 
-  void _onSkip() => Navigator.of(context).pop(null);
+  void _onSkip() => Sint.pop(null);
 
   void _onSave() {
     if (!_canSave) return;
@@ -133,7 +133,7 @@ class _InciensoReviewModalState extends State<InciensoReviewModal> {
           ? null
           : _noteController.text.trim(),
     );
-    Navigator.of(context).pop(review);
+    Sint.pop(review);
   }
 
   @override

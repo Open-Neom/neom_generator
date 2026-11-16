@@ -169,7 +169,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
                               ),
                           ],
                         ),
-                  onTap: () => Navigator.of(context).pop(session),
+                  onTap: () => Sint.pop(session),
                 ),
             ],
           );
@@ -189,7 +189,7 @@ class _SessionsDialogState extends State<_SessionsDialog> {
           ),
         ),
       TextButton(
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () => Sint.pop(),
         child: Text(GeneratorTranslationConstants.cancelControl.tr),
       ),
     ],

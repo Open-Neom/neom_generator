@@ -131,6 +131,7 @@ class NeomFractalEngine extends ChangeNotifier {
   final Map<NeomFractalType, ui.FragmentShader?> _shaders = {};
   bool _shadersLoaded = false;
   bool _shadersFailed = false;
+  bool _disposed = false;
 
   // Getters
   FractalConfig get config => _config;
@@ -150,7 +151,7 @@ class NeomFractalEngine extends ChangeNotifier {
   /// First loads the active shader to achieve instant startup,
   /// then loads the remaining shaders in the background in parallel.
   Future<void> loadShaders() async {
-    if (_shadersLoaded) return;
+    if (_shadersLoaded || _disposed) return;
 
     final shaderAssets = <NeomFractalType, String>{
       NeomFractalType.mandelbrot: 'packages/neom_generator/shaders/mandelbrot.frag',
@@ -170,6 +171,7 @@ class NeomFractalEngine extends ChangeNotifier {
         ui.FragmentProgram? program = _programCache[activeAsset];
         if (program == null) {
           program = await ui.FragmentProgram.fromAsset(activeAsset);
+          if (_disposed) return;
           _programCache[activeAsset] = program;
         }
         _shaders[activeType] = program.fragmentShader();
@@ -182,7 +184,7 @@ class NeomFractalEngine extends ChangeNotifier {
         }
 
         _shadersLoaded = true;
-        notifyListeners();
+        if (!_disposed) notifyListeners();
       } catch (e) {
         debugPrint('NeomFractalEngine: Failed to load initial shader $activeAsset: $e');
       }
@@ -190,6 +192,7 @@ class NeomFractalEngine extends ChangeNotifier {
 
     // 2. Load the remaining shaders asynchronously in the background in parallel
     Future.microtask(() async {
+      if (_disposed) return;
       int loadedCount = _shadersLoaded ? 1 : 0;
       final remainingTypes = shaderAssets.keys.where((type) => !_shaders.containsKey(type)).toList();
 
@@ -200,8 +203,10 @@ class NeomFractalEngine extends ChangeNotifier {
             ui.FragmentProgram? program = _programCache[asset];
             if (program == null) {
               program = await ui.FragmentProgram.fromAsset(asset);
+              if (_disposed) return;
               _programCache[asset] = program;
             }
+            if (_disposed) return;
             _shaders[type] = program.fragmentShader();
             loadedCount++;
           } catch (e) {
@@ -212,6 +217,7 @@ class NeomFractalEngine extends ChangeNotifier {
         await Future.wait(backgroundFutures);
       }
 
+      if (_disposed) return;
       if (loadedCount > 0) {
         _shadersLoaded = true;
         _shadersFailed = false;
@@ -220,6 +226,18 @@ class NeomFractalEngine extends ChangeNotifier {
       }
       notifyListeners();
     });
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    for (final shader in _shaders.values) {
+      shader?.dispose();
+    }
+    _shaders.clear();
+    _programCache.clear();
+    cpuCache.clear();
+    super.dispose();
   }
 
   /// Set fractal based on neuro-state.
@@ -242,13 +260,16 @@ class NeomFractalEngine extends ChangeNotifier {
 
   /// Update animation frame.
   void tick(double dt) {
+    if (_disposed || !dt.isFinite || dt < 0) return;
     _time += dt;
 
     // Slow zoom drift (meditative auto-exploration)
     if (_config.zoomDriftSpeed > 0) {
       _zoom *= 1.0 + _config.zoomDriftSpeed * dt * 0.01;
       // Reset zoom to prevent float precision issues on mobile
-      if (_zoom > 1e5) _zoom = _config.defaultZoom;
+      if (!_zoom.isFinite || _zoom > 1e5 || _zoom <= 0) {
+        _zoom = _config.defaultZoom;
+      }
     }
 
     // Throttle repaints: GPU shaders run at 60fps fine,
@@ -268,8 +289,8 @@ class NeomFractalEngine extends ChangeNotifier {
     required double breath,
     required double neuro,
   }) {
-    _breath = breath;
-    _neuro = neuro;
+    _breath = breath.isFinite ? breath : 0.0;
+    _neuro = neuro.isFinite ? neuro : 0.0;
   }
 
   // ═══════════════════════════════════════════
@@ -277,13 +298,16 @@ class NeomFractalEngine extends ChangeNotifier {
   // ═══════════════════════════════════════════
 
   void pan(double dx, double dy) {
-    _userOffsetX -= dx / (zoom * 500);
-    _userOffsetY -= dy / (zoom * 500);
+    final z = zoom;
+    if (!dx.isFinite || !dy.isFinite || !z.isFinite || z.abs() < 1e-9) return;
+    _userOffsetX -= dx / (z * 500);
+    _userOffsetY -= dy / (z * 500);
     cpuCache.clear();
     notifyListeners();
   }
 
   void zoomBy(double factor) {
+    if (!factor.isFinite || factor <= 0) return;
     _userZoomFactor *= factor;
     _userZoomFactor = _userZoomFactor.clamp(0.001, 1e6);
     cpuCache.clear();
@@ -358,6 +382,7 @@ class NeomFractalEngine extends ChangeNotifier {
   /// CPU-computed Mandelbrot iteration count for a single point.
   /// Used by [NeomFractalFallbackPainter] when shaders aren't available.
   double computeMandelbrotAt(double cx, double cy) {
+    if (!cx.isFinite || !cy.isFinite) return -1;
     double zx = 0, zy = 0;
     final maxIter = _config.platformIterations;
     double i = 0;
@@ -368,12 +393,15 @@ class NeomFractalEngine extends ChangeNotifier {
       i++;
     }
     if (i >= maxIter) return -1;
+    final normSq = zx * zx + zy * zy;
+    if (!normSq.isFinite || normSq <= 1.0) return i;
     // Smooth iteration count
-    return i - log(log(sqrt(zx * zx + zy * zy))) / log(2);
+    return i - log(log(sqrt(normSq))) / log(2);
   }
 
   /// Palette lookup for CPU fallback.
   Color paletteAt(double t) {
+    if (!t.isFinite) t = 0.0;
     t = t % 1.0;
     if (t < 0) t += 1.0;
     final c1 = _config.palette.color1;

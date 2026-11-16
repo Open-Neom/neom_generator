@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:neom_core/app_config.dart';
 import 'package:neom_core/domain/model/neom/neom_neuro_state.dart';
 
@@ -46,7 +47,28 @@ class InciensoSessionReport {
     this.frequencyTimeline = const {},
   });
 
-  Duration get duration => endedAt.difference(startedAt);
+  Duration get duration {
+    final d = endedAt.difference(startedAt);
+    return d.isNegative ? Duration.zero : d;
+  }
+
+  static DateTime _parseDateTime(dynamic raw) {
+    if (raw is Timestamp) return raw.toDate();
+    if (raw is DateTime) return raw;
+    if (raw is num && raw.isFinite) {
+      return DateTime.fromMillisecondsSinceEpoch(raw.toInt());
+    }
+    if (raw is String && raw.isNotEmpty) {
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) return parsed;
+    }
+    return DateTime.now();
+  }
+
+  static double _finiteDouble(dynamic raw, [double fallback = 0]) {
+    if (raw is num && raw.isFinite) return raw.toDouble();
+    return fallback;
+  }
 
   Map<String, dynamic> toFirestore() => {
     'userId': userId,
@@ -54,12 +76,12 @@ class InciensoSessionReport {
     'startedAt': Timestamp.fromDate(startedAt),
     'endedAt': Timestamp.fromDate(endedAt),
     'durationSeconds': duration.inSeconds,
-    'rootFrequencyHz': rootFrequencyHz,
-    'avgBinauralBeatHz': avgBinauralBeatHz,
-    'avgCoherence': avgCoherence,
+    'rootFrequencyHz': rootFrequencyHz.isFinite ? rootFrequencyHz : 0,
+    'avgBinauralBeatHz': avgBinauralBeatHz.isFinite ? avgBinauralBeatHz : 0,
+    'avgCoherence': avgCoherence.isFinite ? avgCoherence : 0,
     'breathCycles': breathCycles,
     'totalIncienso': totalIncienso,
-    'focusPercentage': focusPercentage,
+    'focusPercentage': focusPercentage.isFinite ? focusPercentage : 100,
     'distractionCount': distractionCount,
     'interruptionCount': interruptionCount,
     'dominantState': dominantState.name,
@@ -70,16 +92,16 @@ class InciensoSessionReport {
     return InciensoSessionReport(
       userId: data['userId'] as String?,
       inciensoId: data['inciensoId'] as String?,
-      startedAt: (data['startedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      endedAt: (data['endedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      rootFrequencyHz: (data['rootFrequencyHz'] as num?)?.toDouble() ?? 0,
-      avgBinauralBeatHz: (data['avgBinauralBeatHz'] as num?)?.toDouble() ?? 0,
-      avgCoherence: (data['avgCoherence'] as num?)?.toDouble() ?? 0,
-      breathCycles: data['breathCycles'] as int? ?? 0,
-      totalIncienso: data['totalIncienso'] as int? ?? 0,
-      focusPercentage: (data['focusPercentage'] as num?)?.toDouble() ?? 100,
-      distractionCount: data['distractionCount'] as int? ?? 0,
-      interruptionCount: data['interruptionCount'] as int? ?? 0,
+      startedAt: _parseDateTime(data['startedAt']),
+      endedAt: _parseDateTime(data['endedAt']),
+      rootFrequencyHz: _finiteDouble(data['rootFrequencyHz']),
+      avgBinauralBeatHz: _finiteDouble(data['avgBinauralBeatHz']),
+      avgCoherence: _finiteDouble(data['avgCoherence']),
+      breathCycles: (data['breathCycles'] as num?)?.toInt() ?? 0,
+      totalIncienso: (data['totalIncienso'] as num?)?.toInt() ?? 0,
+      focusPercentage: _finiteDouble(data['focusPercentage'], 100),
+      distractionCount: (data['distractionCount'] as num?)?.toInt() ?? 0,
+      interruptionCount: (data['interruptionCount'] as num?)?.toInt() ?? 0,
       dominantState: NeomNeuroState.values.firstWhere(
         (s) => s.name == data['dominantState'],
         orElse: () => NeomNeuroState.neutral,
@@ -104,7 +126,8 @@ class MeditationAudioCache {
 
   /// Add a PCM audio chunk from the mic.
   void addChunk(Uint8List chunk) {
-    if (_totalBytes + chunk.length > _maxCacheBytes) return; // Cap
+    if (chunk.isEmpty) return;
+    if (chunk.length > _maxCacheBytes - _totalBytes) return; // Cap
     _chunks.add(chunk);
     _totalBytes += chunk.length;
   }
@@ -132,10 +155,16 @@ class MeditationAudioCache {
 class InciensoReportService {
   static const _collection = 'inciensoSessions';
 
+  @visibleForTesting
+  static FirebaseFirestore? firestoreOverride;
+
+  static FirebaseFirestore get _fs =>
+      firestoreOverride ?? FirebaseFirestore.instance;
+
   /// Save a session report to Firestore.
   static Future<String?> saveReport(InciensoSessionReport report) async {
     try {
-      final doc = await FirebaseFirestore.instance
+      final doc = await _fs
           .collection(_collection)
           .add(report.toFirestore());
       AppConfig.logger.d('INCIENSO report saved: ${doc.id} '
@@ -149,12 +178,14 @@ class InciensoReportService {
 
   /// Get session history for a user.
   static Future<List<InciensoSessionReport>> getHistory(String userId, {int limit = 30}) async {
+    if (userId.trim().isEmpty) return [];
+    final safeLimit = limit.clamp(1, 200);
     try {
-      final snap = await FirebaseFirestore.instance
+      final snap = await _fs
           .collection(_collection)
           .where('userId', isEqualTo: userId)
           .orderBy('startedAt', descending: true)
-          .limit(limit)
+          .limit(safeLimit)
           .get();
       return snap.docs.map((d) => InciensoSessionReport.fromFirestore(d.data())).toList();
     } catch (e) {
@@ -165,14 +196,15 @@ class InciensoReportService {
 
   /// Get total INCIENSO score for a user.
   static Future<int> getTotalIncienso(String userId) async {
+    if (userId.trim().isEmpty) return 0;
     try {
-      final snap = await FirebaseFirestore.instance
+      final snap = await _fs
           .collection(_collection)
           .where('userId', isEqualTo: userId)
           .get();
       int total = 0;
       for (final doc in snap.docs) {
-        total += (doc.data()['totalIncienso'] as int?) ?? 0;
+        total += (doc.data()['totalIncienso'] as num?)?.toInt() ?? 0;
       }
       return total;
     } catch (e) {

@@ -19,9 +19,24 @@ import '../../domain/use_cases/chamber_preset_service.dart';
 import '../../utils/constants/generator_translation_constants.dart';
 
 class ChamberPresetController extends SintController implements ChamberPresetService {
+  final UserService? userServiceImpl;
+  final ChamberRepository chamberRepository;
 
-  final userServiceImpl = Sint.find<UserService>();
-  final ChamberRepository chamberRepository = ChamberFirestore();
+  ChamberPresetController({
+    UserService? userService,
+    ChamberRepository? chamberRepository,
+  }) : userServiceImpl =
+           userService ??
+           (Sint.isRegistered<UserService>() ? Sint.find<UserService>() : null),
+       chamberRepository = chamberRepository ?? ChamberFirestore();
+
+  static Object? _safeRouteArguments() {
+    try {
+      return Sint.arguments;
+    } catch (_) {
+      return null;
+    }
+  }
 
   NeomChamberPreset chamberPreset = NeomChamberPreset();
   NeomChamber chamber = NeomChamber();
@@ -44,22 +59,30 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
     super.onInit();
     AppConfig.logger.d("ItemlistItem Controller init");
     try {
-      profileId = userServiceImpl.profile.id;
-      collective = userServiceImpl.collective;
-      chamberOwner = userServiceImpl.itemlistOwnerType;
+      final userSvc = userServiceImpl;
+      if (userSvc != null) {
+        profileId = userSvc.profile.id;
+        collective = userSvc.collective;
+        chamberOwner = userSvc.itemlistOwnerType;
+      }
 
-      if(Sint.arguments != null) {
-        List<dynamic> arguments = Sint.arguments;
-        if(arguments[0] is NeomChamber) {
-          chamber =  arguments[0];
-        } else if(arguments[0] is String) {
-          chamberId = arguments[0];
+      final rawArgs = _safeRouteArguments();
+      if (rawArgs is List && rawArgs.isNotEmpty) {
+        if (rawArgs[0] is NeomChamber) {
+          chamber = rawArgs[0] as NeomChamber;
+        } else if (rawArgs[0] is String) {
+          chamberId = rawArgs[0] as String;
           chamber = await chamberRepository.retrieve(chamberId);
         }
 
-        if(arguments.length > 1) {
-          isFixed = arguments[1];
+        if (rawArgs.length > 1 && rawArgs[1] is bool) {
+          isFixed = rawArgs[1] as bool;
         }
+      } else if (rawArgs is NeomChamber) {
+        chamber = rawArgs;
+      } else if (rawArgs is String && rawArgs.isNotEmpty) {
+        chamberId = rawArgs;
+        chamber = await chamberRepository.retrieve(chamberId);
       }
 
       if(chamber.id.isNotEmpty) {
@@ -87,6 +110,14 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
     update([AppPageIdConstants.chamberPresets]);
   }
 
+  @override
+  void onClose() {
+    itemState.close();
+    chamberPresets.close();
+    isLoading.close();
+    super.onClose();
+  }
+
   void clear() {
     chamberPresets.value = <String, NeomChamberPreset>{};
   }
@@ -103,12 +134,13 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
       try {
 
         if (await chamberRepository.updatePreset(chamber.id, updatedPreset)) {
-          chamberPresets.update(updatedPreset.id, (preset) => preset);
-          userServiceImpl.profile.chambers![chamber.id]!
-              .chamberPresets!.add(updatedPreset);
+          chamberPresets[updatedPreset.id] = updatedPreset;
+          final profileChamber = userServiceImpl?.profile.chambers?[chamber.id];
+          if (profileChamber != null) {
+            (profileChamber.chamberPresets ??= []).add(updatedPreset);
+          }
           updatedPreset.state = _prevItemState;
-          userServiceImpl.profile.chambers![chamber.id]!
-              .chamberPresets!.remove(updatedPreset);
+          profileChamber?.chamberPresets?.remove(updatedPreset);
           if(await chamberRepository.deletePreset(chamber.id, updatedPreset)) {
             AppConfig.logger.d("NeomChamberPreset was updated and old version deleted.");
           } else {
@@ -134,29 +166,34 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
 
     try {
       if(await chamberRepository.addPreset(chamberId, chamberPreset)) {
+        final userSvc = userServiceImpl;
         if (chamberOwner == OwnerType.profile) {
-          if (userServiceImpl.profile.itemlists!.isNotEmpty) {
+          final targetChamber = userSvc?.profile.chambers?[chamberId];
+          if (targetChamber != null) {
             AppConfig.logger.d("Adding item to global itemlist from userController");
-            userServiceImpl.profile.chambers![chamberId]!.chamberPresets!.add(chamberPreset);
-            chamber = userServiceImpl.profile.chambers![chamberId]!;
+            (targetChamber.chamberPresets ??= []).add(chamberPreset);
+            chamber = targetChamber;
             loadPresetsFromChamber();
           }
 
-          FirebaseMessagingCalls.sendPublicPushNotification(
-              fromProfile: userServiceImpl.profile,
-              notificationType: PushNotificationType.chamberPresetAdded,
-              toProfileId: '',
-              title: GeneratorTranslationConstants.chamberPresetAdded,
-              referenceId: chamberPreset.id,
-              imgUrl: chamberPreset.imgUrl
-          );
+          if (userSvc != null) {
+            FirebaseMessagingCalls.sendPublicPushNotification(
+                fromProfile: userSvc.profile,
+                notificationType: PushNotificationType.chamberPresetAdded,
+                toProfileId: '',
+                title: GeneratorTranslationConstants.chamberPresetAdded,
+                referenceId: chamberPreset.id,
+                imgUrl: chamberPreset.imgUrl
+            );
+          }
 
           return true;
         } else if (chamberOwner == OwnerType.collective) {
-          if (userServiceImpl.collective.itemlists!.isNotEmpty) {
+          final targetChamber = userSvc?.collective.chambers?[chamberId];
+          if (targetChamber != null) {
             AppConfig.logger.d("Adding item to global itemlist from userController");
-            userServiceImpl.collective.chambers![chamberId]!.chamberPresets!.add(chamberPreset);
-            chamber = userServiceImpl.collective.chambers![chamberId]!;
+            (targetChamber.chamberPresets ??= []).add(chamberPreset);
+            chamber = targetChamber;
             loadPresetsFromChamber();
           }
           return true;
@@ -177,7 +214,10 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
     try {
       if(await chamberRepository.deletePreset(chamber.id, chamberPreset)) {
         AppConfig.logger.d("Removing item from global itemlist from userController");
-        userServiceImpl.profile.chambers = await chamberRepository.fetchAll(ownerId: userServiceImpl.profile.id);
+        final userSvc = userServiceImpl;
+        if (userSvc != null) {
+          userSvc.profile.chambers = await chamberRepository.fetchAll(ownerId: userSvc.profile.id);
+        }
         chamberPresets.remove(chamberPreset.id);
 
       } else {
@@ -208,7 +248,12 @@ class ChamberPresetController extends SintController implements ChamberPresetSer
 
     if(appMediaItem.imgUrl.isEmpty && chamber.imgUrl.isNotEmpty) appMediaItem.imgUrl = chamber.imgUrl;
 
-    NeomChamberPreset chamberPreset = chamber.chamberPresets?.firstWhere((element) => element.name == appMediaItem.name) ?? NeomChamberPreset();
+    NeomChamberPreset chamberPreset =
+        chamber.chamberPresets?.firstWhere(
+          (element) => element.name == appMediaItem.name,
+          orElse: () => NeomChamberPreset(),
+        ) ??
+        NeomChamberPreset();
     if(chamberPreset.name.isNotEmpty) {
       Sint.toNamed(AppFlavour.getMainItemDetailsRoute(chamberPreset.id), arguments: [chamberPreset.clone()]
       );

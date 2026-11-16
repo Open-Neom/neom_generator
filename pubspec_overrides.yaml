@@ -9,3 +9,11 @@ dependency_overrides:
     path: ../neom_states
   sint:
     path: ../../framework/sint
+  sint_sentinel:
+    path: ../../framework/sint_sentinel
+  neom_codecs:
+    path: ../../main/neom_codecs
+  neom_google_places:
+    path: ../../content/neom_google_places
+  neom_maps_services:
+    path: ../../content/neom_maps_services

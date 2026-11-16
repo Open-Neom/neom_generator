@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
@@ -13,9 +15,29 @@ class CamaraNeomTutorial extends StatefulWidget {
   static const String _hiveBox = 'settings';
   static const String _hiveKey = 'camara_neom_tutorial_seen';
 
+  static Future<Box?> _openSafeBox() async {
+    if (Hive.isBoxOpen(_hiveBox)) return Hive.box(_hiveBox);
+    final completer = Completer<Box?>();
+    runZonedGuarded(
+      () async {
+        try {
+          final box = await Hive.openBox(_hiveBox);
+          if (!completer.isCompleted) completer.complete(box);
+        } catch (_) {
+          if (!completer.isCompleted) completer.complete(null);
+        }
+      },
+      (_, _) {
+        if (!completer.isCompleted) completer.complete(null);
+      },
+    );
+    return completer.future;
+  }
+
   static Future<bool> shouldShow() async {
     try {
-      final box = await Hive.openBox(_hiveBox);
+      final box = await _openSafeBox();
+      if (box == null) return false;
       return box.get(_hiveKey, defaultValue: false) != true;
     } catch (_) {
       // Storage restrictions must not prevent access to the chamber.
@@ -25,8 +47,8 @@ class CamaraNeomTutorial extends StatefulWidget {
 
   static Future<void> markSeen() async {
     try {
-      final box = await Hive.openBox(_hiveBox);
-      await box.put(_hiveKey, true);
+      final box = await _openSafeBox();
+      await box?.put(_hiveKey, true);
     } catch (_) {
       // The manual Help button is always available, even without storage.
     }

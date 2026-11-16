@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:logger/logger.dart' show Level;
 
@@ -10,19 +11,41 @@ import 'neom_pcm_schedule.dart';
 NeomPcmBackend createNeomPcmBackend() => _NativePcmBackend();
 
 class _NativePcmBackend implements NeomPcmBackend {
-  final FlutterSoundPlayer _player = FlutterSoundPlayer(logLevel: Level.off);
+  FlutterSoundPlayer? _player;
+  bool _pluginAvailable = true;
   final Stopwatch _clock = Stopwatch();
   Completer<void> _cancelled = Completer<void>()..complete();
   NeomPcmSchedule? _schedule;
   int _channels = 2;
   int _stoppedFrames = 0;
 
+  static bool get _isDesktopPlatform =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux);
+
   double get _now => _clock.elapsedMicroseconds / 1000000;
   bool get _active => !_cancelled.isCompleted;
 
   @override
   Future<void> init() async {
-    if (!_player.isOpen()) await _player.openPlayer();
+    if (_isDesktopPlatform || !_pluginAvailable) {
+      _pluginAvailable = false;
+      return;
+    }
+    try {
+      final player = _player ??= FlutterSoundPlayer(logLevel: Level.off);
+      if (!player.isOpen()) {
+        await player.openPlayer();
+      }
+    } on MissingPluginException {
+      _pluginAvailable = false;
+    } on PlatformException {
+      _pluginAvailable = false;
+    } catch (_) {
+      _pluginAvailable = false;
+    }
   }
 
   @override
@@ -35,13 +58,21 @@ class _NativePcmBackend implements NeomPcmBackend {
     required int framesPerBuffer,
   }) async {
     await init();
-    await _player.startPlayerFromStream(
-      codec: Codec.pcm16,
-      numChannels: channels,
-      sampleRate: sampleRate,
-      interleaved: true,
-      bufferSize: framesPerBuffer * channels * 2,
-    );
+    if (_pluginAvailable && _player != null) {
+      try {
+        await _player!.startPlayerFromStream(
+          codec: Codec.pcm16,
+          numChannels: channels,
+          sampleRate: sampleRate,
+          interleaved: true,
+          bufferSize: framesPerBuffer * channels * 2,
+        );
+      } on MissingPluginException {
+        _pluginAvailable = false;
+      } on PlatformException {
+        _pluginAvailable = false;
+      }
+    }
     _channels = channels;
     _schedule = NeomPcmSchedule(sampleRate: sampleRate);
     _stoppedFrames = 0;
@@ -72,9 +103,17 @@ class _NativePcmBackend implements NeomPcmBackend {
   Future<void> write(Uint8List pcm) async {
     if (!_active) return;
     _schedule!.reserve(_now, pcm.lengthInBytes ~/ (_channels * 2));
+    if (!_pluginAvailable || _player == null) return;
     // Stop can unblock this wait even when a plugin feed callback is pending.
     await Future.any<void>([
-      _player.feedUint8FromStream(pcm).then<void>((_) {}),
+      _player!
+          .feedUint8FromStream(pcm)
+          .then<void>((_) {})
+          .catchError((Object error) {
+            if (error is MissingPluginException || error is PlatformException) {
+              _pluginAvailable = false;
+            }
+          }),
       _cancelled.future,
     ]);
   }
@@ -103,12 +142,31 @@ class _NativePcmBackend implements NeomPcmBackend {
   @override
   Future<void> stop() async {
     interrupt();
-    if (_player.isOpen() && _player.isPlaying) await _player.stopPlayer();
+    final player = _player;
+    if (_pluginAvailable && player != null && player.isOpen() && player.isPlaying) {
+      try {
+        await player.stopPlayer();
+      } on MissingPluginException {
+        _pluginAvailable = false;
+      } on PlatformException {
+        _pluginAvailable = false;
+      }
+    }
   }
 
   @override
   Future<void> dispose() async {
     await stop();
-    if (_player.isOpen()) await _player.closePlayer();
+    final player = _player;
+    _player = null;
+    if (_pluginAvailable && player != null && player.isOpen()) {
+      try {
+        await player.closePlayer();
+      } on MissingPluginException {
+        _pluginAvailable = false;
+      } on PlatformException {
+        _pluginAvailable = false;
+      }
+    }
   }
 }

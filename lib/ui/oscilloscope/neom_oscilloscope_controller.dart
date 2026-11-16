@@ -8,6 +8,15 @@ import '../neom_generator_controller.dart';
 class NeomOscilloscopeController extends SintController {
 
   late NeomFrequencyPainterEngine painterEngine;
+  bool _ownsPainterEngine = false;
+
+  static Object? _safeRouteArguments() {
+    try {
+      return Sint.arguments;
+    } catch (_) {
+      return null;
+    }
+  }
 
   // Controles visuales
   final RxDouble waveThickness = 1.8.obs;
@@ -45,18 +54,23 @@ class NeomOscilloscopeController extends SintController {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     // Get the live engine from the generator controller (permanent singleton)
+    final args = _safeRouteArguments();
     if (Sint.isRegistered<NeomGeneratorController>()) {
       painterEngine = Sint.find<NeomGeneratorController>().painterEngine;
-    } else if (Sint.arguments is NeomFrequencyPainterEngine) {
-      painterEngine = Sint.arguments;
+    } else if (args is NeomFrequencyPainterEngine) {
+      painterEngine = args;
     } else {
       painterEngine = NeomFrequencyPainterEngine();
+      _ownsPainterEngine = true;
     }
 
   }
 
   @override
   void onClose() {
+    if (_ownsPainterEngine) {
+      painterEngine.dispose();
+    }
     // Restaurar orientación normal
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -65,6 +79,14 @@ class NeomOscilloscopeController extends SintController {
 
     // Restaurar UI del sistema
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+    waveThickness.close();
+    waveScale.close();
+    timeScale.close();
+    isPaused.close();
+    showGrid.close();
+    showGlow.close();
+    isLongPressing.close();
 
     super.onClose();
   }
@@ -96,16 +118,19 @@ class NeomOscilloscopeController extends SintController {
   }
 
   void setWaveThickness(double value) {
+    if (!value.isFinite) return;
     waveThickness.value = value.clamp(thicknessMin, thicknessMax);
     update([AppPageIdConstants.oscilloscope]);
   }
 
   void setWaveScale(double value) {
+    if (!value.isFinite) return;
     waveScale.value = value.clamp(scaleMin, scaleMax);
     update([AppPageIdConstants.oscilloscope]);
   }
 
   void setTimeScale(double value) {
+    if (!value.isFinite) return;
     timeScale.value = value.clamp(timeScaleMin, timeScaleMax);
     update([AppPageIdConstants.oscilloscope]);
   }

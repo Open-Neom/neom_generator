@@ -119,7 +119,11 @@ class Incienso {
   Duration get effectiveDuration => isRecorded && timeline.isNotEmpty
       ? (recordingVersion >= 2
             ? suggestedDuration
-            : Duration(milliseconds: (timeline.last.timestampMs).round()))
+            : Duration(
+                milliseconds: timeline.last.timestampMs.isFinite
+                    ? timeline.last.timestampMs.round().clamp(0, 86400000000)
+                    : 0,
+              ))
       : suggestedDuration;
 
   /// Visual experience to pair with this incienso.
@@ -276,22 +280,59 @@ class Incienso {
     'avgQualityRatio': avgQualityRatio,
   };
 
+  static const Set<String> _forbiddenKeys = <String>{
+    '__proto__',
+    'constructor',
+    'prototype',
+  };
+
+  static double _finiteDouble(Object? raw, double fallback) =>
+      raw is num && raw.isFinite ? raw.toDouble() : fallback;
+
+  static int _finiteInt(Object? raw, int fallback) =>
+      raw is num && raw.isFinite ? raw.round() : fallback;
+
+  static Map<String, String> _sanitizeStringMap(Object? raw) {
+    if (raw is! Map) return const {};
+    final cleaned = <String, String>{};
+    for (final entry in raw.entries) {
+      if (entry.key is String &&
+          !_forbiddenKeys.contains(entry.key) &&
+          entry.value is String) {
+        cleaned[entry.key as String] = entry.value as String;
+      }
+    }
+    return cleaned;
+  }
+
   factory Incienso.fromJson(Map<String, dynamic> json) => Incienso(
-    id: json['id'] as String? ?? '',
-    names: Map<String, String>.from(json['names'] as Map? ?? {}),
-    descriptions: Map<String, String>.from(json['descriptions'] as Map? ?? {}),
-    leftFrequencyHz: (json['leftFrequencyHz'] as num?)?.toDouble() ?? 200.0,
-    rightFrequencyHz: (json['rightFrequencyHz'] as num?)?.toDouble() ?? 210.0,
-    suggestedDuration: json['durationUs'] is num
-        ? Duration(microseconds: (json['durationUs'] as num).round())
-        : Duration(seconds: json['suggestedDuration'] as int? ?? 600),
-    recordingVersion: (json['recordingVersion'] as num?)?.toInt() ?? 1,
-    sampleRate: (json['sampleRate'] as num?)?.toInt() ?? 44100,
-    phases:
-        (json['phases'] as List?)
-            ?.map((p) => InciensoPhase.fromJson(p as Map<String, dynamic>))
-            .toList() ??
-        [],
+    id: json['id'] is String ? json['id'] as String : '',
+    names: _sanitizeStringMap(json['names']),
+    descriptions: _sanitizeStringMap(json['descriptions']),
+    leftFrequencyHz: _finiteDouble(json['leftFrequencyHz'], 200.0),
+    rightFrequencyHz: _finiteDouble(json['rightFrequencyHz'], 210.0),
+    suggestedDuration:
+        json['durationUs'] is num && (json['durationUs'] as num).isFinite
+        ? Duration(
+            microseconds: (json['durationUs'] as num).round().clamp(
+              0,
+              86400000000000,
+            ),
+          )
+        : Duration(
+            seconds: _finiteInt(
+              json['suggestedDuration'],
+              600,
+            ).clamp(0, 86400000),
+          ),
+    recordingVersion: _finiteInt(json['recordingVersion'], 1),
+    sampleRate: _finiteInt(json['sampleRate'], 44100),
+    phases: json['phases'] is List
+        ? (json['phases'] as List)
+              .whereType<Map>()
+              .map((p) => InciensoPhase.fromJson(Map<String, dynamic>.from(p)))
+              .toList()
+        : [],
     timeline: InciensoTimelineCodec.decode(json),
     defaultVisual: json['defaultVisual'] != null
         ? InciensoVisual.values.firstWhere(
@@ -299,31 +340,41 @@ class Incienso {
             orElse: () => InciensoVisual.photonicPulse,
           )
         : null,
-    screenColorValue: json['screenColorValue'] as int? ?? 0xFF1A0A2E,
-    pulseFrequencyHz: (json['pulseFrequencyHz'] as num?)?.toDouble() ?? 0.0,
+    screenColorValue: _finiteInt(json['screenColorValue'], 0xFF1A0A2E),
+    pulseFrequencyHz: _finiteDouble(json['pulseFrequencyHz'], 0.0),
     compatibility: _parseCompatibility(json),
     source: InciensoSource.values.firstWhere(
       (s) => s.name == json['source'],
       orElse: () => InciensoSource.predefined,
     ),
-    stateId: json['stateId'] as String?,
-    protocolId: json['protocolId'] as String?,
-    creatorId: json['creatorId'] as String?,
-    isPro: json['isPro'] as bool? ?? false,
-    iconCodePoint: json['iconCodePoint'] as int?,
-    tags: (json['tags'] as List?)?.cast<String>() ?? [],
-    references:
-        (json['references'] as List?)
-            ?.map((r) => InciensoReference.fromJson(r as Map<String, dynamic>))
-            .toList() ??
-        [],
-    practiceCount: json['practiceCount'] as int? ?? 0,
-    isPublic: json['isPublic'] as bool? ?? false,
+    stateId: json['stateId'] is String ? json['stateId'] as String : null,
+    protocolId: json['protocolId'] is String
+        ? json['protocolId'] as String
+        : null,
+    creatorId: json['creatorId'] is String ? json['creatorId'] as String : null,
+    isPro: json['isPro'] is bool ? json['isPro'] as bool : false,
+    iconCodePoint:
+        json['iconCodePoint'] is num && (json['iconCodePoint'] as num).isFinite
+        ? (json['iconCodePoint'] as num).round()
+        : null,
+    tags: json['tags'] is List
+        ? (json['tags'] as List).whereType<String>().take(64).toList()
+        : [],
+    references: json['references'] is List
+        ? (json['references'] as List)
+              .whereType<Map>()
+              .map(
+                (r) => InciensoReference.fromJson(Map<String, dynamic>.from(r)),
+              )
+              .toList()
+        : [],
+    practiceCount: _finiteInt(json['practiceCount'], 0).clamp(0, 2000000000),
+    isPublic: json['isPublic'] is bool ? json['isPublic'] as bool : false,
     evidence: InciensoEvidence.values.firstWhere(
       (e) => e.name == json['evidence'],
       orElse: () => InciensoEvidence.experiential,
     ),
-    avgQualityRatio: (json['avgQualityRatio'] as num?)?.toDouble() ?? 0.0,
+    avgQualityRatio: _finiteDouble(json['avgQualityRatio'], 0.0),
   );
 
   /// Parses compatibility from JSON, with backward compat for old bool fields.
@@ -480,10 +531,14 @@ class InciensoPhase {
   };
 
   factory InciensoPhase.fromJson(Map<String, dynamic> json) => InciensoPhase(
-    startBeatHz: (json['startBeatHz'] as num?)?.toDouble() ?? 10.0,
-    endBeatHz: (json['endBeatHz'] as num?)?.toDouble() ?? 10.0,
-    duration: Duration(seconds: json['duration'] as int? ?? 300),
-    startAt: Duration(seconds: json['startAt'] as int? ?? 0),
+    startBeatHz: Incienso._finiteDouble(json['startBeatHz'], 10.0),
+    endBeatHz: Incienso._finiteDouble(json['endBeatHz'], 10.0),
+    duration: Duration(
+      seconds: Incienso._finiteInt(json['duration'], 300).clamp(0, 86400000),
+    ),
+    startAt: Duration(
+      seconds: Incienso._finiteInt(json['startAt'], 0).clamp(0, 86400000),
+    ),
   );
 }
 
@@ -572,21 +627,23 @@ class InciensoKeyframe {
 
   factory InciensoKeyframe.fromJson(Map<String, dynamic> json) =>
       InciensoKeyframe(
-        timestampMs: (json['t'] as num?)?.toDouble() ?? 0.0,
-        leftHz: (json['l'] as num?)?.toDouble() ?? 200.0,
-        rightHz: (json['r'] as num?)?.toDouble() ?? 210.0,
-        coherence: (json['c'] as num?)?.toDouble() ?? 0.0,
-        volume: (json['v'] as num?)?.toDouble() ?? 0.7,
-        neuroState: json['s'] as String? ?? 'neutral',
-        breathPhase: (json['b'] as num?)?.toDouble() ?? 0.0,
-        visualExperience: json['x'] as String?,
-        isUserAction: json['a'] as bool? ?? false,
+        timestampMs: Incienso._finiteDouble(json['t'], 0.0),
+        leftHz: Incienso._finiteDouble(json['l'], 200.0),
+        rightHz: Incienso._finiteDouble(json['r'], 210.0),
+        coherence: Incienso._finiteDouble(json['c'], 0.0),
+        volume: Incienso._finiteDouble(json['v'], 0.7),
+        neuroState: json['s'] is String ? json['s'] as String : 'neutral',
+        breathPhase: Incienso._finiteDouble(json['b'], 0.0),
+        visualExperience: json['x'] is String ? json['x'] as String : null,
+        isUserAction: json['a'] is bool ? json['a'] as bool : false,
         audioState: json['p'] is Map
             ? InciensoAudioState.fromJson(
                 Map<String, dynamic>.from(json['p'] as Map),
               )
             : null,
-        sampleFrame: (json['f'] as num?)?.toInt(),
+        sampleFrame: json['f'] is num && (json['f'] as num).isFinite
+            ? (json['f'] as num).toInt()
+            : null,
       );
 }
 
@@ -732,12 +789,51 @@ class InciensoReference {
     this.safetyNote,
   });
 
+  static final RegExp _safeDoiPattern = RegExp(
+    r'^10\.\d{4,9}/[-._;()/:A-Za-z0-9]+$',
+  );
+  static final RegExp _safePmcPattern = RegExp(r'^PMC\d{1,16}$');
+  static final RegExp _controlOrBidiPattern = RegExp(
+    r'[\x00-\x1F\x7F-\x9F\u0085\u061C\u200B-\u200F\u2028-\u202E\u2060\u2066-\u2069\uFEFF]',
+  );
+
+  static String _sanitizeReferenceUrl(String? raw) {
+    if (raw == null || raw.isEmpty || raw.length > 2048) return '';
+    if (_controlOrBidiPattern.hasMatch(raw) || raw.contains(r'\')) return '';
+    final uri = Uri.tryParse(raw.trim());
+    if (uri == null || !uri.hasAuthority || uri.userInfo.isNotEmpty) return '';
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme != 'https' && scheme != 'http') return '';
+    final host = uri.host.toLowerCase();
+    if (host.isEmpty ||
+        host == 'localhost' ||
+        host.endsWith('.localhost') ||
+        host.endsWith('.local') ||
+        host.endsWith('.internal') ||
+        host == '127.0.0.1' ||
+        host == '0.0.0.0' ||
+        host == '::1' ||
+        host == '169.254.169.254') {
+      return '';
+    }
+    return uri.toString();
+  }
+
   /// Resolves the best available link for this reference.
   String get link {
-    if (doi != null) return 'https://doi.org/$doi';
-    if (pmcId != null)
-      return 'https://www.ncbi.nlm.nih.gov/pmc/articles/$pmcId/';
-    return url ?? '';
+    if (doi != null) {
+      final trimmedDoi = doi!.trim();
+      if (_safeDoiPattern.hasMatch(trimmedDoi)) {
+        return 'https://doi.org/$trimmedDoi';
+      }
+    }
+    if (pmcId != null) {
+      final trimmedPmc = pmcId!.trim();
+      if (_safePmcPattern.hasMatch(trimmedPmc)) {
+        return 'https://www.ncbi.nlm.nih.gov/pmc/articles/$trimmedPmc/';
+      }
+    }
+    return _sanitizeReferenceUrl(url);
   }
 
   /// Human-readable label for the study type.
@@ -810,14 +906,14 @@ class InciensoReference {
 
   factory InciensoReference.fromJson(Map<String, dynamic> json) =>
       InciensoReference(
-        citation: json['citation'] as String? ?? '',
-        title: json['title'] as String? ?? '',
-        journal: json['journal'] as String? ?? '',
-        year: json['year'] as int? ?? 0,
-        doi: json['doi'] as String?,
-        pmcId: json['pmcId'] as String?,
-        url: json['url'] as String?,
-        finding: json['finding'] as String? ?? '',
+        citation: json['citation'] is String ? json['citation'] as String : '',
+        title: json['title'] is String ? json['title'] as String : '',
+        journal: json['journal'] is String ? json['journal'] as String : '',
+        year: Incienso._finiteInt(json['year'], 0),
+        doi: json['doi'] is String ? json['doi'] as String : null,
+        pmcId: json['pmcId'] is String ? json['pmcId'] as String : null,
+        url: json['url'] is String ? json['url'] as String : null,
+        finding: json['finding'] is String ? json['finding'] as String : '',
         studyType: StudyType.values.firstWhere(
           (e) => e.name == json['studyType'],
           orElse: () => StudyType.controlledStudy,
@@ -830,7 +926,12 @@ class InciensoReference {
           (e) => e.name == json['safetyProfile'],
           orElse: () => SafetyProfile.noRisk,
         ),
-        sampleSize: json['sampleSize'] as int?,
-        safetyNote: json['safetyNote'] as String?,
+        sampleSize:
+            json['sampleSize'] is num && (json['sampleSize'] as num).isFinite
+            ? (json['sampleSize'] as num).round()
+            : null,
+        safetyNote: json['safetyNote'] is String
+            ? json['safetyNote'] as String
+            : null,
       );
 }

@@ -220,7 +220,7 @@ class InciensoDetailSheet extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      Navigator.of(context).pop();
+                      Sint.pop();
                       onStart();
                     },
                     icon: const Icon(Icons.tune, size: 22),

@@ -664,8 +664,7 @@ class NeomGeneratorPage extends StatelessWidget {
                                 onPressed: () => showDialog<void>(
                                   context: context,
                                   builder: (context) => CamaraNeomTutorial(
-                                    onComplete: () =>
-                                        Navigator.of(context).pop(),
+                                    onComplete: () => Sint.pop(),
                                   ),
                                 ),
                               ),

@@ -145,10 +145,10 @@ class NeomSineEngine {
   void restorePhaseState(
     ({double left, double right, double sub, double orbit}) state,
   ) {
-    _phaseL = state.left;
-    _phaseR = state.right;
-    _phaseSub = state.sub;
-    orbitPhase = state.orbit;
+    _phaseL = state.left.isFinite ? state.left : 0.0;
+    _phaseR = state.right.isFinite ? state.right : 0.0;
+    _phaseSub = state.sub.isFinite ? state.sub : 0.0;
+    orbitPhase = state.orbit.isFinite ? state.orbit : 0.0;
   }
 
   /// Reset all phase accumulators to zero.
@@ -428,15 +428,26 @@ class NeomSineEngine {
   Uint8List _generateBuffer({
     int frames = NeomGeneratorConstants.framesPerBuffer,
   }) {
+    if (frames <= 0) return Uint8List(0);
     final Int16List pcm = Int16List(frames * NeomGeneratorConstants.channels);
     const double twoPi = 2 * pi;
+    if (!_phaseL.isFinite) _phaseL = 0.0;
+    if (!_phaseR.isFinite) _phaseR = 0.0;
+    if (!_phaseSub.isFinite) _phaseSub = 0.0;
     final blockPhase = (_phaseR - _phaseL) % twoPi;
     double sumLeftHz = 0, sumRightHz = 0, sumSubHz = 0;
     double sumSquares = 0;
+    final double safeVolume = volume.isFinite ? volume.clamp(0.0, 1.0) : 0.0;
+    final double clampedSub =
+        subMixLevel.isFinite ? subMixLevel.clamp(0.0, 1.0) : 0.0;
+    final double safePosX = posX.isFinite ? posX.clamp(-1.0, 1.0) : 0.0;
+    final double safePosY = posY.isFinite ? posY.clamp(-1.0, 1.0) : 0.0;
+    final double safeFreq = frequency.isFinite ? frequency : 0.0;
+    final double safeBeat = beat.isFinite ? beat : 0.0;
     final envelope = NeomSessionEnvelope(
       sampleRate: NeomGeneratorConstants.sampleRate,
-      fadeInSeconds: fadeInSeconds,
-      fadeOutSeconds: fadeOutSeconds,
+      fadeInSeconds: fadeInSeconds.isFinite ? fadeInSeconds : 0,
+      fadeOutSeconds: fadeOutSeconds.isFinite ? fadeOutSeconds : 0,
       endFrame: fadeOutEndFrame,
     );
 
@@ -459,18 +470,18 @@ class NeomSineEngine {
         sumSubHz += incSub;
 
         double amp = isochronic.apply(
-          amplitude: volume * modulation.amplitudeGain,
+          amplitude: safeVolume * modulation.amplitudeGain,
           sampleRate: NeomGeneratorConstants.sampleRate,
         );
         amp = breathEngine.apply(
-          baseAmplitude: amp,
+          baseAmplitude: amp.isFinite ? amp : 0.0,
           sampleRate: NeomGeneratorConstants.sampleRate,
         );
 
-        final double scaledAmp = 32767 * amp.clamp(0.0, 1.0) * envelopeGain;
+        final double safeAmp = amp.isFinite ? amp.clamp(0.0, 1.0) : 0.0;
+        final double scaledAmp = 32767 * safeAmp * envelopeGain;
         // Gain staging: total must not exceed 1.0 to prevent clipping.
         // subGain + channelGain = subMix/(1+subMix) + 1/(1+subMix) = 1.0
-        final double clampedSub = subMixLevel.clamp(0.0, 1.0);
         final double subGain = clampedSub / (1.0 + clampedSub);
         final double channelGain = 1.0 / (1.0 + clampedSub);
         final double subSample =
@@ -481,8 +492,10 @@ class NeomSineEngine {
             sin(_phaseR + phaseOffset) * scaledAmp * channelGain;
 
         // Mix: L gets its own freq + sub, R gets its own freq + sub
-        final int outL = (lSample + subSample).toInt();
-        final int outR = (rSample + subSample).toInt();
+        final double mixedL = lSample + subSample;
+        final double mixedR = rSample + subSample;
+        final int outL = mixedL.isFinite ? mixedL.toInt() : 0;
+        final int outR = mixedR.isFinite ? mixedR.toInt() : 0;
 
         pcm[i * 2] = outL.clamp(-32768, 32767);
         pcm[i * 2 + 1] = outR.clamp(-32768, 32767);
@@ -494,18 +507,17 @@ class NeomSineEngine {
         // pulses at |fR - fL| — while sin((a+b)/2) is flat, so the binaural
         // beat, the whole point of the session, was invisible. Averaging the
         // phases also dropped amplitude: every volume looked identical.
+        final double rawVisual = ((lSample + rSample) * 0.5 + subSample) / 32767.0;
         final double visualSample =
-            (((lSample + rSample) * 0.5 + subSample) / 32767.0).clamp(
-              -1.0,
-              1.0,
-            );
+            rawVisual.isFinite ? rawVisual.clamp(-1.0, 1.0) : 0.0;
         painterEngine?.pushSample(visualSample);
         painterEngine?.updatePhases(
           phaseL: _phaseL + phaseOffset,
           phaseR: _phaseR + phaseOffset,
         );
+        final double diffHz = (frequencyR - frequencyL).abs();
         painterEngine?.tickBinaural(
-          (frequencyR - frequencyL).abs(),
+          diffHz.isFinite ? diffHz : 0.0,
           1 / NeomGeneratorConstants.sampleRate,
         );
 
@@ -524,21 +536,19 @@ class NeomSineEngine {
         // 1️⃣ Shared modulation preserves the selected LFO rate in stereo.
         final z = posZ.isFinite ? posZ.clamp(-1.0, 1.0) : 0.0;
         final double incL = _phaseIncrement(
-          frequency * modulation.pitchRatio * (1.0 + z * 0.02),
+          safeFreq * modulation.pitchRatio * (1.0 + z * 0.02),
         );
         final double incR = _phaseIncrement(
-          (frequency + beat) * modulation.pitchRatio * (1.0 - z * 0.02),
+          (safeFreq + safeBeat) * modulation.pitchRatio * (1.0 - z * 0.02),
         );
         sumLeftHz += incL;
         sumRightHz += incR;
-
-        posX.clamp(-1.0, 1.0);
 
         double panL = 1.0;
         double panR = 1.0;
 
         computePan(
-          posX: posX,
+          posX: safePosX,
           outL: panL,
           outR: panR,
           apply: (l, r) {
@@ -547,34 +557,35 @@ class NeomSineEngine {
           },
         );
 
-        double distanceAttenuation = (1.0 - (posY.abs() * 0.5)).clamp(0.2, 1.0);
+        double distanceAttenuation =
+            (1.0 - (safePosY.abs() * 0.5)).clamp(0.2, 1.0);
 
         // 2️⃣ ISOCRÓNICO / AMPLITUD
         double amp = isochronic.apply(
-          amplitude: volume * modulation.amplitudeGain,
+          amplitude: safeVolume * modulation.amplitudeGain,
           sampleRate: NeomGeneratorConstants.sampleRate,
         );
 
         amp = breathEngine.apply(
-          baseAmplitude: amp,
+          baseAmplitude: amp.isFinite ? amp : 0.0,
           sampleRate: NeomGeneratorConstants.sampleRate,
         );
 
-        final double scaledAmp = 32767 * amp.clamp(0.0, 1.0) * envelopeGain;
+        final double safeAmp = amp.isFinite ? amp.clamp(0.0, 1.0) : 0.0;
+        final double scaledAmp = 32767 * safeAmp * envelopeGain;
         final double ampL = scaledAmp * panL * distanceAttenuation;
         final double ampR = scaledAmp * panR * distanceAttenuation;
 
         // 3️⃣ GENERACIÓN DE LA ONDA
-        final int sampleL = (sin(_phaseL + phaseOffset) * ampL).toInt();
-        final int sampleR = (sin(_phaseR + phaseOffset) * ampR).toInt();
+        final double rawSampleL = sin(_phaseL + phaseOffset) * ampL;
+        final double rawSampleR = sin(_phaseR + phaseOffset) * ampR;
+        final int sampleL = rawSampleL.isFinite ? rawSampleL.toInt() : 0;
+        final int sampleR = rawSampleR.isFinite ? rawSampleR.toInt() : 0;
 
         // Same reasoning as above: the mix beats, the mean phase does not.
+        final double rawVisual = (rawSampleL + rawSampleR) * 0.5 / 32767.0;
         final double visualSample =
-            ((sin(_phaseL + phaseOffset) * ampL +
-                        sin(_phaseR + phaseOffset) * ampR) *
-                    0.5 /
-                    32767.0)
-                .clamp(-1.0, 1.0);
+            rawVisual.isFinite ? rawVisual.clamp(-1.0, 1.0) : 0.0;
 
         painterEngine?.pushSample(visualSample);
         painterEngine?.updatePhases(
@@ -583,7 +594,7 @@ class NeomSineEngine {
         );
 
         painterEngine?.tickBinaural(
-          beat,
+          safeBeat,
           1 / NeomGeneratorConstants.sampleRate,
         );
 
@@ -608,7 +619,7 @@ class NeomSineEngine {
       // Offline deterministic rendering must not touch a platform backend.
       _pruneVisualBlocks(_running ? playedFrames : generatedFrames);
       final hzScale = NeomGeneratorConstants.sampleRate / (twoPi * frames);
-      final subMix = subMixLevel.clamp(0.0, 1.0);
+      final subMix = clampedSub;
       _visualBlocks.add(
         NeomAudioSessionSnapshot(
           isPlaying: _running,
@@ -633,15 +644,15 @@ class NeomSineEngine {
 
     painterEngine?.updateFromAudio(
       phase: (_phaseL + _phaseR) * 0.5,
-      amplitude: volume,
-      pan: posX,
+      amplitude: safeVolume,
+      pan: safePosX,
       breath: breathEngine.currentValue,
       modulation: modulator.intensity,
       neuro: neuroStateEngine.intensity,
-      frequency: (frequency - 20) / (20000 - 20),
+      frequency: (safeFreq - 20) / (20000 - 20),
     );
 
-    return pcm.buffer.asUint8List();
+    return pcm.buffer.asUint8List(pcm.offsetInBytes, pcm.lengthInBytes);
   }
 
   void computePan({
@@ -650,7 +661,7 @@ class NeomSineEngine {
     required double outR,
     required void Function(double l, double r) apply,
   }) {
-    final double pan = posX.clamp(-1.0, 1.0);
+    final double pan = posX.isFinite ? posX.clamp(-1.0, 1.0) : 0.0;
 
     switch (spatialMode) {
       /// 🔹 1. SOFT PAN (equal-power, default)
@@ -674,8 +685,11 @@ class NeomSineEngine {
 
       /// 🔹 4. ORBITA AUTOMÁTICA
       case NeomSpatialMode.orbit:
-        orbitPhase += orbitSpeed / NeomGeneratorConstants.sampleRate;
-        if (orbitPhase > 1) orbitPhase -= 1;
+        final double safeSpeed = orbitSpeed.isFinite ? orbitSpeed : 0.0;
+        if (!orbitPhase.isFinite) orbitPhase = 0.0;
+        orbitPhase =
+            (orbitPhase + safeSpeed / NeomGeneratorConstants.sampleRate) % 1.0;
+        if (orbitPhase < 0) orbitPhase += 1.0;
 
         final angle = orbitPhase * 2 * pi;
         final l = cos(angle).abs();

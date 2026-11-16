@@ -259,7 +259,7 @@ class _FrequencyEditDialogState extends State<_FrequencyEditDialog> {
       setState(() => _invalid = true);
       return;
     }
-    Navigator.of(context).pop(value.toString());
+    Sint.pop(value.toString());
   }
 
   @override
@@ -292,7 +292,7 @@ class _FrequencyEditDialogState extends State<_FrequencyEditDialog> {
     ),
     actions: [
       TextButton(
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () => Sint.pop(),
         child: Text(GeneratorTranslationConstants.cancelControl.tr),
       ),
       FilledButton(

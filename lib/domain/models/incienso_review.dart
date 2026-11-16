@@ -93,25 +93,51 @@ class InciensoReview {
     if (note != null) 'note': note,
   };
 
-  factory InciensoReview.fromJson(Map<String, dynamic> json) => InciensoReview(
-    sessionId: json['sessionId'] as String? ?? '',
-    inciensoId: json['inciensoId'] as String?,
-    userId: json['userId'] as String?,
-    timestamp: DateTime.fromMillisecondsSinceEpoch(
-      json['timestamp'] as int? ?? 0,
-    ),
-    emotion: InciensoEmotion.values.firstWhere(
-      (e) => e.name == json['emotion'],
-      orElse: () => InciensoEmotion.peaceful,
-    ),
-    intensity: InciensoIntensity.values.firstWhere(
-      (i) => i.name == json['intensity'],
-      orElse: () => InciensoIntensity.moderate,
-    ),
-    recommended: json['recommended'] as bool? ?? true,
-    tags: (json['tags'] as List?)?.cast<String>() ?? [],
-    note: json['note'] as String?,
+  static const int _maxSafeEpochMs = 8640000000000000;
+  static const int maxNoteChars = 200;
+  static final RegExp _controlOrBidiPattern = RegExp(
+    r'[\x00-\x1F\x7F-\x9F\u0085\u061C\u200B-\u200F\u2028-\u202E\u2060\u2066-\u2069\uFEFF]',
   );
+
+  static String? _sanitizeNote(Object? raw) {
+    if (raw is! String) return null;
+    final cleaned = raw.replaceAll(_controlOrBidiPattern, '').trim();
+    if (cleaned.isEmpty) return null;
+    return cleaned.length <= maxNoteChars
+        ? cleaned
+        : cleaned.substring(0, maxNoteChars);
+  }
+
+  factory InciensoReview.fromJson(Map<String, dynamic> json) {
+    final rawTs = json['timestamp'];
+    final safeEpochMs = rawTs is num && rawTs.isFinite
+        ? rawTs.round().clamp(0, _maxSafeEpochMs)
+        : 0;
+    final rawTags = json['tags'];
+    return InciensoReview(
+      sessionId: json['sessionId'] is String ? json['sessionId'] as String : '',
+      inciensoId: json['inciensoId'] is String
+          ? json['inciensoId'] as String
+          : null,
+      userId: json['userId'] is String ? json['userId'] as String : null,
+      timestamp: DateTime.fromMillisecondsSinceEpoch(safeEpochMs),
+      emotion: InciensoEmotion.values.firstWhere(
+        (e) => e.name == json['emotion'],
+        orElse: () => InciensoEmotion.peaceful,
+      ),
+      intensity: InciensoIntensity.values.firstWhere(
+        (i) => i.name == json['intensity'],
+        orElse: () => InciensoIntensity.moderate,
+      ),
+      recommended: json['recommended'] is bool
+          ? json['recommended'] as bool
+          : true,
+      tags: rawTags is List
+          ? rawTags.whereType<String>().take(32).toList()
+          : const [],
+      note: _sanitizeNote(json['note']),
+    );
+  }
 
   @override
   String toString() =>
