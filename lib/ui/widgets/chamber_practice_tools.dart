@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
+import 'package:neom_commons/utils/app_utilities.dart';
+import 'package:neom_core/domain/use_cases/qr_scanner_service.dart';
 import 'package:sint/sint.dart';
 
 import '../../domain/models/incienso.dart';
@@ -498,6 +501,32 @@ class ChamberPracticeSettings extends StatelessWidget {
                         onPressed: () =>
                             controller.exportSession(activeSession),
                       ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        key: const ValueKey('chamber-copy-qr-link'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                        ),
+                        icon: const Icon(Icons.qr_code_2),
+                        label: Text(
+                          (Sint.locale?.languageCode ?? 'es') == 'es'
+                              ? 'Copiar enlace QR'
+                              : 'Copy QR link',
+                        ),
+                        onPressed: () async {
+                          final link =
+                              controller.shareableQrPayload(activeSession);
+                          if (link == null) return;
+                          await Clipboard.setData(ClipboardData(text: link));
+                          final es = (Sint.locale?.languageCode ?? 'es') == 'es';
+                          AppUtilities.showSnackBar(
+                            title: activeSession.getName(es ? 'es' : 'en'),
+                            message: es
+                                ? 'Enlace QR copiado al portapapeles'
+                                : 'QR link copied to clipboard',
+                          );
+                        },
+                      ),
                     ],
                     const SizedBox(height: 8),
                   ],
@@ -530,6 +559,27 @@ class ChamberPracticeSettings extends StatelessWidget {
                             await controller.importSession();
                           },
                   ),
+                  if (Sint.isRegistered<QrScannerService>()) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      key: const ValueKey('chamber-scan-qr'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                      ),
+                      icon: const Icon(Icons.qr_code_scanner),
+                      label: Text(
+                        (Sint.locale?.languageCode ?? 'es') == 'es'
+                            ? 'Escanear QR Incienso'
+                            : 'Scan Incienso QR',
+                      ),
+                      onPressed: playing || checking
+                          ? null
+                          : () async {
+                              Sint.pop();
+                              await controller.scanInciensoQr();
+                            },
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Text(
                     GeneratorTranslationConstants.practiceSharePublicOnly.tr,

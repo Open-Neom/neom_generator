@@ -338,7 +338,7 @@ class NeomSineEngine {
         if (!_isCurrent(request)) return;
         beforeBuffer?.call(generatedFrames);
         if (!_isCurrent(request)) return;
-        final buffer = _generateBuffer(frames: frames);
+        final buffer = _generateBuffer(frames: frames, reuseBuffer: true);
         generatedFrames += frames;
         afterBuffer?.call(generatedFrames);
         if (!_isCurrent(request)) return;
@@ -425,11 +425,25 @@ class NeomSineEngine {
     return 2 * pi * boundedHz / NeomGeneratorConstants.sampleRate;
   }
 
+  Int16List _reusablePcm = Int16List(0);
+
   Uint8List _generateBuffer({
     int frames = NeomGeneratorConstants.framesPerBuffer,
+    bool reuseBuffer = false,
   }) {
     if (frames <= 0) return Uint8List(0);
-    final Int16List pcm = Int16List(frames * NeomGeneratorConstants.channels);
+    final totalSamples = frames * NeomGeneratorConstants.channels;
+    final Int16List pcm;
+    if (reuseBuffer) {
+      if (_reusablePcm.length < totalSamples) {
+        _reusablePcm = Int16List(totalSamples);
+      }
+      pcm = _reusablePcm.length == totalSamples
+          ? _reusablePcm
+          : Int16List.sublistView(_reusablePcm, 0, totalSamples);
+    } else {
+      pcm = Int16List(totalSamples);
+    }
     const double twoPi = 2 * pi;
     if (!_phaseL.isFinite) _phaseL = 0.0;
     if (!_phaseR.isFinite) _phaseR = 0.0;

@@ -3,6 +3,8 @@ import 'package:neom_commons/app_flavour.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:neom_commons/ui/theme/app_theme.dart';
 import 'package:neom_core/domain/model/neom/neom_neuro_state.dart';
+import 'package:neom_core/domain/model/qr_scan_models.dart';
+import 'package:neom_core/domain/use_cases/qr_scanner_service.dart';
 import 'package:neom_core/utils/constants/app_route_constants.dart';
 import 'package:sint/sint.dart';
 
@@ -43,6 +45,21 @@ class _InciensoExplorePageState extends State<InciensoExplorePage> {
     });
   }
 
+  Future<void> _scanQr(String locale) async {
+    if (!Sint.isRegistered<QrScannerService>()) return;
+    final result = await Sint.find<QrScannerService>().scanCode(
+      QrScanArguments(
+        origin: 'incienso_explore',
+        title: locale == 'es' ? 'Escanear Incienso QR' : 'Scan Incienso QR',
+        hint: locale == 'es'
+            ? 'Escanea el código QR de un Incienso compartido'
+            : 'Scan the QR code of a shared Incienso',
+      ),
+    );
+    if (!mounted || result == null || result.rawValue.trim().isEmpty) return;
+    Sint.toNamed(AppRouteConstants.generator, arguments: result);
+  }
+
   void _applyFilter() {
     if (_selectedTag == 'all') {
       _filteredInciensos = List.from(_allInciensos);
@@ -62,6 +79,17 @@ class _InciensoExplorePageState extends State<InciensoExplorePage> {
       backgroundColor: AppFlavour.getBackgroundColor(),
       appBar: SintAppBar(
         title: locale == 'es' ? 'Explorar Comunidad' : 'Explore Community',
+        actions: [
+          if (Sint.isRegistered<QrScannerService>())
+            IconButton(
+              key: const ValueKey('explore-scan-incienso-qr'),
+              tooltip: locale == 'es'
+                  ? 'Escanear QR Incienso'
+                  : 'Scan Incienso QR',
+              icon: const Icon(Icons.qr_code_scanner_rounded),
+              onPressed: () => _scanQr(locale),
+            ),
+        ],
       ),
       body: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

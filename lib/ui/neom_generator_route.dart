@@ -22,10 +22,16 @@ class _NeomGeneratorRouteState extends State<NeomGeneratorRoute> {
   void initState() {
     super.initState();
     final arguments = widget.arguments;
+    final routeIncienso =
+        Sint.parameters['incienso'] ?? Sint.parameters['inciensoId'];
+    final effectiveArgs = arguments ??
+        ((routeIncienso != null && routeIncienso.isNotEmpty)
+            ? <String, dynamic>{'incienso': routeIncienso}
+            : null);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && Sint.isRegistered<NeomGeneratorController>()) {
         unawaited(
-          Sint.find<NeomGeneratorController>().loadRouteArguments(arguments),
+          Sint.find<NeomGeneratorController>().loadRouteArguments(effectiveArgs),
         );
       }
     });

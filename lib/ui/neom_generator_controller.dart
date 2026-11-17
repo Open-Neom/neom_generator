@@ -21,9 +21,11 @@ import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
 import 'package:neom_core/domain/model/neom/neom_frequency.dart';
 import 'package:neom_core/domain/model/neom/neom_neuro_state.dart';
 import 'package:neom_core/domain/model/neom/neom_parameter.dart';
+import 'package:neom_core/domain/model/qr_scan_models.dart';
 import 'package:neom_core/domain/repository/chamber_repository.dart';
 import 'package:neom_core/domain/use_cases/frequency_service.dart';
 import 'package:neom_core/domain/use_cases/neom_audio_visual_signal.dart';
+import 'package:neom_core/domain/use_cases/qr_scanner_service.dart';
 import 'package:neom_core/domain/use_cases/user_service.dart';
 import 'package:neom_core/utils/constants/app_route_constants.dart';
 import 'package:neom_core/utils/enums/app_item_state.dart';
@@ -532,6 +534,58 @@ class NeomGeneratorController extends SintController
 
   bool canShareIncienso(Incienso session) =>
       session.isPublic || InciensoCatalog.free.any((s) => s.id == session.id);
+
+  /// Returns a shareable QR / deep-link URL for [session] if it is public or a
+  /// built-in free preset; `null` for private recordings.
+  String? shareableQrPayload(Incienso session) {
+    if (!canShareIncienso(session)) return null;
+    try {
+      return InciensoPortableFile.encodeQrPayload(session.id);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// Opens the universal [QrScannerService] (`/qr/scanner`) via SINT and loads
+  /// the scanned public [Incienso] reference.
+  Future<void> scanInciensoQr([QrScannerService? scannerOverride]) async {
+    final scanner = scannerOverride ??
+        (Sint.isRegistered<QrScannerService>()
+            ? Sint.find<QrScannerService>()
+            : null);
+    if (scanner == null) {
+      playbackError.value = GeneratorTranslationConstants.practiceImportFailed.tr;
+      return;
+    }
+    final request = ++_loadRequest;
+    playbackError.value = '';
+    try {
+      final locale = Sint.locale?.languageCode ?? 'es';
+      final result = await scanner.scanCode(
+        QrScanArguments(
+          origin: 'chamber',
+          title: locale == 'es' ? 'Escanear Incienso QR' : 'Scan Incienso QR',
+          hint: locale == 'es'
+              ? 'Apunta al código QR o ingresa el enlace del Incienso'
+              : 'Point at the Incienso QR code or paste its link',
+        ),
+      );
+      if (result == null || _isDisposed || request != _loadRequest) return;
+      final id = InciensoPortableFile.decodeQrPayload(result.rawValue);
+      await _openPublicIncienso(id, request: request);
+    } catch (e, st) {
+      if (!_isDisposed && request == _loadRequest) {
+        playbackError.value =
+            GeneratorTranslationConstants.practiceImportInvalid.tr;
+      }
+      NeomErrorLogger.recordError(
+        e,
+        st,
+        module: 'neom_generator',
+        operation: 'scanInciensoQr',
+      );
+    }
+  }
 
   Future<void> exportSession(Incienso session) async {
     playbackError.value = '';
@@ -2061,6 +2115,43 @@ class NeomGeneratorController extends SintController
         : arguments;
     if (value is Incienso) {
       await loadIncienso(value, autoStart: false);
+    } else if (value is QrScanResult) {
+      final request = ++_loadRequest;
+      playbackError.value = '';
+      try {
+        final id = InciensoPortableFile.decodeQrPayload(value.rawValue);
+        await _openPublicIncienso(id, request: request);
+      } catch (e, st) {
+        if (!_isDisposed && request == _loadRequest) {
+          playbackError.value =
+              GeneratorTranslationConstants.practiceImportInvalid.tr;
+        }
+        NeomErrorLogger.recordError(
+          e,
+          st,
+          module: 'neom_generator',
+          operation: 'openQrScanResult',
+        );
+      }
+    } else if (value is Map<String, dynamic> &&
+        (value['incienso'] is String || value['inciensoId'] is String)) {
+      final rawId = (value['incienso'] ?? value['inciensoId']) as String;
+      final request = ++_loadRequest;
+      playbackError.value = '';
+      try {
+        await _openPublicIncienso(rawId.trim(), request: request);
+      } catch (e, st) {
+        if (!_isDisposed && request == _loadRequest) {
+          playbackError.value =
+              GeneratorTranslationConstants.practiceImportInvalid.tr;
+        }
+        NeomErrorLogger.recordError(
+          e,
+          st,
+          module: 'neom_generator',
+          operation: 'openInciensoRouteQuery',
+        );
+      }
     } else if (value is InciensoPracticeReference && value.canOpen) {
       final request = ++_loadRequest;
       try {

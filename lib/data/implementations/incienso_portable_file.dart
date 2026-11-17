@@ -53,6 +53,71 @@ class InciensoPortableFile {
     return id;
   }
 
+  /// Encodes a public [inciensoId] into a shareable Cyberneom / Cámara Neom QR
+  /// deep-link URL (`https://cyberneom.xyz/generator?incienso=<id>`).
+  static String encodeQrPayload(
+    String inciensoId, {
+    String baseUrl = 'https://cyberneom.xyz',
+  }) {
+    _validateId(inciensoId);
+    final base = Uri.parse(baseUrl);
+    return base
+        .replace(
+          path: '/generator',
+          queryParameters: <String, String>{'incienso': inciensoId},
+        )
+        .toString();
+  }
+
+  /// Decodes a QR / deep-link payload produced by [encodeQrPayload], a JSON
+  /// `neom.incienso-reference` document, or a `cyberneom://incienso/<id>` /
+  /// `neom:incienso:<id>` URI, enforcing strict ID validation.
+  static String decodeQrPayload(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty || trimmed.length > maxBytes) {
+      throw const FormatException('Invalid Incienso QR payload size');
+    }
+
+    if (trimmed.startsWith('{')) {
+      return decode(Uint8List.fromList(utf8.encode(trimmed)));
+    }
+
+    if (trimmed.startsWith('neom:incienso:')) {
+      final id = trimmed.substring('neom:incienso:'.length);
+      _validateId(id);
+      return id;
+    }
+
+    final uri = Uri.tryParse(trimmed);
+    if (uri != null && uri.hasScheme) {
+      final scheme = uri.scheme.toLowerCase();
+      if (scheme == 'https' || scheme == 'http') {
+        final queryId =
+            uri.queryParameters['incienso'] ?? uri.queryParameters['inciensoId'];
+        if (queryId != null) {
+          _validateId(queryId);
+          return queryId;
+        }
+      } else if (scheme == 'cyberneom' || scheme == 'neom') {
+        final queryId =
+            uri.queryParameters['incienso'] ?? uri.queryParameters['inciensoId'];
+        if (queryId != null) {
+          _validateId(queryId);
+          return queryId;
+        }
+        if (uri.host.toLowerCase() == 'incienso' &&
+            uri.pathSegments.length == 1) {
+          final seg = uri.pathSegments.single;
+          _validateId(seg);
+          return seg;
+        }
+      }
+      throw const FormatException('Unsupported Incienso QR URI');
+    }
+
+    throw const FormatException('Unsupported Incienso QR payload');
+  }
+
   static void _validateId(String id) {
     if (id.isEmpty ||
         id.length > 240 ||

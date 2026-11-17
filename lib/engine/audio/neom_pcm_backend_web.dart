@@ -19,6 +19,7 @@ class _WebPcmBackend implements NeomPcmBackend {
   int _sampleRate = 44100;
   int _channels = 2;
   int _stoppedFrames = 0;
+  Float32List _channelScratch = Float32List(0);
 
   bool get _active => !_cancelled.isCompleted;
 
@@ -102,8 +103,13 @@ class _WebPcmBackend implements NeomPcmBackend {
     final frames = pcm.lengthInBytes ~/ (_channels * 2);
     if (frames <= 0) return;
     final audio = context.createBuffer(_channels, frames, _sampleRate);
+    if (_channelScratch.length < frames) {
+      _channelScratch = Float32List(frames);
+    }
+    final samples = _channelScratch.length == frames
+        ? _channelScratch
+        : Float32List.sublistView(_channelScratch, 0, frames);
     for (var channel = 0; channel < _channels; channel++) {
-      final samples = Float32List(frames);
       for (var frame = 0; frame < frames; frame++) {
         samples[frame] =
             input.getInt16((frame * _channels + channel) * 2, Endian.little) /

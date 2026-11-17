@@ -11,7 +11,9 @@ import 'package:neom_core/domain/model/incienso_practice_draft.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
 import 'package:neom_core/domain/model/neom/neom_frequency.dart';
 import 'package:neom_core/domain/model/neom/neom_parameter.dart';
+import 'package:neom_core/domain/model/qr_scan_models.dart';
 import 'package:neom_core/domain/repository/chamber_repository.dart';
+import 'package:neom_core/domain/use_cases/qr_scanner_service.dart';
 import 'package:neom_core/domain/use_cases/user_service.dart';
 import 'package:neom_generator/data/firestore/incienso_firestore.dart';
 import 'package:neom_generator/data/implementations/chamber_practice_store.dart';
@@ -102,6 +104,36 @@ void main() {
       expect(f.portable.exported, ['incienso-deep-sleep']);
       expect(f.backend.starts, 0);
       expect(f.firestore.attempts, isEmpty);
+    } finally {
+      await f.close();
+    }
+  });
+
+  testWidgets('QR scan and QrScanResult route arguments load public Incienso safely', (
+    tester,
+  ) async {
+    final f = _Fixture();
+    try {
+      final qrUrl = InciensoPortableFile.encodeQrPayload('incienso-deep-sleep');
+      final scanner = _FakeQrScanner(qrUrl);
+      await f.controller.scanInciensoQr(scanner);
+      expect(f.controller.activeIncienso?.id, 'incienso-deep-sleep');
+      expect(
+        f.controller.shareableQrPayload(f.controller.activeIncienso!),
+        qrUrl,
+      );
+
+      // Private recording has no shareable QR link.
+      final priv = _recording('private-session');
+      expect(f.controller.shareableQrPayload(priv), isNull);
+
+      // Route redirect from /qr/scanner?origin=chamber&next=/generator
+      await f.controller.startFreeSession();
+      expect(f.controller.activeIncienso, isNull);
+      await f.controller.loadRouteArguments(
+        QrScanResult(rawValue: qrUrl, origin: 'chamber'),
+      );
+      expect(f.controller.activeIncienso?.id, 'incienso-deep-sleep');
     } finally {
       await f.close();
     }
@@ -1420,4 +1452,28 @@ class _User implements UserService {
   dynamic noSuchMethod(Invocation invocation) => throw UnsupportedError(
     'Unexpected user operation: ${invocation.memberName}',
   );
+}
+
+class _FakeQrScanner implements QrScannerService {
+  final String? payload;
+  _FakeQrScanner(this.payload);
+
+  @override
+  bool get isCameraSupported => true;
+
+  @override
+  Widget buildScannerViewport({
+    required ValueChanged<String> onDetect,
+    bool frontCamera = false,
+    Key? key,
+  }) =>
+      const SizedBox.shrink();
+
+  @override
+  Future<QrScanResult?> scanCode([
+    QrScanArguments arguments = const QrScanArguments(),
+  ]) async =>
+      payload == null
+          ? null
+          : QrScanResult(rawValue: payload!, origin: arguments.origin);
 }

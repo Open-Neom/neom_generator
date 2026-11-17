@@ -51,4 +51,35 @@ void main() {
     );
     expect(InciensoPortableFile.decode(bytes), 'abc');
   });
+
+  test('QR payloads round-trip deep-links, schemes and JSON references safely', () {
+    final url = InciensoPortableFile.encodeQrPayload('incienso-deep-sleep');
+    expect(url, 'https://cyberneom.xyz/generator?incienso=incienso-deep-sleep');
+    expect(InciensoPortableFile.decodeQrPayload(url), 'incienso-deep-sleep');
+    expect(
+      InciensoPortableFile.decodeQrPayload('cyberneom://incienso/alpha-calm'),
+      'alpha-calm',
+    );
+    expect(
+      InciensoPortableFile.decodeQrPayload('neom:incienso:theta-focus'),
+      'theta-focus',
+    );
+    final jsonRef = utf8.decode(InciensoPortableFile.encode('pub-42'));
+    expect(InciensoPortableFile.decodeQrPayload(jsonRef), 'pub-42');
+
+    for (final invalid in [
+      '',
+      'https://cyberneom.xyz/other',
+      'https://cyberneom.xyz/generator?incienso=../etc/passwd',
+      'cyberneom://incienso/__proto__',
+      'javascript:alert(1)',
+      'plain-unscoped-string',
+    ]) {
+      expect(
+        () => InciensoPortableFile.decodeQrPayload(invalid),
+        throwsFormatException,
+        reason: invalid,
+      );
+    }
+  });
 }
