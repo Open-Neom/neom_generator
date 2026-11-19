@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import '../../domain/models/incienso.dart';
 
 /// Private local recovery queue. No Firebase calls. Drafts are removed only

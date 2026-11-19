@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 
 /// Device-only favorites, recent choices and imported parameter files.
 /// Callers namespace by app AND account; imports never enter the upload queue.
