@@ -92,6 +92,11 @@ class VoicePitchMeasurement {
             }
             session.permissionTimer?.cancel();
             session.sampleRate = sampleRate;
+            session.voiceBandpass = _VoiceBandpassFilter(
+              sampleRateHz: sampleRate.toDouble(),
+              lowCutHz: 70.0,
+              highCutHz: 3600.0,
+            );
             session.detector = PitchDetector(
               audioSampleRate: sampleRate.toDouble(),
               bufferSize: _PitchMeasurement.windowSamples,
@@ -154,14 +159,23 @@ class VoicePitchMeasurement {
         );
         session.samples.removeRange(0, _PitchMeasurement.windowSamples);
         session.analysedWindows++;
-        // Remove DC before both RMS gating and YIN. A constant input is silence.
+        // Remove DC, apply 4th-order Butterworth human-voice bandpass (70–3600 Hz),
+        // and reject out-of-band noise (<70 Hz rumble/hum or >3600 Hz hiss/whine)
+        // before running YIN pitch detection.
         final mean = window.reduce((a, b) => a + b) / window.length;
-        var power = 0.0;
+        var rawPower = 0.0;
+        var voicePower = 0.0;
+        final filter = session.voiceBandpass;
         for (var i = 0; i < window.length; i++) {
-          window[i] -= mean;
-          power += window[i] * window[i];
+          final ac = window[i] - mean;
+          rawPower += ac * ac;
+          final voiced = filter != null ? filter.process(ac) : ac;
+          window[i] = voiced;
+          voicePower += voiced * voiced;
         }
-        if (math.sqrt(power / window.length) < .008) {
+        final voiceRms = math.sqrt(voicePower / window.length);
+        final voiceBandRatio = rawPower > 1e-12 ? (voicePower / rawPower) : 0.0;
+        if (voiceRms < .008 || voiceBandRatio < .40) {
           session.recentPitches.clear();
           continue;
         }
@@ -269,6 +283,7 @@ class _PitchMeasurement {
   Timer? permissionTimer;
   Timer? measurementTimer;
   Future<void>? stopped;
+  _VoiceBandpassFilter? voiceBandpass;
   PitchDetector? detector;
   int sampleRate = 0;
   int analysedWindows = 0;
@@ -303,4 +318,82 @@ double _median(List<double> values) {
   return ordered.length.isOdd
       ? ordered[middle]
       : (ordered[middle - 1] + ordered[middle]) / 2;
+}
+
+class _VoiceBiquad {
+  _VoiceBiquad(this._b0, this._b1, this._b2, this._a1, this._a2);
+
+  factory _VoiceBiquad.butterworthHighPass(double fs, double fc) {
+    final safeFs = math.max(4000.0, fs);
+    final safeFc = fc.clamp(20.0, safeFs * 0.44);
+    final w0 = 2.0 * math.pi * safeFc / safeFs;
+    final c = math.cos(w0);
+    final s = math.sin(w0);
+    final alpha = s / (2.0 * 0.7071067811865476);
+    final a0 = 1.0 + alpha;
+    return _VoiceBiquad(
+      ((1.0 + c) * 0.5) / a0,
+      -(1.0 + c) / a0,
+      ((1.0 + c) * 0.5) / a0,
+      (-2.0 * c) / a0,
+      (1.0 - alpha) / a0,
+    );
+  }
+
+  factory _VoiceBiquad.butterworthLowPass(double fs, double fc) {
+    final safeFs = math.max(4000.0, fs);
+    final safeFc = fc.clamp(200.0, safeFs * 0.44);
+    final w0 = 2.0 * math.pi * safeFc / safeFs;
+    final c = math.cos(w0);
+    final s = math.sin(w0);
+    final alpha = s / (2.0 * 0.7071067811865476);
+    final a0 = 1.0 + alpha;
+    return _VoiceBiquad(
+      ((1.0 - c) * 0.5) / a0,
+      (1.0 - c) / a0,
+      ((1.0 - c) * 0.5) / a0,
+      (-2.0 * c) / a0,
+      (1.0 - alpha) / a0,
+    );
+  }
+
+  final double _b0;
+  final double _b1;
+  final double _b2;
+  final double _a1;
+  final double _a2;
+  double _z1 = 0.0;
+  double _z2 = 0.0;
+
+  double process(double x) {
+    final y = _b0 * x + _z1;
+    _z1 = _b1 * x - _a1 * y + _z2;
+    _z2 = _b2 * x - _a2 * y;
+    return y;
+  }
+}
+
+/// 4th-order Butterworth human-voice bandpass (`70–3,600 Hz`, `-24 dB/oct`).
+class _VoiceBandpassFilter {
+  _VoiceBandpassFilter({
+    required double sampleRateHz,
+    double lowCutHz = 70.0,
+    double highCutHz = 3600.0,
+  })  : _hp1 = _VoiceBiquad.butterworthHighPass(sampleRateHz, lowCutHz),
+        _hp2 = _VoiceBiquad.butterworthHighPass(sampleRateHz, lowCutHz),
+        _lp1 = _VoiceBiquad.butterworthLowPass(sampleRateHz, highCutHz),
+        _lp2 = _VoiceBiquad.butterworthLowPass(sampleRateHz, highCutHz);
+
+  final _VoiceBiquad _hp1;
+  final _VoiceBiquad _hp2;
+  final _VoiceBiquad _lp1;
+  final _VoiceBiquad _lp2;
+
+  double process(double x) {
+    var y = _hp1.process(x);
+    y = _hp2.process(y);
+    y = _lp1.process(y);
+    y = _lp2.process(y);
+    return y.clamp(-1.0, 1.0);
+  }
 }

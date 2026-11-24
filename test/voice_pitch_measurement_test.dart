@@ -419,4 +419,50 @@ void main() {
       expect(clock.pendingTimers, isEmpty);
     });
   });
+
+  test('rejects out-of-band rumble (<70 Hz) & high-freq noise (>3600 Hz) while isolating human voice', () {
+    fakeAsync((clock) {
+      // 1. 35 Hz low rumble -> rejected (null pitch, zero live callbacks)
+      final captureLow = _Capture(sampleRate: 48000);
+      final svcLow = VoicePitchMeasurement(capture: captureLow);
+      final liveLow = <double>[];
+      final resLow = _Outcome(svcLow.measure(onPitch: liveLow.add));
+      clock.flushMicrotasks();
+      _tone(clock, captureLow, 35, windows: 24);
+      clock.elapse(const Duration(seconds: 5));
+      expect(liveLow, isEmpty);
+      expect(resLow.pitch, isNull);
+
+      // 2. 6500 Hz high-frequency whistle/noise -> rejected
+      final captureHigh = _Capture(sampleRate: 48000);
+      final svcHigh = VoicePitchMeasurement(capture: captureHigh);
+      final liveHigh = <double>[];
+      final resHigh = _Outcome(svcHigh.measure(onPitch: liveHigh.add));
+      clock.flushMicrotasks();
+      _tone(clock, captureHigh, 6500, windows: 24);
+      clock.elapse(const Duration(seconds: 5));
+      expect(liveHigh, isEmpty);
+      expect(resHigh.pitch, isNull);
+
+      // 3. 220 Hz human voice contaminated with 35 Hz hum + 7000 Hz noise -> accurately recovers 220 Hz!
+      final captureMix = _Capture(sampleRate: 48000);
+      final svcMix = VoicePitchMeasurement(capture: captureMix);
+      final liveMix = <double>[];
+      final resMix = _Outcome(svcMix.measure(onPitch: liveMix.add));
+      clock.flushMicrotasks();
+      for (var frame = 0; frame < 24; frame++) {
+        final pcm = _pcm(2048, (i) {
+          final t = (frame * 2048 + i) / 48000.0;
+          return 0.30 * math.sin(2 * math.pi * 220.0 * t) +
+              0.12 * math.sin(2 * math.pi * 35.0 * t) +
+              0.10 * math.sin(2 * math.pi * 7000.0 * t);
+        });
+        captureMix.emit(pcm);
+        clock.flushMicrotasks();
+      }
+      clock.elapse(const Duration(seconds: 5));
+      expect(liveMix, isNotEmpty);
+      expect(resMix.pitch, closeTo(220.0, 1.5));
+    });
+  });
 }
