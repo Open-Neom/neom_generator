@@ -288,8 +288,14 @@ class _LissajousVisualState {
 class Lissajous3DWidget extends StatefulWidget {
   final NeomFrequencyPainterEngine engine;
   final Color? baseColor;
+  final bool respectReducedMotion;
 
-  const Lissajous3DWidget({super.key, required this.engine, this.baseColor});
+  const Lissajous3DWidget({
+    super.key,
+    required this.engine,
+    this.baseColor,
+    this.respectReducedMotion = true,
+  });
 
   @override
   State<Lissajous3DWidget> createState() => _Lissajous3DWidgetState();
@@ -309,6 +315,7 @@ class _Lissajous3DWidgetState extends State<Lissajous3DWidget> {
   @override
   Widget build(BuildContext context) {
     return VisualAnimation(
+      respectReducedMotion: widget.respectReducedMotion,
       builder: (context, clock, child) => RepaintBoundary(
         child: CustomPaint(
           painter: Lissajous3DPainter._animated(

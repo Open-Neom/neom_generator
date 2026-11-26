@@ -634,7 +634,8 @@ class NeomGeneratorController extends SintController
     WidgetsBinding.instance.addObserver(this);
     _visualsResumed =
         WidgetsBinding.instance.lifecycleState == null ||
-        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.inactive;
     painterEngine.frameDrivenVisuals = true;
     painterEngine.visualUpdatesEnabled = _visualsResumed;
     if (!Sint.isRegistered<NeomAudioVisualSignal>()) {
@@ -715,8 +716,10 @@ class NeomGeneratorController extends SintController
             phase: wavePhase.value,
             amplitude: currentVol.value,
             pan: posX.value,
-            breath: breathDepth.value,
-            modulation: modulationDepth.value,
+            breath: _sineEngine.breathEngine.mode == NeomBreathMode.off
+                ? breathDepth.value
+                : _sineEngine.breathEngine.currentValue,
+            modulation: isModulationEnabled.value ? modulationDepth.value : 0.0,
             neuro: neuroState.value.index / NeomNeuroState.values.length,
             frequency: currentFreq.value,
             isVisualFrame: true,
@@ -770,7 +773,9 @@ class NeomGeneratorController extends SintController
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _visualsResumed = state == AppLifecycleState.resumed;
+    _visualsResumed =
+        state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive;
     painterEngine.visualUpdatesEnabled = _visualsResumed;
     _visualFrameTiming.resetVisual();
     // Audio clock is independent; visual suspension cannot alter recordings.
@@ -1809,6 +1814,11 @@ class NeomGeneratorController extends SintController
     AppConfig.logger.d("Setting modulation enabled: $enabled");
     isModulationEnabled.value = enabled;
     _sineEngine.modulator.enabled = enabled;
+    // Enabling modulation while type is still "none" had no audible/visual
+    // effect until the user also opened the dropdown; pick AM as default.
+    if (enabled && modulationType.value == NeomModulationType.none) {
+      setModulationType(NeomModulationType.am);
+    }
   }
 
   final RxDouble spatialIntensity = 0.5.obs;

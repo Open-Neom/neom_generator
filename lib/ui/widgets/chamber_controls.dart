@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
 import 'package:sint/sint.dart';
 
@@ -478,44 +479,119 @@ class ChamberPlaybackButton extends StatelessWidget {
   final bool requested;
   final bool transitioning;
   final VoidCallback onPressed;
+  final double iconSize;
+  final double pulse;
+
   const ChamberPlaybackButton({
     super.key,
     required this.requested,
     required this.transitioning,
     required this.onPressed,
+    this.iconSize = 46,
+    this.pulse = 0.0,
   });
 
   @override
-  Widget build(BuildContext context) => Tooltip(
-    message:
+  Widget build(BuildContext context) {
+    final label =
         (requested
                 ? GeneratorTranslationConstants.stopChamber
                 : GeneratorTranslationConstants.activateChamber)
-            .tr,
-    child: IconButton(
-      constraints: const BoxConstraints(minWidth: 64, minHeight: 64),
-      tooltip:
-          (requested
-                  ? GeneratorTranslationConstants.stopChamber
-                  : GeneratorTranslationConstants.activateChamber)
-              .tr,
-      onPressed: onPressed,
-      icon: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (transitioning)
-            const SizedBox(
-              width: 54,
-              height: 54,
-              child: CircularProgressIndicator(strokeWidth: 2),
+            .tr;
+    final clampedPulse = pulse.clamp(0.0, 1.0);
+    final activeColor = Color.lerp(
+      AppColor.bondiBlue,
+      const Color(0xFF99F6FF),
+      clampedPulse * 0.65,
+    )!;
+    final ringSize = iconSize + 24;
+
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        toggled: requested,
+        label: label,
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              constraints: BoxConstraints(
+                minWidth: ringSize.clamp(64.0, 112.0),
+                minHeight: ringSize.clamp(64.0, 112.0),
+              ),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: requested
+                    ? RadialGradient(
+                        colors: [
+                          AppColor.bondiBlue.withAlpha(
+                            (95 + clampedPulse * 70).round(),
+                          ),
+                          const Color(0xFF4B0082).withAlpha(
+                            (130 + clampedPulse * 60).round(),
+                          ),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.62, 1.0],
+                      )
+                    : RadialGradient(
+                        colors: [
+                          Colors.white.withAlpha(22),
+                          Colors.black.withAlpha(70),
+                        ],
+                      ),
+                border: Border.all(
+                  color: requested
+                      ? activeColor.withAlpha((160 + clampedPulse * 85).round())
+                      : Colors.white24,
+                  width: requested ? 2.0 : 1.2,
+                ),
+                boxShadow: requested
+                    ? [
+                        BoxShadow(
+                          color: AppColor.bondiBlue.withAlpha(
+                            (80 + clampedPulse * 110).round(),
+                          ),
+                          blurRadius: 18 + clampedPulse * 18,
+                          spreadRadius: 2 + clampedPulse * 5,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (transitioning)
+                    SizedBox(
+                      width: iconSize + 16,
+                      height: iconSize + 16,
+                      child: const CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  FaIcon(
+                    FontAwesomeIcons.om,
+                    size: iconSize,
+                    color: requested ? activeColor : Colors.white70,
+                    shadows: requested
+                        ? [
+                            Shadow(
+                              color: AppColor.bondiBlue.withAlpha(220),
+                              blurRadius: 12 + clampedPulse * 10,
+                            ),
+                          ]
+                        : null,
+                  ),
+                ],
+              ),
             ),
-          Icon(
-            requested ? Icons.stop_rounded : Icons.play_arrow_rounded,
-            size: 44,
-            color: requested ? AppColor.bondiBlue : Colors.white,
           ),
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

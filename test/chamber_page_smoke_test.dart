@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:neom_core/domain/model/neom/neom_chamber_preset.dart';
 import 'package:neom_core/domain/model/neom/neom_neuro_state.dart';
@@ -416,7 +417,7 @@ void main() {
         controller.fields[#playbackRequested].value = true;
         controller.fields[#isPlaybackTransitioning].value = true;
         await tester.pump();
-        expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
+        expect(find.byType(FaIcon), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.ensureVisible(
           find.byKey(const ValueKey('chamber-focus-toggle')),
@@ -426,7 +427,7 @@ void main() {
         expect(find.byType(ChamberFocusView), findsOneWidget);
         expect(find.byType(ChamberFrequencyControl), findsNothing);
         expect(controller.fields[#playbackRequested].value, isTrue);
-        expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
+        expect(find.byType(FaIcon), findsOneWidget);
         expect(tester.takeException(), isNull);
         final stopControl = find.byType(ChamberPlaybackButton);
         if (scale == 1.0) {

@@ -9,6 +9,7 @@ import 'package:neom_generator/engine/neom_breath_engine.dart';
 import 'package:neom_generator/engine/neom_frequency_painter_engine.dart';
 import 'package:neom_generator/engine/neom_modulator_engine.dart';
 import 'package:neom_generator/ui/neom_generator_controller.dart';
+import 'package:neom_generator/ui/painters/perimeter_wave_painter.dart';
 import 'package:neom_generator/ui/web/neom_generator_web_page.dart';
 import 'package:neom_generator/ui/widgets/chamber_controls.dart';
 import 'package:neom_generator/utils/enums/neom_numeric_target.dart';
@@ -159,13 +160,22 @@ void main() {
           expect(voice.hitTestable(), findsOneWidget);
           expect(play.hitTestable(), findsOneWidget);
           expect(tester.getRect(voice).top, lessThan(130));
-          expect(tester.getRect(scope).bottom, lessThan(size.height - 12));
           expect(
             tester.getRect(scope).top,
-            greaterThan(tester.getRect(voice).bottom),
+            greaterThan(tester.getRect(dial).bottom),
           );
           expect(tester.getSize(play).shortestSide, greaterThanOrEqualTo(48));
-          expect(tester.getSize(dial).height, lessThanOrEqualTo(220));
+          expect(tester.getSize(dial).height, greaterThanOrEqualTo(240));
+          expect(tester.getSize(dial).height, lessThanOrEqualTo(350));
+          // Dial is horizontally centered inside the primary scroll column.
+          final scrollRect = tester.getRect(
+            find.byKey(const ValueKey('chamber-web-primary-scroll')),
+          );
+          final dialRect = tester.getRect(dial);
+          expect(
+            (dialRect.center.dx - scrollRect.center.dx).abs(),
+            lessThanOrEqualTo(4.0),
+          );
           expect(
             tester
                 .widgetList<ChamberFrequencyControl>(
@@ -215,4 +225,49 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+    'live perimeter waves and oscilloscope keep animating under OS reduced motion',
+    (tester) async {
+      final controller = _WebController();
+      controller.fields[#isPlaying].value = true;
+      controller.fields[#playbackRequested].value = true;
+      Bind.put<NeomGeneratorController>(controller);
+      Sint.addTranslations({'es': GeneratorEsTranslations.values});
+      Sint.locale = const Locale('es');
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() async {
+        await Bind.delete<NeomGeneratorController>(force: true);
+        controller.painterEngine.dispose();
+        Sint.clearTranslations();
+        Sint.locale = null;
+        await tester.binding.setSurfaceSize(null);
+      });
+      await tester.pumpWidget(
+        SintMaterialApp(
+          theme: ThemeData.dark(),
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(1440, 900),
+              disableAnimations: true,
+            ),
+            child: NeomGeneratorWebPage(controller: controller),
+          ),
+        ),
+      );
+      await tester.pump();
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 40));
+      }
+      final perimeter = tester
+          .widgetList<CustomPaint>(find.byType(CustomPaint))
+          .map((w) => w.painter)
+          .whereType<PerimeterWavePainter>()
+          .first;
+      expect(perimeter.clock, isNotNull);
+      expect(perimeter.clock!.isAnimating, isTrue);
+      expect(perimeter.clock!.elapsed, greaterThan(Duration.zero));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

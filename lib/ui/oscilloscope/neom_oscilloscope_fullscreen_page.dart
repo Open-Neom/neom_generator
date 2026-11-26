@@ -34,6 +34,7 @@ class NeomOscilloscopeFullscreenPage extends StatelessWidget {
                 child: RepaintBoundary(
                   child: VisualAnimation(
                     active: !controller.isPaused.value,
+                    respectReducedMotion: false,
                     builder: (context, clock, child) => CustomPaint(
                       painter: NeomOscilloscopeFullscreenPainter(
                         samples: controller.displaySamples,

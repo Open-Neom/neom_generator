@@ -98,7 +98,8 @@ class _VisualAnimationState extends State<VisualAnimation>
     final binding = WidgetsBinding.instance;
     _foreground =
         binding.lifecycleState == null ||
-        binding.lifecycleState == AppLifecycleState.resumed;
+        binding.lifecycleState == AppLifecycleState.resumed ||
+        binding.lifecycleState == AppLifecycleState.inactive;
     binding.addObserver(this);
     _clock = VisualAnimationClock(
       vsync: this,
@@ -131,7 +132,9 @@ class _VisualAnimationState extends State<VisualAnimation>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _foreground = state == AppLifecycleState.resumed;
+    _foreground =
+        state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive;
     _sync();
   }
 
@@ -169,13 +172,16 @@ class _VisualActivityScopeState extends State<VisualActivityScope>
     final binding = WidgetsBinding.instance;
     _foreground =
         binding.lifecycleState == null ||
-        binding.lifecycleState == AppLifecycleState.resumed;
+        binding.lifecycleState == AppLifecycleState.resumed ||
+        binding.lifecycleState == AppLifecycleState.inactive;
     binding.addObserver(this);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final foreground = state == AppLifecycleState.resumed;
+    final foreground =
+        state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive;
     if (_foreground != foreground) setState(() => _foreground = foreground);
   }
 

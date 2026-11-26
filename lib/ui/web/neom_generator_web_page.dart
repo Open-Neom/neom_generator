@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show min;
 
 import 'package:flutter/material.dart';
 import 'package:neom_commons/ui/theme/app_color.dart';
@@ -198,6 +199,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
                       isActive:
                           controller.isPlaying.value &&
                           controller.showCircuitWave.value,
+                      respectReducedMotion: false,
                       primaryColor: AppColor.bondiBlue,
                       secondaryColor: Colors.purpleAccent,
                       child: Row(
@@ -237,6 +239,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
                                     isActive:
                                         controller.isPlaying.value &&
                                         controller.showPerimeterWave.value,
+                                    respectReducedMotion: false,
                                     engine: controller.painterEngine,
                                     primaryColor: AppColor.bondiBlue,
                                     secondaryColor: Colors.purpleAccent,
@@ -268,6 +271,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
                                 isActive:
                                     controller.isPlaying.value &&
                                     controller.showPerimeterWave.value,
+                                respectReducedMotion: false,
                                 engine: controller.painterEngine,
                                 primaryColor: AppColor.bondiBlue,
                                 secondaryColor: Colors.purpleAccent,
@@ -327,6 +331,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
                                     isActive:
                                         controller.isPlaying.value &&
                                         controller.showPerimeterWave.value,
+                                    respectReducedMotion: false,
                                     engine: controller.painterEngine,
                                     primaryColor: Colors.purpleAccent,
                                     secondaryColor: AppColor.bondiBlue,
@@ -341,6 +346,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
                                         child: Lissajous3DWidget(
                                           engine: controller.painterEngine,
                                           baseColor: AppColor.getAccentColor(),
+                                          respectReducedMotion: false,
                                         ),
                                       ),
                                       helpTooltip: GeneratorTranslationConstants
@@ -365,11 +371,14 @@ class NeomGeneratorWebPage extends StatelessWidget {
   Widget _buildPrimaryDashboard(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Reserve room for the scope instead of sizing the dial from the page
-        // width. At enlarged text sizes the column can scroll naturally.
-        final dialSize = (constraints.maxHeight * .28).clamp(160.0, 220.0);
-        final scopeHeight = (constraints.maxHeight * .21).clamp(120.0, 160.0);
-        final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
+        // Feature the concentric circular dial prominently in the center of
+        // Cámara Neom, scaling smoothly up to its full 350px diameter on
+        // desktop viewports while keeping frequency controls & scope right below.
+        final dialSize = min(
+          constraints.maxWidth * 0.64,
+          constraints.maxHeight * 0.44,
+        ).clamp(240.0, 350.0);
+        final scopeHeight = (constraints.maxHeight * .20).clamp(115.0, 160.0);
         return SingleChildScrollView(
           key: const ValueKey('chamber-web-primary-scroll'),
           padding: const EdgeInsets.all(12),
@@ -392,24 +401,10 @@ class NeomGeneratorWebPage extends StatelessWidget {
                 saveError: controller.recordingSaveError.value,
                 onRetrySave: controller.retryPendingRecordings,
               ),
-              const SizedBox(height: 8),
-              if (largeText || constraints.maxWidth < 430)
-                Column(
-                  children: [
-                    _buildCircularSliders(context, size: dialSize),
-                    const SizedBox(height: 8),
-                    _buildFrequencyDisplays(context),
-                  ],
-                )
-              else
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _buildCircularSliders(context, size: dialSize),
-                    const SizedBox(width: 12),
-                    Expanded(child: _buildFrequencyDisplays(context)),
-                  ],
-                ),
+              const SizedBox(height: 10),
+              Center(child: _buildCircularSliders(context, size: dialSize)),
+              const SizedBox(height: 10),
+              _buildFrequencyDisplays(context),
               const SizedBox(height: 8),
               _buildFrequencyPainter(),
               _buildBinauralBeatPainter(),
@@ -466,6 +461,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
       child: Obx(
         () => SignalPaint(
           active: controller.isPlaying.value,
+          respectReducedMotion: false,
           builder: (repaint) => FrequencyPainter(
             engine: controller.painterEngine,
             repaint: repaint,
@@ -486,6 +482,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
         final intensity = controller.modulationDepth.value.clamp(0.2, 1.0);
         return SignalPaint(
           active: playing,
+          respectReducedMotion: false,
           builder: (repaint) => NeomBinauralBeatPainter(
             engine: controller.painterEngine,
             repaint: repaint,
@@ -626,10 +623,11 @@ class NeomGeneratorWebPage extends StatelessWidget {
                 },
               ),
             ),
-            // Keep a real 48px target even when the decorative dial is scaled.
-            SizedBox.square(
-              dimension: 48,
-              child: _OmButton(controller: controller),
+            // Center the glowing OM playback toggle proportionally inside the
+            // innermost ring while preserving >=64px touch target.
+            _OmButton(
+              controller: controller,
+              iconSize: (size * 0.16).clamp(40.0, 56.0),
             ),
           ],
         ),
@@ -709,6 +707,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
             final timeScale = controller.oscTimeScale.value;
             return SignalPaint(
               active: playing,
+              respectReducedMotion: false,
               builder: (repaint) => OscilloscopePainter(
                 engine: controller.painterEngine,
                 repaint: repaint,
@@ -997,6 +996,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
       child: Obx(
         () => SignalPaint(
           active: controller.isPlaying.value,
+          respectReducedMotion: false,
           builder: (repaint) => LissajousPainter(
             engine: controller.painterEngine,
             repaint: repaint,
@@ -1011,45 +1011,31 @@ class NeomGeneratorWebPage extends StatelessWidget {
 /// Om button with binaural-beat-synced pulsing glow when playing.
 class _OmButton extends StatelessWidget {
   final NeomGeneratorController controller;
-  const _OmButton({required this.controller});
+  final double iconSize;
+  const _OmButton({required this.controller, this.iconSize = 50});
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
       final playing = controller.isPlaying.value;
+      final requested = controller.playbackRequested.value;
+      final transitioning = controller.isPlaybackTransitioning.value;
       final beat = controller.currentBeat.value.clamp(0.5, 50.0);
       final halfCycleMs = (1000 / beat).round().clamp(100, 2000);
       return VisualAnimation(
         active: playing,
+        respectReducedMotion: false,
         duration: Duration(milliseconds: halfCycleMs * 2),
-        child: ChamberPlaybackButton(
-          requested: controller.playbackRequested.value,
-          transitioning: controller.isPlaybackTransitioning.value,
-          onPressed: () => controller.playStopPreview(),
-        ),
-        builder: (_, clock, child) => AnimatedBuilder(
+        builder: (_, clock, _) => AnimatedBuilder(
           animation: clock,
-          child: child,
-          builder: (_, stableControl) {
+          builder: (_, _) {
             final pulse = playing ? 1 - (2 * clock.value - 1).abs() : 0.0;
-            final glowAlpha = (pulse * 120).round();
-            final bgAlpha = playing ? (80 + pulse * 80).round() : 0;
-
-            return Container(
-              decoration: BoxDecoration(
-                color: Color.fromARGB(bgAlpha, 75, 0, 130),
-                shape: BoxShape.circle,
-                boxShadow: playing
-                    ? [
-                        BoxShadow(
-                          color: AppColor.bondiBlue.withAlpha(glowAlpha),
-                          blurRadius: 16 + pulse * 20,
-                          spreadRadius: pulse * 6,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: stableControl,
+            return ChamberPlaybackButton(
+              requested: requested,
+              transitioning: transitioning,
+              iconSize: iconSize,
+              pulse: pulse,
+              onPressed: () => controller.playStopPreview(),
             );
           },
         ),

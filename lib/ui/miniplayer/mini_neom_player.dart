@@ -183,6 +183,7 @@ class _PulsingDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return VisualAnimation(
+      respectReducedMotion: false,
       duration: const Duration(milliseconds: 2400),
       builder: (_, clock, _) => AnimatedBuilder(
         animation: clock,
@@ -216,6 +217,7 @@ class _MiniWaveform extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return VisualAnimation(
+      respectReducedMotion: false,
       duration: const Duration(milliseconds: 1500),
       builder: (_, clock, _) => RepaintBoundary(
         child: CustomPaint(

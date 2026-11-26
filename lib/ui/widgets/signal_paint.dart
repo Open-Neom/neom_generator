@@ -14,6 +14,7 @@ class SignalPaint extends StatelessWidget {
     required this.builder,
     this.size = Size.zero,
     this.isComplex = false,
+    this.respectReducedMotion = true,
     this.child,
   });
 
@@ -21,11 +22,13 @@ class SignalPaint extends StatelessWidget {
   final CustomPainter Function(Listenable repaint) builder;
   final Size size;
   final bool isComplex;
+  final bool respectReducedMotion;
   final Widget? child;
 
   @override
   Widget build(BuildContext context) => VisualAnimation(
     active: active,
+    respectReducedMotion: respectReducedMotion,
     child: child,
     builder: (context, clock, child) => RepaintBoundary(
       child: CustomPaint(

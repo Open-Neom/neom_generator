@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:neom_generator/data/translations/generator_de_translations.dart';
 import 'package:neom_generator/data/translations/generator_en_translations.dart';
 import 'package:neom_generator/data/translations/generator_es_translations.dart';
@@ -105,7 +106,7 @@ void main() {
         find.byTooltip(GeneratorTranslationConstants.stopChamber.tr),
         findsWidgets,
       );
-      await tester.tap(find.byIcon(Icons.stop_rounded));
+      await tester.tap(find.byType(FaIcon));
       await tester.pump();
       expect(presses, 1);
       FocusManager.instance.primaryFocus?.unfocus();

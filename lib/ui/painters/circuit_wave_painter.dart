@@ -388,6 +388,7 @@ class CircuitWaveOverlay extends StatefulWidget {
   final bool isActive;
   final Color? primaryColor;
   final Color? secondaryColor;
+  final bool respectReducedMotion;
   final Widget child;
 
   const CircuitWaveOverlay({
@@ -396,6 +397,7 @@ class CircuitWaveOverlay extends StatefulWidget {
     required this.isActive,
     this.primaryColor,
     this.secondaryColor,
+    this.respectReducedMotion = true,
     required this.child,
   });
 
@@ -515,6 +517,7 @@ class CircuitWaveOverlayState extends State<CircuitWaveOverlay> {
     _scheduleBounds();
     return VisualAnimation(
       active: widget.isActive,
+      respectReducedMotion: widget.respectReducedMotion,
       duration: const Duration(seconds: 12),
       builder: (_, clock, child) {
         _bindClock(clock);

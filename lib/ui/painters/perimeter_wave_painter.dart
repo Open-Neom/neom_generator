@@ -50,7 +50,13 @@ class PerimeterWavePainter extends CustomPainter {
 
     final freq = (3.0 + engine.waveStretch * 2.0).clamp(1.0, sampleCount / 8);
     final beat = engine.binauralPhase;
-    final amp = amplitude.clamp(0.0, 5.0) * (0.5 + engine.glowIntensity * 0.5);
+    final liveLevel = engine.audioSession.level.clamp(0.0, 1.0);
+    final modulationEnergy = (0.45 +
+            engine.glowIntensity * 0.35 +
+            liveLevel * 0.25 +
+            engine.breathPulse * 0.15)
+        .clamp(0.45, 1.0);
+    final amp = amplitude.clamp(0.0, 5.0) * modulationEnergy;
 
     // Build paths for L and R channels
     final pathL = Path();
@@ -160,6 +166,7 @@ class PerimeterWaveWidget extends StatefulWidget {
 
   /// When false, shows a subtle static border instead of animated waves.
   final bool isActive;
+  final bool respectReducedMotion;
 
   const PerimeterWaveWidget({
     super.key,
@@ -170,6 +177,7 @@ class PerimeterWaveWidget extends StatefulWidget {
     this.strokeWidth = 2.0,
     this.child,
     this.isActive = false,
+    this.respectReducedMotion = true,
   });
 
   @override
@@ -181,6 +189,7 @@ class _PerimeterWaveWidgetState extends State<PerimeterWaveWidget> {
   Widget build(BuildContext context) {
     return VisualAnimation(
       active: widget.isActive,
+      respectReducedMotion: widget.respectReducedMotion,
       builder: (_, clock, child) => Stack(
         fit: StackFit.passthrough,
         children: [

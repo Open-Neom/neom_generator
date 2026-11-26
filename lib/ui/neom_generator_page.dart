@@ -100,7 +100,7 @@ class NeomGeneratorPage extends StatelessWidget {
                     child: _dial(
                       context,
                       controller,
-                      constraints.maxWidth.clamp(180.0, 236.0),
+                      (constraints.maxWidth * 0.78).clamp(220.0, 300.0),
                     ),
                   ),
                 ),
@@ -429,6 +429,7 @@ class NeomGeneratorPage extends StatelessWidget {
               child: Obx(
                 () => SignalPaint(
                   active: controller.isPlaying.value,
+                  respectReducedMotion: false,
                   builder: (repaint) => OscilloscopePainter(
                     engine: controller.painterEngine,
                     signalColor: AppColor.bondiBlue,
@@ -609,6 +610,7 @@ class NeomGeneratorPage extends StatelessWidget {
         child: Obx(
           () => SignalPaint(
             active: controller.isPlaying.value,
+            respectReducedMotion: false,
             builder: (repaint) => LissajousPainter(
               engine: controller.painterEngine,
               color: controller.painterEngine.eegColor,
