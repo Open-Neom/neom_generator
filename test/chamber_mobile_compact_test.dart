@@ -234,10 +234,11 @@ void main() {
   for (final width in [320.0, 360.0, 390.0, 430.0, 768.0]) {
     for (final scale in [1.0, 2.0]) {
       testWidgets(
-        'mobile $width scale $scale keeps voice first and scope before advanced controls',
+        'mobile $width scale $scale puts large centered dial first with mic between Hz cards',
         (tester) async {
           final controller = await pumpPage(tester, width, scale);
           expect(tester.takeException(), isNull);
+          final dial = find.byKey(const ValueKey('chamber-mobile-dial'));
           final voice = find.byKey(
             const ValueKey('chamber-mobile-detect-voice'),
           );
@@ -249,20 +250,24 @@ void main() {
           final experiences = find.byKey(
             const PageStorageKey('chamber-mobile-experiences'),
           );
+          expect(tester.getRect(dial).top, lessThan(110));
+          expect(tester.getSize(dial).height, greaterThanOrEqualTo(250));
           expect(voice.hitTestable(), findsOneWidget);
-          expect(tester.getRect(voice).top, lessThan(100));
-          expect(tester.getSize(voice).height, greaterThanOrEqualTo(48));
+          expect(tester.getSize(voice).shortestSide, greaterThanOrEqualTo(48));
           expect(
-            tester.getRect(voice).bottom,
-            lessThan(tester.getRect(root).top),
+            tester.getRect(root).top,
+            greaterThanOrEqualTo(tester.getRect(dial).bottom),
           );
           expect(tester.widget<ChamberFrequencyControl>(root).compact, isTrue);
           expect(tester.widget<ChamberFrequencyControl>(beat).compact, isTrue);
-          if (width >= 360 && scale == 1) {
-            expect(tester.getRect(root).top, tester.getRect(beat).top);
+          if (width >= 365 && scale == 1) {
             expect(
               tester.getRect(root).right,
-              lessThan(tester.getRect(beat).left),
+              lessThanOrEqualTo(tester.getRect(voice).left),
+            );
+            expect(
+              tester.getRect(voice).right,
+              lessThanOrEqualTo(tester.getRect(beat).left),
             );
           } else {
             expect(
@@ -274,9 +279,6 @@ void main() {
             tester.getRect(scope).bottom,
             lessThan(tester.getRect(experiences).top),
           );
-          if (scale == 1) {
-            expect(tester.getRect(scope).bottom, lessThanOrEqualTo(800));
-          }
           expect(find.byType(ChamberOctaveControl), findsOneWidget);
           expect(
             tester
@@ -285,6 +287,7 @@ void main() {
             isTrue,
           );
 
+          await tester.ensureVisible(voice);
           await tester.tap(voice);
           await tester.pump();
           expect(controller.voiceStarts, 1);

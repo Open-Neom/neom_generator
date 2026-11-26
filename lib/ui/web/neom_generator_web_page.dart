@@ -371,41 +371,29 @@ class NeomGeneratorWebPage extends StatelessWidget {
   Widget _buildPrimaryDashboard(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Feature the concentric circular dial prominently in the center of
-        // Cámara Neom, scaling smoothly up to its full 350px diameter on
-        // desktop viewports while keeping frequency controls & scope right below.
+        // Maximize the centerpiece circular controller: voice mic now sits
+        // compactly between Root Frequency & Binaural Beat, and session time
+        // lives in the lower session toolbar so the dial claims the full hero area.
         final dialSize = min(
-          constraints.maxWidth * 0.64,
-          constraints.maxHeight * 0.44,
-        ).clamp(240.0, 350.0);
-        final scopeHeight = (constraints.maxHeight * .20).clamp(115.0, 160.0);
+          constraints.maxWidth * 0.82,
+          constraints.maxHeight * 0.56,
+        ).clamp(280.0, 460.0);
+        final scopeHeight = (constraints.maxHeight * .18).clamp(110.0, 155.0);
         return SingleChildScrollView(
           key: const ValueKey('chamber-web-primary-scroll'),
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
           child: Column(
             children: [
-              Wrap(
-                key: const ValueKey('chamber-web-primary-actions'),
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 12,
-                runSpacing: 4,
-                children: [
-                  _buildVoiceAndChamberRow(),
-                  ChamberPracticeClock(controller: controller, compact: true),
-                ],
-              ),
-              _buildMicWaveform(),
               ChamberFeedback(
                 playbackError: controller.playbackError.value,
                 saveError: controller.recordingSaveError.value,
                 onRetrySave: controller.retryPendingRecordings,
               ),
-              const SizedBox(height: 10),
               Center(child: _buildCircularSliders(context, size: dialSize)),
-              const SizedBox(height: 10),
-              _buildFrequencyDisplays(context),
               const SizedBox(height: 8),
+              _buildFrequencyDisplays(context),
+              _buildMicWaveform(),
+              const SizedBox(height: 6),
               _buildFrequencyPainter(),
               _buildBinauralBeatPainter(),
               const SizedBox(height: 4),
@@ -421,8 +409,19 @@ class NeomGeneratorWebPage extends StatelessWidget {
               const SizedBox(height: 8),
               _buildFreqBeatSliders(),
               _buildOctaveSelector(),
+              const SizedBox(height: 6),
+              Wrap(
+                key: const ValueKey('chamber-web-primary-actions'),
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 14,
+                runSpacing: 6,
+                children: [
+                  ChamberPracticeClock(controller: controller, compact: true),
+                  ChamberPracticeToolbar(controller: controller, compact: true),
+                ],
+              ),
               const SizedBox(height: 4),
-              ChamberPracticeToolbar(controller: controller, compact: true),
               _buildSessionStatus(),
             ],
           ),
@@ -434,21 +433,37 @@ class NeomGeneratorWebPage extends StatelessWidget {
   Widget _buildMicWaveform() => Obx(
     () => controller.isRecording.value
         ? Container(
-            margin: const EdgeInsets.only(top: 4),
-            height: 32,
+            margin: const EdgeInsets.only(top: 6),
+            height: 36,
             width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: Colors.black.withAlpha(60),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.red.withAlpha(40)),
+              color: Colors.black.withAlpha(80),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.redAccent.withAlpha(90)),
             ),
-            child: Obx(
-              () => CustomPaint(
-                painter: MicWaveformPainter(
-                  bars: controller.micWaveform.toList(),
-                  color: Colors.red.withAlpha(200),
+            child: Row(
+              children: [
+                Expanded(
+                  child: CustomPaint(
+                    painter: MicWaveformPainter(
+                      bars: controller.micWaveform.toList(),
+                      color: Colors.redAccent.withAlpha(220),
+                    ),
+                    size: Size.infinite,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Text(
+                  '${controller.detectedFrequency.value.toStringAsFixed(1)} Hz',
+                  style: const TextStyle(
+                    fontFamily: 'Courier',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.redAccent,
+                  ),
+                ),
+              ],
             ),
           )
         : const SizedBox.shrink(),
@@ -546,88 +561,135 @@ class NeomGeneratorWebPage extends StatelessWidget {
   Widget _buildCircularSliders(BuildContext context, {required double size}) {
     return Obx(() {
       getNoteFromFrequency(controller.currentFreq.value);
+      final posX = controller.posX.value;
+      final posY = controller.posY.value;
+      final posZ = controller.posZ.value;
+      final scale = (size / 350.0).clamp(0.75, 1.35);
+
+      CircularSliderAppearance ring(
+        double fraction,
+        double start,
+        double range,
+        CustomSliderWidths baseWidths,
+        CustomSliderColors colors,
+      ) => CircularSliderAppearance(
+        size: size * fraction,
+        startAngle: start,
+        angleRange: range,
+        customWidths: CustomSliderWidths(
+          trackWidth: (baseWidths.trackWidth ?? 2) * scale,
+          progressBarWidth: (baseWidths.progressBarWidth ?? 10) * scale,
+          shadowWidth: (baseWidths.shadowWidth ?? 12) * scale,
+        ),
+        customColors: colors,
+        animationEnabled: false,
+      );
+
       return SizedBox.square(
         key: const ValueKey('chamber-web-dial'),
         dimension: size,
         child: Stack(
           alignment: Alignment.center,
           children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: SleekCircularSlider(
-                appearance: NeomSliderConstants.appearance01,
-                min: NeomGeneratorConstants.frequencyMin,
-                max: controller.isAdmin
+            SleekCircularSlider(
+              appearance: ring(
+                1.0,
+                180,
+                360,
+                NeomSliderConstants.customWidth01,
+                NeomSliderConstants.customColors01,
+              ),
+              min: NeomGeneratorConstants.frequencyMin,
+              max: controller.isAdmin
+                  ? NeomGeneratorConstants.frequencyMax
+                  : NeomGeneratorConstants.frequencyLimit,
+              initialValue: controller.currentFreq.value.clamp(
+                NeomGeneratorConstants.frequencyMin,
+                controller.isAdmin
                     ? NeomGeneratorConstants.frequencyMax
                     : NeomGeneratorConstants.frequencyLimit,
-                initialValue:
-                    controller.chamberPreset.mainFrequency?.frequency
-                        .toDouble() ??
-                    NeomGeneratorConstants.defaultFrequency,
-                onChange: (double val) async =>
-                    await controller.setFrequency(val),
-                innerWidget: (double value) {
-                  return Align(
-                    alignment: Alignment.center,
-                    child: SleekCircularSlider(
-                      appearance: NeomSliderConstants.appearance02,
-                      min: NeomGeneratorConstants.positionMin,
-                      max: NeomGeneratorConstants.positionMax,
-                      initialValue: -controller.posX.value,
-                      onChange: (double val) {
-                        controller.setParameterPosition(
-                          x: -val,
-                          y: controller.posY.value,
-                          z: controller.posZ.value,
-                        );
-                      },
-                      innerWidget: (double v) {
-                        return Align(
-                          alignment: Alignment.center,
-                          child: SleekCircularSlider(
-                            appearance: NeomSliderConstants.appearance03,
-                            min: NeomGeneratorConstants.positionMin,
-                            max: NeomGeneratorConstants.positionMax,
-                            initialValue: controller.posY.value,
-                            onChange: (double val) {
-                              controller.setParameterPosition(
-                                x: controller.posX.value,
-                                y: val,
-                                z: controller.posZ.value,
-                              );
-                            },
-                            innerWidget: (double v) {
-                              return Align(
-                                alignment: Alignment.center,
-                                child: SleekCircularSlider(
-                                  appearance: NeomSliderConstants.appearance04,
-                                  min: NeomGeneratorConstants.positionMin,
-                                  max: NeomGeneratorConstants.positionMax,
-                                  initialValue: controller.posZ.value,
-                                  onChange: (double val) {
-                                    controller.setParameterPosition(
-                                      x: controller.posX.value,
-                                      y: controller.posY.value,
-                                      z: val,
-                                    );
-                                  },
-                                  innerWidget: (_) => const SizedBox.shrink(),
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
               ),
+              onChange: (double val) async =>
+                  await controller.setFrequency(val),
+              innerWidget: (double value) {
+                return Align(
+                  alignment: Alignment.center,
+                  child: SleekCircularSlider(
+                    appearance: ring(
+                      0.83,
+                      360,
+                      180,
+                      NeomSliderConstants.customWidth02,
+                      NeomSliderConstants.customColors02,
+                    ),
+                    min: NeomGeneratorConstants.positionMin,
+                    max: NeomGeneratorConstants.positionMax,
+                    initialValue: -posX,
+                    onChange: (double val) {
+                      controller.setParameterPosition(
+                        x: -val,
+                        y: controller.posY.value,
+                        z: controller.posZ.value,
+                      );
+                    },
+                    innerWidget: (double v) {
+                      return Align(
+                        alignment: Alignment.center,
+                        child: SleekCircularSlider(
+                          appearance: ring(
+                            0.62,
+                            90,
+                            270,
+                            NeomSliderConstants.customWidth03,
+                            NeomSliderConstants.customColors03,
+                          ),
+                          min: NeomGeneratorConstants.positionMin,
+                          max: NeomGeneratorConstants.positionMax,
+                          initialValue: posY,
+                          onChange: (double val) {
+                            controller.setParameterPosition(
+                              x: controller.posX.value,
+                              y: val,
+                              z: controller.posZ.value,
+                            );
+                          },
+                          innerWidget: (double v) {
+                            return Align(
+                              alignment: Alignment.center,
+                              child: SleekCircularSlider(
+                                appearance: ring(
+                                  0.43,
+                                  270,
+                                  270,
+                                  NeomSliderConstants.customWidth04,
+                                  NeomSliderConstants.customColors04,
+                                ),
+                                min: NeomGeneratorConstants.positionMin,
+                                max: NeomGeneratorConstants.positionMax,
+                                initialValue: posZ,
+                                onChange: (double val) {
+                                  controller.setParameterPosition(
+                                    x: controller.posX.value,
+                                    y: controller.posY.value,
+                                    z: val,
+                                  );
+                                },
+                                innerWidget: (_) => const SizedBox.shrink(),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
             // Center the glowing OM playback toggle proportionally inside the
             // innermost ring while preserving >=64px touch target.
             _OmButton(
               controller: controller,
-              iconSize: (size * 0.16).clamp(40.0, 56.0),
+              iconSize: (size * 0.17).clamp(46.0, 74.0),
             ),
           ],
         ),
@@ -639,6 +701,7 @@ class NeomGeneratorWebPage extends StatelessWidget {
     final rootFrequency = controller.currentFreq.value;
     final beatFrequency = controller.currentBeat.value;
     final selectedTarget = controller.activeNumericTarget.value;
+    final voiceButton = _buildVoiceAndChamberRow();
     return LayoutBuilder(
       builder: (context, constraints) {
         final cards = [
@@ -682,13 +745,25 @@ class NeomGeneratorWebPage extends StatelessWidget {
             },
           ),
         ];
-        return constraints.maxWidth < 400 ||
+        return constraints.maxWidth < 420 ||
                 MediaQuery.textScalerOf(context).scale(12) > 18
-            ? Column(children: [cards[0], const SizedBox(height: 12), cards[1]])
+            ? Column(
+                children: [
+                  cards[0],
+                  const SizedBox(height: 8),
+                  Center(child: voiceButton),
+                  const SizedBox(height: 8),
+                  cards[1],
+                ],
+              )
             : Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(child: cards[0]),
-                  const SizedBox(width: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: voiceButton,
+                  ),
                   Expanded(child: cards[1]),
                 ],
               );
@@ -957,24 +1032,14 @@ class NeomGeneratorWebPage extends StatelessWidget {
     });
   }
 
-  /// Voice detection button for web.
+  /// Compact circular icon-only voice detection button placed between Root Frequency and Beat.
   Widget _buildVoiceAndChamberRow() => Obx(
-    () => OutlinedButton.icon(
+    () => ChamberVoiceMicButton(
       key: const ValueKey('chamber-web-voice'),
-      style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
+      recording: controller.isRecording.value,
       onPressed: () => controller.isRecording.value
           ? controller.stopRecording(applyDetectedFrequency: false)
           : controller.startRecording(),
-      icon: Icon(
-        controller.isRecording.value ? Icons.stop : Icons.mic,
-        color: controller.isRecording.value ? Colors.redAccent : Colors.white70,
-      ),
-      label: Text(
-        controller.isRecording.value
-            ? '${GeneratorTranslationConstants.stopVoiceDetection.tr} · ${controller.detectedFrequency.value.toStringAsFixed(1)} Hz'
-            : GeneratorTranslationConstants.detectMyVoice.tr,
-        textAlign: TextAlign.center,
-      ),
     ),
   );
 

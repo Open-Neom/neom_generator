@@ -92,20 +92,18 @@ class NeomGeneratorPage extends StatelessWidget {
                     onRetrySave: controller.retryPendingRecordings,
                   ),
                 ),
-                _voiceControl(controller),
-                ChamberPracticeClock(controller: controller, compact: true),
-                const SizedBox(height: 4),
                 LayoutBuilder(
                   builder: (context, constraints) => Center(
                     child: _dial(
                       context,
                       controller,
-                      (constraints.maxWidth * 0.78).clamp(220.0, 300.0),
+                      (constraints.maxWidth * 0.90).clamp(250.0, 380.0),
                     ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 _frequencyControls(controller),
+                _micWaveform(controller),
                 const SizedBox(height: 10),
                 _oscilloscope(controller),
                 const SizedBox(height: 8),
@@ -119,6 +117,8 @@ class NeomGeneratorPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _volumeControl(controller),
+                ChamberPracticeClock(controller: controller, compact: true),
+                const SizedBox(height: 4),
                 ChamberPracticeToolbar(controller: controller, compact: true),
                 const SizedBox(height: 4),
                 _experiences(controller),
@@ -169,50 +169,50 @@ class NeomGeneratorPage extends StatelessWidget {
 
   Widget _voiceControl(NeomGeneratorController controller) => Obx(() {
     final recording = controller.isRecording.value;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        FilledButton.tonalIcon(
-          key: const ValueKey('chamber-mobile-detect-voice'),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(48, 48),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          ),
-          onPressed: () => recording
-              ? controller.stopRecording(applyDetectedFrequency: false)
-              : controller.startRecording(),
-          icon: Icon(
-            recording ? Icons.stop : Icons.mic,
-            color: recording ? Colors.redAccent : null,
-          ),
-          label: Text(
-            recording
-                ? '${GeneratorTranslationConstants.stopVoiceDetection.tr} · ${controller.detectedFrequency.value.toStringAsFixed(1)} Hz'
-                : GeneratorTranslationConstants.detectMyVoice.tr,
-            textAlign: TextAlign.center,
-          ),
-        ),
-        if (recording)
-          Container(
-            key: const ValueKey('chamber-mobile-mic-wave'),
-            height: 40,
-            margin: const EdgeInsets.only(top: 6),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: .3),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.red.withValues(alpha: .3)),
-            ),
-            child: Obx(
-              () => CustomPaint(
-                painter: MicWaveformPainter(
-                  bars: controller.micWaveform.toList(),
-                  color: Colors.red.withValues(alpha: .8),
-                ),
-                size: Size.infinite,
+    return ChamberVoiceMicButton(
+      key: const ValueKey('chamber-mobile-detect-voice'),
+      recording: recording,
+      onPressed: () => recording
+          ? controller.stopRecording(applyDetectedFrequency: false)
+          : controller.startRecording(),
+    );
+  });
+
+  Widget _micWaveform(NeomGeneratorController controller) => Obx(() {
+    if (!controller.isRecording.value) return const SizedBox.shrink();
+    return Container(
+      key: const ValueKey('chamber-mobile-mic-wave'),
+      height: 40,
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .3),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: .4)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: CustomPaint(
+              painter: MicWaveformPainter(
+                bars: controller.micWaveform.toList(),
+                color: Colors.redAccent.withValues(alpha: .85),
               ),
+              size: Size.infinite,
             ),
           ),
-      ],
+          const SizedBox(width: 8),
+          Text(
+            '${controller.detectedFrequency.value.toStringAsFixed(1)} Hz',
+            style: const TextStyle(
+              fontFamily: 'Courier',
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Colors.redAccent,
+            ),
+          ),
+        ],
+      ),
     );
   });
 
@@ -316,6 +316,7 @@ class NeomGeneratorPage extends StatelessWidget {
                           requested: controller.playbackRequested.value,
                           transitioning:
                               controller.isPlaybackTransitioning.value,
+                          iconSize: (diameter * 0.17).clamp(44.0, 66.0),
                           onPressed: () async {
                             final wasPlaying = controller.isPlaying.value;
                             await controller.playStopPreview();
@@ -389,16 +390,28 @@ class NeomGeneratorPage extends StatelessWidget {
           },
         ),
       ];
+      final voiceButton = _voiceControl(controller);
       final stacked =
-          constraints.maxWidth < 328 ||
+          constraints.maxWidth < 340 ||
           MediaQuery.textScalerOf(context).scale(12) > 18;
       return stacked
-          ? Column(children: [cards[0], const SizedBox(height: 8), cards[1]])
+          ? Column(
+              children: [
+                cards[0],
+                const SizedBox(height: 8),
+                Center(child: voiceButton),
+                const SizedBox(height: 8),
+                cards[1],
+              ],
+            )
           : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(child: cards[0]),
-                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: voiceButton,
+                ),
                 Expanded(child: cards[1]),
               ],
             );

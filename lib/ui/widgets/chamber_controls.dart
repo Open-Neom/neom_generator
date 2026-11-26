@@ -231,6 +231,7 @@ class _ChamberFrequencyControlState extends State<ChamberFrequencyControl> {
             );
           }
           return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               decrease,
               Expanded(child: edit),
@@ -587,6 +588,75 @@ class ChamberPlaybackButton extends StatelessWidget {
                         : null,
                   ),
                 ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact circular icon-only microphone button for voice frequency detection.
+/// Sits cleanly between the Root Frequency and Binaural Beat controls to
+/// maximize vertical room for the concentric Neom Generator circular dial.
+class ChamberVoiceMicButton extends StatelessWidget {
+  final bool recording;
+  final VoidCallback onPressed;
+
+  const ChamberVoiceMicButton({
+    super.key,
+    required this.recording,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tooltip = recording
+        ? GeneratorTranslationConstants.stopVoiceDetection.tr
+        : GeneratorTranslationConstants.detectMyVoice.tr;
+
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        toggled: recording,
+        label: tooltip,
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPressed,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: recording
+                    ? Colors.redAccent.withAlpha(45)
+                    : Colors.black.withAlpha(115),
+                border: Border.all(
+                  color: recording
+                      ? Colors.redAccent
+                      : AppColor.bondiBlue.withAlpha(130),
+                  width: recording ? 1.8 : 1.2,
+                ),
+                boxShadow: recording
+                    ? [
+                        BoxShadow(
+                          color: Colors.redAccent.withAlpha(90),
+                          blurRadius: 14,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Icon(
+                recording ? Icons.stop_rounded : Icons.mic_rounded,
+                size: 24,
+                color: recording ? Colors.redAccent : AppColor.bondiBlue,
               ),
             ),
           ),

@@ -159,21 +159,30 @@ void main() {
           final dial = find.byKey(const ValueKey('chamber-web-dial'));
           expect(voice.hitTestable(), findsOneWidget);
           expect(play.hitTestable(), findsOneWidget);
-          expect(tester.getRect(voice).top, lessThan(130));
+          expect(tester.getRect(dial).top, lessThan(120));
+          expect(
+            tester.getRect(voice).top,
+            greaterThanOrEqualTo(tester.getRect(dial).bottom),
+          );
           expect(
             tester.getRect(scope).top,
-            greaterThan(tester.getRect(dial).bottom),
+            greaterThan(tester.getRect(voice).bottom),
           );
           expect(tester.getSize(play).shortestSide, greaterThanOrEqualTo(48));
-          expect(tester.getSize(dial).height, greaterThanOrEqualTo(240));
-          expect(tester.getSize(dial).height, lessThanOrEqualTo(350));
-          // Dial is horizontally centered inside the primary scroll column.
+          expect(tester.getSize(voice).shortestSide, greaterThanOrEqualTo(48));
+          expect(tester.getSize(dial).height, greaterThanOrEqualTo(280));
+          expect(tester.getSize(dial).height, lessThanOrEqualTo(460));
+          // Dial and center mic are horizontally centered inside the primary scroll column.
           final scrollRect = tester.getRect(
             find.byKey(const ValueKey('chamber-web-primary-scroll')),
           );
           final dialRect = tester.getRect(dial);
           expect(
             (dialRect.center.dx - scrollRect.center.dx).abs(),
+            lessThanOrEqualTo(4.0),
+          );
+          expect(
+            (tester.getRect(voice).center.dx - scrollRect.center.dx).abs(),
             lessThanOrEqualTo(4.0),
           );
           expect(
