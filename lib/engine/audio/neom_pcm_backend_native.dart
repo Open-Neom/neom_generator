@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -25,7 +26,7 @@ NeomPcmBackend createNeomPcmBackend() => _NativePcmBackend();
 ///   (e.g. headless CI / `flutter test`).
 class _NativePcmBackend implements NeomPcmBackend {
   final SoLoudRealtimePcmSink _soloudSink = SoLoudRealtimePcmSink();
-  bool _soloudAvailable = true;
+  bool _soloudAvailable = !Platform.environment.containsKey('FLUTTER_TEST');
   bool _usingSoloud = false;
 
   FlutterSoundPlayer? _player;

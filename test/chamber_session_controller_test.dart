@@ -1465,6 +1465,8 @@ class _FakeQrScanner implements QrScannerService {
   Widget buildScannerViewport({
     required ValueChanged<String> onDetect,
     bool frontCamera = false,
+    Set<NeomBarcodeFormat> formats = const {},
+    VoidCallback? onManualFallbackRequested,
     Key? key,
   }) =>
       const SizedBox.shrink();
